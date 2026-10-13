@@ -5,6 +5,9 @@ import {
   TimeEntryLeftOpenError, closeTimeEntry, ensureTimeEntryClosed, findMatchingTimeEntries, getCostCodesForJob, getPayCodes,
   getSystemUserIdByEmail, updateTimeEntry, type DynamicsCostCode,
 } from "../services/dynamicsService";
+import {
+  WORK_TYPES, costCodeForWorkType, defaultCostCode, getUserPayCodes, squash, type WorkType,
+} from "../lib/timeCodes";
 import { pushTimeEntryToCrm, removeTimeEntryFromCrm, resolveCaseForTime } from "../services/timeEntryService";
 import { writeAuditLog } from "../lib/auditLog";
 import { pacificToUtc, utcToPacific } from "../lib/pacificTime";
@@ -27,27 +30,14 @@ const DEFAULT_START = "08:00";
 
 // ── Codes ───────────────────────────────────────────────────────────────────
 
-/**
- * Cost codes are per job — every job carries its own copy, named like
- * "Labor-Direc-Proj -Mgmnt-1" — so a work type is matched on the name, with
- * spacing and punctuation ignored.
- */
-export const WORK_TYPES = {
-  project_management: "projmgmnt",
-  software_config: "softwconfg",
-  go_live: "golive",
-  service_support: "srvcespprt",
-} as const;
-export type WorkType = keyof typeof WORK_TYPES;
-const DEFAULT_WORK_TYPE: WorkType = "project_management";
+export { WORK_TYPES, type WorkType };
 
-const squash = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
 const codeView = (c: DynamicsCostCode) => ({ id: c.amc_costcodeid, name: c.amc_name });
 
 /**
- * Explicit cost_code (name or id) → work_type → the cost code this user last
- * logged on this project → the default work type. Anything that can't be
- * matched returns the job's actual codes so the model can ask.
+ * Explicit cost_code (name or id) → work_type → the user's usual code on this
+ * project (see defaultCostCode). Anything that can't be matched returns the
+ * job's actual codes so the model can ask.
  */
 async function resolveCostCode(
   env: Bindings, jobId: string, userId: string, projectId: string,
@@ -65,53 +55,29 @@ async function resolveCostCode(
     return hit ? codeView(hit) : fail(`No cost code on this job matches "${opts.costCode}".`, { cost_codes: options });
   }
 
-  const byWorkType = (wt: WorkType) => codes.find((c) => squash(c.amc_name).includes(WORK_TYPES[wt]));
-
   if (opts.workType) {
-    const hit = byWorkType(opts.workType);
+    const hit = costCodeForWorkType(codes, opts.workType);
     return hit ? codeView(hit) : fail(`This job has no ${opts.workType.replace("_", " ")} cost code.`, { cost_codes: options });
   }
 
-  const last = await env.DB
-    .prepare(
-      `SELECT cost_code_id FROM (
-         SELECT cost_code_id, created_at FROM project_time_entries WHERE project_id = ?1 AND user_id = ?2
-         UNION ALL SELECT cost_code_id, created_at FROM stage_time_entries WHERE project_id = ?1 AND user_id = ?2
-         UNION ALL SELECT cost_code_id, created_at FROM task_time_entries WHERE project_id = ?1 AND user_id = ?2
-       ) WHERE cost_code_id IS NOT NULL ORDER BY created_at DESC LIMIT 1`
-    )
-    .bind(projectId, userId)
-    .first<{ cost_code_id: string }>();
-  const lastHit = last && codes.find((c) => c.amc_costcodeid === last.cost_code_id);
-  if (lastHit) return codeView(lastHit);
-
-  const fallback = byWorkType(DEFAULT_WORK_TYPE);
+  const fallback = await defaultCostCode(env, codes, userId, projectId);
   return fallback ? codeView(fallback) : fail("Couldn't pick a cost code for this job — choose one.", { cost_codes: options });
 }
 
-/**
- * Pay codes are per employee. The user's saved default, else whatever they
- * last logged with (stable for nearly everyone), else ask an admin to set one.
- */
-async function resolvePayCode(env: Bindings, userId: string): Promise<{ id: string; name: string } | ToolFailure> {
-  const row = await env.DB
-    .prepare(
-      `SELECT COALESCE(
-         (SELECT default_pay_code_id FROM users WHERE id = ?1),
-         (SELECT pay_code_id FROM (
-            SELECT pay_code_id, created_at FROM project_time_entries WHERE user_id = ?1
-            UNION ALL SELECT pay_code_id, created_at FROM stage_time_entries WHERE user_id = ?1
-            UNION ALL SELECT pay_code_id, created_at FROM task_time_entries WHERE user_id = ?1
-          ) WHERE pay_code_id IS NOT NULL ORDER BY created_at DESC LIMIT 1)
-       ) AS pay_code_id`
-    )
-    .bind(userId)
-    .first<{ pay_code_id: string | null }>();
-  if (!row?.pay_code_id) {
-    return fail("No pay code on file for you. Ask a CloudConnect admin to set your default pay code (Admin → Users).");
+/** The pay code on the user's CE record — see getUserPayCodes. */
+async function resolvePayCode(env: Bindings, user: { id: string; email: string }): Promise<{ id: string; name: string } | ToolFailure> {
+  const { codes, defaultId } = await getUserPayCodes(env, user);
+  if (codes.length === 0) {
+    return fail("No pay code is assigned to you in CE. Ask an admin to add one to your CE user record.");
   }
-  const code = (await getPayCodes(env)).find((p) => p.amc_paycodeid === row.pay_code_id);
-  return { id: row.pay_code_id, name: code?.amc_name ?? row.pay_code_id };
+  const code = codes.find((p) => p.amc_paycodeid === defaultId);
+  if (!code) {
+    return fail(
+      `You have several pay codes in CE (${codes.map((p) => p.amc_name).join(", ")}) and none is set as your default. ` +
+      "Ask a CloudConnect admin to set your default pay code (Admin → Users)."
+    );
+  }
+  return { id: code.amc_paycodeid, name: code.amc_name };
 }
 
 // ── Target (project / stage → CE case) ──────────────────────────────────────
@@ -340,7 +306,7 @@ export async function createTimeEntryForUser(env: Bindings, ctx: ExecutionContex
   try {
     const caseAndJob = await resolveCaseForTime(env, crmCaseId);
     const [pay, cost] = await Promise.all([
-      resolvePayCode(env, user.id),
+      resolvePayCode(env, user),
       resolveCostCode(env, caseAndJob.jobId, user.id, project.id, { workType: input.workType, costCode: input.costCode }),
     ]);
     if (isFailure(pay) || isFailure(cost)) {

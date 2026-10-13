@@ -340,6 +340,15 @@ export default function ProjectDetailPage() {
   const [timeEntrySetup, setTimeEntrySetup] = useState<import("../lib/api").TimeEntrySetup | null>(null);
   const [timeEntryLoadingSetup, setTimeEntryLoadingSetup] = useState(false);
   const [timeEntryForm, setTimeEntryForm] = useState({ date: "", startTime: "", endTime: "", payCodeId: "", costCodeId: "", note: "" });
+  /** Load the form's CRM data and pre-select the caller's pay code and usual cost code. */
+  function applyTimeEntrySetup(setup: import("../lib/api").TimeEntrySetup) {
+    setTimeEntrySetup(setup);
+    setTimeEntryForm((f) => ({
+      ...f,
+      payCodeId: setup.default_pay_code_id ?? "",
+      costCodeId: setup.default_cost_code_id ?? "",
+    }));
+  }
   const [submittingTimeEntry, setSubmittingTimeEntry] = useState(false);
   const [stageTimeEntries, setStageTimeEntries] = useState<Record<string, StageTimeEntry[]>>({});
   // Project-scoped solution-type filter — shared between Gantt and the Tasks tab via localStorage.
@@ -2146,7 +2155,7 @@ export default function ProjectDetailPage() {
                               // Pass stage.id so the server picks the phase-level CRM case
                               // (via stage.phase_id → phases.crm_case_id) when the parent
                               // phase has one set; falls back to project case otherwise.
-                              api.timeEntrySetup(project!.id, stage.id).then(setTimeEntrySetup).catch(() => showToast("Failed to load CRM data", "error")).finally(() => setTimeEntryLoadingSetup(false));
+                              api.timeEntrySetup(project!.id, stage.id).then(applyTimeEntrySetup).catch(() => showToast("Failed to load CRM data", "error")).finally(() => setTimeEntryLoadingSetup(false));
                             }}
                           >
                             ⏱ Log time
@@ -3621,7 +3630,7 @@ export default function ProjectDetailPage() {
                           setTimeEntryProjectMode(true);
                           setTimeEntryLoadingSetup(true);
                           // No stageId → server resolves the project-level CRM case + job.
-                          api.timeEntrySetup(p.id).then(setTimeEntrySetup).catch(() => showToast("Failed to load CRM data", "error")).finally(() => setTimeEntryLoadingSetup(false));
+                          api.timeEntrySetup(p.id).then(applyTimeEntrySetup).catch(() => showToast("Failed to load CRM data", "error")).finally(() => setTimeEntryLoadingSetup(false));
                         }}
                       >
                         ⏱ Log time
@@ -3937,6 +3946,10 @@ export default function ProjectDetailPage() {
               <div style={{ color: "#d13438", fontSize: 13, padding: "8px 0" }}>
                 {!timeEntrySetup ? "Could not load CRM data." : "This project has no CRM case or job linked. Time entries cannot be submitted."}
               </div>
+            ) : timeEntrySetup.pay_codes.length === 0 ? (
+              <div style={{ color: "#d13438", fontSize: 13, padding: "8px 0" }}>
+                No pay code is assigned to you in CE. Ask an admin to add one to your CE user record, then try again.
+              </div>
             ) : timeEntrySetup.cost_codes.length === 0 ? (
               <div style={{ color: "#d13438", fontSize: 13, padding: "8px 0" }}>
                 This project's CRM job has no cost codes. A cost code is required to submit time — add cost codes to the job in Dynamics, then try again.
@@ -3967,15 +3980,20 @@ export default function ProjectDetailPage() {
                   </div>
                 </div>
 
-                {/* Pay Code */}
+                {/* Pay Code — the caller's own, from their CE user record. Only a
+                    choice for the rare person with more than one assigned. */}
                 <label className="ms-label">
                   <span>Pay Code</span>
-                  <select className="ms-input" value={timeEntryForm.payCodeId} onChange={(e) => setTimeEntryForm((f) => ({ ...f, payCodeId: e.target.value }))}>
-                    <option value="">— Select —</option>
-                    {timeEntrySetup.pay_codes.map((pc) => (
-                      <option key={pc.amc_paycodeid} value={pc.amc_paycodeid}>{pc.amc_name}</option>
-                    ))}
-                  </select>
+                  {timeEntrySetup.pay_codes.length === 1 ? (
+                    <div className="ms-input" style={{ background: "#f8fafc", color: "#334155" }}>{timeEntrySetup.pay_codes[0].amc_name}</div>
+                  ) : (
+                    <select className="ms-input" value={timeEntryForm.payCodeId} onChange={(e) => setTimeEntryForm((f) => ({ ...f, payCodeId: e.target.value }))}>
+                      <option value="">— Select —</option>
+                      {timeEntrySetup.pay_codes.map((pc) => (
+                        <option key={pc.amc_paycodeid} value={pc.amc_paycodeid}>{pc.amc_name}</option>
+                      ))}
+                    </select>
+                  )}
                 </label>
 
                 {/* Cost Code — required, both labor (pay) and cost code go to CRM. */}

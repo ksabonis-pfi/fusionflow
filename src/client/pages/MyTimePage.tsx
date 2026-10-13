@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, type MyTimeSuggestions, type TimeSuggestion, type TimeEntrySetup } from "../lib/api";
 import { useToast } from "../components/ui/ToastProvider";
 
@@ -33,6 +33,9 @@ const STAGE_REASON_LABEL: Record<TimeSuggestion["stageReason"], string> = {
 };
 
 const keyOf = (s: TimeSuggestion) => `${s.source}:${s.eventId}`;
+/** Pay/cost codes hang off the CRM job and are stage-aware (a phase can carry
+ *  its own case), so setup is cached per project+stage rather than per project. */
+const setupKeyOf = (projectId: string, stageId: string) => `${projectId}:${stageId}`;
 
 function fmtRange(startIso: string, endIso: string): string {
   const s = new Date(startIso), e = new Date(endIso);
@@ -65,6 +68,9 @@ export default function MyTimePage() {
   const [rowState, setRowState] = useState<Record<string, RowState>>({});
   const [processing, setProcessing] = useState(false);
   const [setupCache, setSetupCache] = useState<Record<string, TimeEntrySetup>>({});
+  /** Cost code per row — "" means the server's default for that project. */
+  const [costCodeId, setCostCodeId] = useState<Record<string, string>>({});
+  const setupInFlight = useRef<Set<string>>(new Set());
 
   const load = useCallback(() => {
     setLoading(true);
@@ -83,6 +89,7 @@ export default function MyTimePage() {
         }
         setHours(seeded);
         setStageId(seededStage);
+        setCostCodeId({});
         setChecked(new Set());
         setRowState({});
       })
@@ -91,6 +98,24 @@ export default function MyTimePage() {
   }, []);
 
   useEffect(load, [load]);
+
+  // Fetch codes for each project+stage on screen, so every row can show (and
+  // let you change) the cost code it'll be logged with before you submit.
+  useEffect(() => {
+    const wanted = new Map<string, { projectId: string; stageId: string }>();
+    for (const s of data?.suggestions ?? []) {
+      const st = stageId[keyOf(s)] ?? "";
+      wanted.set(setupKeyOf(s.projectId, st), { projectId: s.projectId, stageId: st });
+    }
+    for (const [key, { projectId, stageId: st }] of wanted) {
+      if (setupCache[key] || setupInFlight.current.has(key)) continue;
+      setupInFlight.current.add(key);
+      api.timeEntrySetup(projectId, st || undefined)
+        .then((setup) => setSetupCache((prev) => (prev[key] ? prev : { ...prev, [key]: setup })))
+        .catch(() => { /* process() retries and reports per row */ })
+        .finally(() => setupInFlight.current.delete(key));
+    }
+  }, [data, stageId, setupCache]);
 
   const suggestions = data?.suggestions ?? [];
   const allKeys = useMemo(() => suggestions.map(keyOf), [suggestions]);
@@ -151,19 +176,27 @@ export default function MyTimePage() {
         if (!Number.isFinite(h) || h <= 0) throw new Error("Enter a duration greater than zero.");
         if (h > 24) throw new Error("That's more than 24 hours.");
 
-        // Pay/cost codes hang off the CRM job and are stage-aware, so cache
-        // per project+stage rather than per project.
         const chosenStage = stageId[k] || "";
-        const cacheKey = `${s.projectId}:${chosenStage}`;
+        const cacheKey = setupKeyOf(s.projectId, chosenStage);
         let setup = cache[cacheKey];
         if (!setup) {
           setup = await api.timeEntrySetup(s.projectId, chosenStage || undefined);
           cache[cacheKey] = setup;
         }
-        const payCode = setup.pay_codes[0];
-        const costCode = setup.cost_codes[0];
-        if (!payCode || !costCode) {
-          throw new Error("No pay/cost codes on this project's CRM job — log it from the project page.");
+        // Your own pay code from your CE user record — never just the first
+        // code on a list.
+        const payCode = setup.pay_codes.find((p) => p.amc_paycodeid === setup.default_pay_code_id);
+        if (!payCode) {
+          throw new Error(setup.pay_codes.length === 0
+            ? "No pay code is assigned to you in CE — ask an admin to add one to your CE user record."
+            : "You have several pay codes and no default — log this from the project page, or ask an admin to set your default.");
+        }
+        const wantCost = costCodeId[k] || setup.default_cost_code_id;
+        const costCode = setup.cost_codes.find((c) => c.amc_costcodeid === wantCost);
+        if (!costCode) {
+          throw new Error(setup.cost_codes.length === 0
+            ? "This project's CRM job has no cost codes — log it from the project page."
+            : "Pick a cost code for this entry.");
         }
 
         const scheduled_end = endFromHours(s.startIso, h);
@@ -336,7 +369,10 @@ export default function MyTimePage() {
                       <select
                         value={stageId[k] ?? ""}
                         disabled={processing}
-                        onChange={(e) => setStageId((prev) => ({ ...prev, [k]: e.target.value }))}
+                        onChange={(e) => {
+                          setStageId((prev) => ({ ...prev, [k]: e.target.value }));
+                          setCostCodeId((prev) => ({ ...prev, [k]: "" }));
+                        }}
                         style={{
                           padding: "6px 8px", border: `1px solid ${GREY}`, borderRadius: 6,
                           fontSize: 13, color: BODY, maxWidth: 210, background: "#fff",
@@ -353,6 +389,29 @@ export default function MyTimePage() {
                         ))}
                       </select>
                     </label>
+                    {(() => {
+                      const setup = setupCache[setupKeyOf(s.projectId, stageId[k] ?? "")];
+                      return (
+                        <label style={{ display: "flex", flexDirection: "column", gap: 3, fontSize: 11, color: MUTED }}>
+                          Cost code
+                          <select
+                            value={costCodeId[k] || setup?.default_cost_code_id || ""}
+                            disabled={processing || !setup}
+                            onChange={(e) => setCostCodeId((prev) => ({ ...prev, [k]: e.target.value }))}
+                            style={{
+                              padding: "6px 8px", border: `1px solid ${GREY}`, borderRadius: 6,
+                              fontSize: 13, color: BODY, maxWidth: 230, background: "#fff",
+                            }}
+                          >
+                            {!setup && <option value="">Loading…</option>}
+                            {setup && !(costCodeId[k] || setup.default_cost_code_id) && <option value="">— Select —</option>}
+                            {(setup?.cost_codes ?? []).map((cc) => (
+                              <option key={cc.amc_costcodeid} value={cc.amc_costcodeid}>{cc.amc_name}</option>
+                            ))}
+                          </select>
+                        </label>
+                      );
+                    })()}
                     <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: MUTED }}>
                       <input
                         type="number"
