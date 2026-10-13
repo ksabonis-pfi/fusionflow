@@ -1296,21 +1296,28 @@ export async function getCostCodesForJob(env: Env, jobId: string): Promise<Dynam
   }
 }
 
-/** Look up a Dynamics systemuser GUID by email address (cached 24 hours). */
-export async function getSystemUserIdByEmail(env: Env, email: string): Promise<string | null> {
+/** Look up a Dynamics systemuser GUID by email address (cached 24 hours).
+ *  Null means "no such active user"; a CRM failure throws, so callers that
+ *  must not guess (pay codes) can tell the two apart. */
+export async function findSystemUserIdByEmail(env: Env, email: string): Promise<string | null> {
   if (!isConfigured(env)) return null;
   const cacheKey = `dynamics:sysuser:${email.toLowerCase()}`;
   const cached = await env.KV.get(cacheKey);
   if (cached !== null) return cached || null;
+  const escaped = email.replace(/'/g, "''");
+  const data = await dynamicsGet<{ value: Array<{ systemuserid: string }> }>(
+    env,
+    `/systemusers?$select=systemuserid&$filter=internalemailaddress eq '${escaped}' and isdisabled eq false&$top=1`
+  );
+  const userId = data.value?.[0]?.systemuserid ?? null;
+  await env.KV.put(cacheKey, userId ?? "", { expirationTtl: 86400 });
+  return userId;
+}
+
+/** findSystemUserIdByEmail, with a CRM failure treated as "not found". */
+export async function getSystemUserIdByEmail(env: Env, email: string): Promise<string | null> {
   try {
-    const escaped = email.replace(/'/g, "''");
-    const data = await dynamicsGet<{ value: Array<{ systemuserid: string }> }>(
-      env,
-      `/systemusers?$select=systemuserid&$filter=internalemailaddress eq '${escaped}' and isdisabled eq false&$top=1`
-    );
-    const userId = data.value?.[0]?.systemuserid ?? null;
-    await env.KV.put(cacheKey, userId ?? "", { expirationTtl: 86400 });
-    return userId;
+    return await findSystemUserIdByEmail(env, email);
   } catch {
     return null;
   }

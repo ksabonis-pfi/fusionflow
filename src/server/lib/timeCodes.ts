@@ -1,7 +1,7 @@
 import { HTTPException } from "hono/http-exception";
 import type { Bindings } from "../types";
 import {
-  getPayCodes, getPayCodesForSystemUser, getSystemUserIdByEmail,
+  findSystemUserIdByEmail, getPayCodes, getPayCodesForSystemUser,
   type DynamicsCostCode, type DynamicsPayCode,
 } from "../services/dynamicsService";
 
@@ -23,11 +23,12 @@ export type UserPayCodes = {
 /**
  * Pay codes are per employee and live on their CE user record (the "Pay
  * Codes" panel). The CloudConnect default (Admin → Users) picks between
- * several, and stands in for anyone with none assigned in CE.
+ * several, and stands in for anyone with none assigned in CE — but only once
+ * CE has actually answered: a CRM failure throws rather than fall back.
  */
 export async function getUserPayCodes(env: Bindings, user: { id: string; email: string }): Promise<UserPayCodes> {
   const [systemUserId, row] = await Promise.all([
-    getSystemUserIdByEmail(env, user.email),
+    findSystemUserIdByEmail(env, user.email),
     env.DB.prepare("SELECT default_pay_code_id FROM users WHERE id = ?").bind(user.id).first<{ default_pay_code_id: string | null }>(),
   ]);
   const ccDefault = row?.default_pay_code_id ?? null;
@@ -49,7 +50,13 @@ export async function getUserPayCodes(env: Bindings, user: { id: string; email: 
 
 /** Reject a pay code that isn't one of this person's — payroll trusts what CE gets. */
 export async function assertUserPayCode(env: Bindings, user: { id: string; email: string }, payCodeId: string): Promise<void> {
-  const { codes } = await getUserPayCodes(env, user);
+  let codes: DynamicsPayCode[];
+  try {
+    ({ codes } = await getUserPayCodes(env, user));
+  } catch (err) {
+    console.error("[timeCodes] pay code lookup failed:", err instanceof Error ? err.message : err);
+    throw new HTTPException(503, { message: "Couldn't confirm your pay code with CE — nothing was logged. Try again in a minute." });
+  }
   if (codes.length === 0) {
     throw new HTTPException(400, { message: "No pay code is assigned to you in CE. Ask an admin to add one to your CE user record." });
   }
