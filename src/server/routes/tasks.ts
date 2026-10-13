@@ -11,7 +11,8 @@ import { canEditProject, canLogTimeOnProject, canViewProject, visiblePhaseIds } 
 import { maybeSendEmail } from "../services/emailService";
 import { taskAssigned, taskBlocked, pmTaskUpdate } from "../lib/emailTemplates";
 import { createNotification, notifyGoLive } from "../lib/notifications";
-import { getPayCodes, getCaseAndJob, getCostCodesForJob } from "../services/dynamicsService";
+import { getCaseAndJob, getCostCodesForJob } from "../services/dynamicsService";
+import { assertUserPayCode, defaultCostCode, getUserPayCodes, type UserPayCodes } from "../lib/timeCodes";
 import { pushTimeEntryToCrm, removeTimeEntryFromCrm, resolveCaseForTime } from "../services/timeEntryService";
 import { syncStageStatus, maybeGraduateProject, syncProjectGoLiveDate, syncProjectStatus } from "../lib/teamUtils";
 import { parseSolutionTypes, joinSolutionTypeLabels } from "../../shared/solutionTypes";
@@ -705,7 +706,8 @@ app.get("/time-entry/metadata", async (c) => {
   return c.json(fields);
 });
 
-/** Return pay codes + cost codes for the project's CRM job. Used to populate the time entry form. */
+/** Return the caller's own pay code(s) + the cost codes for the project's CRM job, each with a
+ *  pre-selected default. Used to populate the time entry form and My Time. */
 app.get("/:id/time-entry/setup", async (c) => {
   const auth = c.get("auth");
   const projectId = c.req.param("id");
@@ -743,20 +745,20 @@ app.get("/:id/time-entry/setup", async (c) => {
   const effectiveCaseId = phaseCaseId ?? project?.crm_case_id ?? null;
   console.log("[time-entry/setup] case_id:", effectiveCaseId ?? "(null)", "source:", phaseCaseId ? "phase" : "project");
 
-  let payCodes: Awaited<ReturnType<typeof getPayCodes>> = [];
+  let payCodes: UserPayCodes = { codes: [], defaultId: null };
   let caseAndJob: Awaited<ReturnType<typeof getCaseAndJob>> = null;
   let caseError: string | null = null;
 
   try {
     [payCodes, caseAndJob] = await Promise.all([
-      getPayCodes(c.env),
+      getUserPayCodes(c.env, auth.user),
       effectiveCaseId ? getCaseAndJob(c.env, effectiveCaseId) : Promise.resolve(null),
     ]);
   } catch (err) {
     caseError = err instanceof Error ? err.message : String(err);
     console.error("[time-entry/setup] CRM lookup failed:", caseError);
     // still try pay codes alone
-    try { payCodes = await getPayCodes(c.env); } catch { /* ignore */ }
+    try { payCodes = await getUserPayCodes(c.env, auth.user); } catch { /* ignore */ }
   }
 
   console.log("[time-entry/setup] caseAndJob:", JSON.stringify(caseAndJob), "error:", caseError);
@@ -765,9 +767,13 @@ app.get("/:id/time-entry/setup", async (c) => {
     ? await getCostCodesForJob(c.env, caseAndJob.jobId)
     : [];
 
+  const defaultCost = await defaultCostCode(c.env, costCodes, auth.user.id, projectId);
+
   return c.json({
-    pay_codes: payCodes,
+    pay_codes: payCodes.codes,
+    default_pay_code_id: payCodes.defaultId,
     cost_codes: costCodes,
+    default_cost_code_id: defaultCost?.amc_costcodeid ?? null,
     case_id: caseAndJob?.caseId ?? null,
     job_id: caseAndJob?.jobId ?? null,
     account_id: caseAndJob?.accountId ?? null,
@@ -838,6 +844,7 @@ app.post("/:id/tasks/:taskId/time-entries", async (c) => {
   if (!parsed.success) throw new HTTPException(400, { message: "Invalid time entry data" });
 
   const { scheduled_start, scheduled_end, pay_code_id, cost_code_id, case_id, job_id, account_id } = parsed.data;
+  await assertUserPayCode(c.env, auth.user, pay_code_id);
 
   // Create-then-close in CRM; throws before the local insert on any failure.
   const crmTimeEntryId = await pushTimeEntryToCrm(c.env, {
@@ -936,6 +943,7 @@ app.post("/:id/stages/:stageId/time-entries", async (c) => {
   if (!parsed.success) throw new HTTPException(400, { message: "Invalid time entry data — pay code and cost code are required" });
 
   const { scheduled_start, scheduled_end, pay_code_id, cost_code_id, note, case_id, job_id, account_id } = parsed.data;
+  await assertUserPayCode(c.env, auth.user, pay_code_id);
 
   // CRM subject: "{stage} | {note}" — e.g. "Initiate | Kick off meeting with
   // client". The entry is related to the project's CRM case, which already
@@ -1067,6 +1075,7 @@ app.post("/:id/time-entries", async (c) => {
   if (!parsed.success) throw new HTTPException(400, { message: "Invalid time entry data — pay code and cost code are required" });
 
   const { scheduled_start, scheduled_end, pay_code_id, cost_code_id, note } = parsed.data;
+  await assertUserPayCode(c.env, auth.user, pay_code_id);
 
   // Resolve case/job/account from the project's linked case SERVER-SIDE — never
   // trust client-supplied ids.
