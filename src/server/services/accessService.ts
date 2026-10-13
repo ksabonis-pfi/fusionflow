@@ -36,6 +36,40 @@ export async function canViewProject(
   projectId: string
 ): Promise<boolean> {
   if (user.role === "admin") return true;
+
+  // A restricted project opts out of every internal role's otherwise-blanket
+  // portfolio visibility below — visible only to its own team (lead PM,
+  // project_staff), the customer's account team (which owns the relationship
+  // even when not formally staffed), or an explicit project_access grant.
+  // Doesn't apply to clients: their visibility already runs entirely through
+  // dynamics_account_id matching, independent of this flag.
+  if (user.role !== "client") {
+    const proj = await db
+      .prepare("SELECT restricted, customer_id, pm_user_id FROM projects WHERE id = ? LIMIT 1")
+      .bind(projectId)
+      .first<{ restricted: number | null; customer_id: string | null; pm_user_id: string | null }>();
+    if (proj?.restricted) {
+      if (proj.pm_user_id === user.id) return true;
+      const staffed = await db
+        .prepare("SELECT 1 FROM project_staff WHERE project_id = ? AND user_id = ? LIMIT 1")
+        .bind(projectId, user.id)
+        .first();
+      if (staffed) return true;
+      if (proj.customer_id) {
+        const accountTeam = await db
+          .prepare("SELECT 1 FROM customers WHERE id = ? AND (pf_ae_user_id = ? OR pf_sa_user_id = ? OR pf_csm_user_id = ?) LIMIT 1")
+          .bind(proj.customer_id, user.id, user.id, user.id)
+          .first();
+        if (accountTeam) return true;
+      }
+      const explicitAccess = await db
+        .prepare("SELECT 1 FROM project_access WHERE project_id = ? AND user_id = ? LIMIT 1")
+        .bind(projectId, user.id)
+        .first();
+      return !!explicitAccess;
+    }
+  }
+
   if (user.role === "executive") return true;    // Executives have read-only portfolio-wide visibility
   if (user.role === "pm") return true;           // PMs have portfolio-wide read visibility
   if (user.role === "pf_sa") return true;        // SAs have portfolio-wide visibility

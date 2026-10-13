@@ -472,6 +472,14 @@ export default function ProjectsPage() {
                     {onHold && (
                       <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, color: "#92400e", background: "#fef3c7", border: "1px solid #fde68a", borderRadius: 9, padding: "1px 7px", textTransform: "uppercase", letterSpacing: "0.04em", verticalAlign: "middle" }}>On Hold</span>
                     )}
+                    {project.restricted === 1 && (
+                      <span
+                        title="Hidden from everyone except the assigned project team, the customer's account team, and admins"
+                        style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, color: "#6d28d9", background: "#ede9fe", border: "1px solid #ddd6fe", borderRadius: 9, padding: "1px 7px", textTransform: "uppercase", letterSpacing: "0.04em", verticalAlign: "middle" }}
+                      >
+                        Restricted
+                      </span>
+                    )}
                     {project.target_go_live_date && (
                       <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 2 }}>
                         Target Go-Live: {project.target_go_live_date}

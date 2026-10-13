@@ -395,6 +395,7 @@ export default function ProjectDetailPage() {
   const [showEditMeta, setShowEditMeta] = useState(false);
   const [metaName, setMetaName] = useState("");
   const [metaOnHold, setMetaOnHold] = useState(false);
+  const [metaRestricted, setMetaRestricted] = useState(false);
   const [metaCustomPlan, setMetaCustomPlan] = useState(false); // one-off Asana-plan mode
   const [metaCrmQuery, setMetaCrmQuery] = useState("");
   const [metaCrmResults, setMetaCrmResults] = useState<{ id: string; name: string }[]>([]);
@@ -827,6 +828,7 @@ export default function ProjectDetailPage() {
     if (!project) return;
     setMetaName(project.name ?? "");
     setMetaOnHold(project.on_hold === 1);
+    setMetaRestricted(project.restricted === 1);
     setMetaCustomPlan(project.uses_custom_plan === 1);
     setMetaCrmQuery(project.customer_name ?? "");
     setMetaCrmResults([]);
@@ -855,6 +857,7 @@ export default function ProjectDetailPage() {
     const trimmedName = metaName.trim();
     if (trimmedName && trimmedName !== project.name) payload.name = trimmedName;
     if (metaOnHold !== (project.on_hold === 1)) payload.on_hold = metaOnHold ? 1 : 0;
+    if (metaRestricted !== (project.restricted === 1)) payload.restricted = metaRestricted ? 1 : 0;
     if (metaCustomPlan !== (project.uses_custom_plan === 1)) payload.uses_custom_plan = metaCustomPlan ? 1 : 0;
     if (metaPickedAccount && metaPickedAccount.id !== project.dynamics_account_id) {
       payload.dynamics_account_id = metaPickedAccount.id;
@@ -1324,6 +1327,14 @@ export default function ProjectDetailPage() {
               {project.name}
               {project.on_hold === 1 && (
                 <span style={{ fontSize: 11, fontWeight: 700, color: "#92400e", background: "#fef3c7", border: "1px solid #fde68a", borderRadius: 10, padding: "2px 10px", textTransform: "uppercase", letterSpacing: "0.04em" }}>On Hold</span>
+              )}
+              {project.restricted === 1 && (
+                <span
+                  title="Hidden from everyone except the assigned project team, the customer's account team, and admins"
+                  style={{ fontSize: 11, fontWeight: 700, color: "#6d28d9", background: "#ede9fe", border: "1px solid #ddd6fe", borderRadius: 10, padding: "2px 10px", textTransform: "uppercase", letterSpacing: "0.04em" }}
+                >
+                  Restricted
+                </span>
               )}
               {project.closed_at && (
                 <span style={{ fontSize: 11, fontWeight: 700, color: "#334155", background: "#f1f5f9", border: "1px solid #cbd5e1", borderRadius: 10, padding: "2px 10px", textTransform: "uppercase", letterSpacing: "0.04em" }}>Closed</span>
@@ -4159,6 +4170,15 @@ export default function ProjectDetailPage() {
                   <div style={{ fontSize: 13, fontWeight: 600, color: "#1e293b" }}>On hold</div>
                   <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>
                     Greys the project out and shows an <strong>On Hold</strong> badge in the project lists. Doesn't change tasks or dates.
+                  </div>
+                </div>
+              </label>
+              <label style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer" }}>
+                <input type="checkbox" checked={metaRestricted} onChange={(e) => setMetaRestricted(e.target.checked)} style={{ marginTop: 3 }} />
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "#1e293b" }}>Restrict visibility</div>
+                  <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>
+                    Hides this project from everyone except its assigned project team, the customer's account team (AE/SA/CSM), and admins. The customer's own contacts are unaffected.
                   </div>
                 </div>
               </label>

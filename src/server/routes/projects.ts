@@ -31,7 +31,7 @@ app.get("/", async (c) => {
 
   let sql = `
     SELECT id, name, customer_name, customer_id, vendor, solution_types, status, health, on_hold,
-           phase_scoped_visibility,
+           phase_scoped_visibility, restricted,
            kickoff_date, target_go_live_date, actual_go_live_date,
            pm_user_id, managed_in_asana, asana_project_id, crm_case_id, crm_opportunity_id, created_at, updated_at,
            closed_at,
@@ -41,6 +41,22 @@ app.get("/", async (c) => {
   `;
   let bindings: string[] = [];
 
+  // Restricted projects opt out of every internal role's otherwise-blanket
+  // visibility (mirrors canViewProject in accessService.ts) — visible only to
+  // the project's own team, its customer's account team, or an explicit
+  // project_access grant. Admins bypass; clients are governed entirely by
+  // their own dynamics_account_id clause below, untouched.
+  if (auth.role !== "admin" && auth.role !== "client") {
+    sql += ` AND (
+      restricted = 0 OR restricted IS NULL
+      OR pm_user_id = ?
+      OR id IN (SELECT project_id FROM project_staff WHERE user_id = ?)
+      OR id IN (SELECT project_id FROM project_access WHERE user_id = ?)
+      OR customer_id IN (SELECT id FROM customers WHERE pf_ae_user_id = ? OR pf_sa_user_id = ? OR pf_csm_user_id = ?)
+    )`;
+    bindings.push(...Array(6).fill(auth.user.id));
+  }
+
   // PMs and IEs default to their own projects but can zoom out to the full
   // portfolio (?scope=all). They already have portfolio read access on the
   // detail page (canViewProject) — this just controls the default list view.
@@ -48,12 +64,12 @@ app.get("/", async (c) => {
   if (auth.role === "pm") {
     if (scope === "mine") {
       sql += " AND (pm_user_id = ? OR id IN (SELECT project_id FROM project_staff WHERE user_id = ? AND staff_role = 'pm'))";
-      bindings = [auth.user.id, auth.user.id];
+      bindings.push(auth.user.id, auth.user.id);
     }
   } else if (auth.role === "pf_engineer") {
     if (scope === "mine") {
       sql += " AND id IN (SELECT project_id FROM project_staff WHERE user_id = ?)";
-      bindings = [auth.user.id];
+      bindings.push(auth.user.id);
     }
   } else if (auth.role === "pf_sa" || auth.role === "admin") {
     // SAs and admins keep portfolio-wide ACCESS but now default to their own
@@ -77,13 +93,13 @@ app.get("/", async (c) => {
         OR id IN (SELECT project_id FROM project_access WHERE user_id = ?)
         OR customer_id IN (SELECT id FROM customers WHERE pf_sa_user_id = ? OR pf_ae_user_id = ? OR pf_csm_user_id = ?)
       )`;
-      bindings = Array(6).fill(auth.user.id);
+      bindings.push(...Array(6).fill(auth.user.id));
     }
   } else if (auth.role === "pf_ae") {
     const teamIds = await getTeamUserIds(auth.user.id, db);
     const ph = inPlaceholders(teamIds);
     sql += ` AND (customer_id IN (SELECT id FROM customers WHERE pf_ae_user_id IN (${ph})) OR id IN (SELECT project_id FROM project_access WHERE user_id IN (${ph})))`;
-    bindings = [...teamIds, ...teamIds];
+    bindings.push(...teamIds, ...teamIds);
   } else if (auth.role === "partner_ae") {
     const teamIds = await getTeamUserIds(auth.user.id, db);
     const ph = inPlaceholders(teamIds);
@@ -92,7 +108,7 @@ app.get("/", async (c) => {
       UNION
       SELECT project_id FROM project_staff WHERE staff_role = 'partner_ae' AND user_id IN (${ph})
     )`;
-    bindings = [...teamIds, ...teamIds];
+    bindings.push(...teamIds, ...teamIds);
   } else if (auth.role === "client") {
     // Any of the client's accounts — a contact can belong to more than one
     // customer (sister agencies sharing staff).
@@ -174,7 +190,7 @@ app.get("/:id", async (c) => {
     .prepare(
       `
       SELECT p.id, p.name, p.customer_name, p.customer_id, p.vendor, p.solution_types, p.status, p.health, p.on_hold,
-             p.phase_scoped_visibility,
+             p.phase_scoped_visibility, p.restricted,
              p.kickoff_date, p.target_go_live_date, p.actual_go_live_date,
              p.pm_user_id, p.dynamics_account_id, p.asana_project_id, p.managed_in_asana, p.crm_case_id, p.crm_opportunity_id,
              p.sharepoint_folder_url, p.uses_custom_plan, p.zoom_email_alias,
@@ -468,6 +484,11 @@ const updateProjectSchema = z.object({
   health: z.string().min(1).optional(),
   on_hold: z.number().int().min(0).max(1).optional(),
   phase_scoped_visibility: z.number().int().min(0).max(1).optional(),
+  /** Hides this project from every internal role's otherwise-blanket
+   *  visibility except the project's own team, its customer's account team,
+   *  and admins — see accessService.canViewProject. Client visibility is
+   *  unaffected. */
+  restricted: z.number().int().min(0).max(1).optional(),
   clear_health_override: z.boolean().optional(),
   target_go_live_date: zPlanDateOrBlank.optional(),
   actual_go_live_date: zPlanDateOrBlank.optional(),

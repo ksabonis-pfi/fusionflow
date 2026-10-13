@@ -486,6 +486,7 @@ export type Project = {
   health_override: string | null;
   on_hold: number | null;
   phase_scoped_visibility: number | null;
+  restricted: number | null;
   kickoff_date: string | null;
   target_go_live_date: string | null;
   actual_go_live_date: string | null;
@@ -2075,6 +2076,7 @@ export const api = {
       health?: string;
       on_hold?: number;
       phase_scoped_visibility?: number;
+      restricted?: number;
       clear_health_override?: boolean;
       target_go_live_date?: string;
       actual_go_live_date?: string;
