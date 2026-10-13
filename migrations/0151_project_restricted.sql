@@ -1,0 +1,1 @@
+ALTER TABLE projects ADD COLUMN restricted INTEGER DEFAULT 0;
