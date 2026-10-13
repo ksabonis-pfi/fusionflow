@@ -582,6 +582,16 @@ export async function getAccountOpportunities(
 
 const QUOTE_STATE: Record<number, string> = { 0: "Draft", 1: "Active", 2: "Won", 4: "Closed" };
 
+/**
+ * The quote whose am_sow is a project's quoted ("allotted") hours: Won beats
+ * Active beats anything else; quotes with no SOW hours never count. Ties keep
+ * getOpportunityQuotes' newest-first order.
+ */
+export function pickSowQuote<Q extends { statecode: number; am_sow: number | null }>(quotes: Q[]): Q | null {
+  const priority = (q: Q) => (q.statecode === 2 ? 0 : q.statecode === 1 ? 1 : 2);
+  return quotes.filter((q) => q.am_sow != null).sort((a, b) => priority(a) - priority(b))[0] ?? null;
+}
+
 export async function getOpportunityQuotes(env: Env, opportunityId: string): Promise<DynamicsQuote[]> {
   if (!isConfigured(env)) return [];
   const select = "quoteid,name,statecode,am_sow,_opportunityid_value";
@@ -865,6 +875,54 @@ export async function updateCase(env: Env, caseId: string, payload: {
 // support portal uses (support.ts) — a plain PATCH to statecode=1 is
 // unreliable across D365 configs, CloseIncident is the documented way to
 // transition a case to Resolved.
+/**
+ * Append `entry` to a case's Internal Notes (incident.new_internalnotes, plain
+ * text). Appends, never replaces: read the field, add the entry after a blank
+ * line, write it back.
+ *
+ * Read-modify-write on a shared field, so the PATCH carries the record's ETag
+ * (If-Match). If someone else saved the case in between, Dynamics answers 412
+ * and we re-read and retry, rather than silently dropping their edit.
+ *
+ * `alreadyPresent` lets the caller spot a retry of a note that already landed
+ * (checked against the freshly read text, so it works across attempts).
+ * Returns the text as written.
+ */
+export async function appendCaseInternalNote(
+  env: Env,
+  caseId: string,
+  entry: string,
+  alreadyPresent?: (current: string) => boolean
+): Promise<{ appended: boolean; notes: string }> {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const current = await dynamicsGet<{ "@odata.etag": string; new_internalnotes: string | null }>(
+      env,
+      `/incidents(${caseId})?$select=new_internalnotes`
+    );
+    const existing = current.new_internalnotes ?? "";
+    if (alreadyPresent?.(existing)) return { appended: false, notes: existing };
+
+    const notes = existing.trim() ? `${existing.replace(/\s+$/, "")}\n\n${entry}` : entry;
+    const token = await getToken(env);
+    const res = await fetch(`${API_BASE}/incidents(${caseId})`, {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        "OData-MaxVersion": "4.0",
+        "OData-Version": "4.0",
+        "If-Match": current["@odata.etag"],
+      },
+      body: JSON.stringify({ new_internalnotes: notes }),
+    });
+    if (res.ok) return { appended: true, notes };
+    if (res.status === 412) continue; // changed underneath us — re-read, re-append
+    const text = await res.text().catch(() => "");
+    throw new Error(`Dynamics PATCH error: ${res.status} /incidents(${caseId}) - ${text}`);
+  }
+  throw new Error("The case kept changing while the note was being added; try again.");
+}
+
 export async function closeCase(env: Env, caseId: string, opts: {
   subject: string;
   description?: string;
@@ -1301,17 +1359,156 @@ export async function closeTimeEntry(env: Env, entryId: string): Promise<void> {
   });
 }
 
+/**
+ * A time entry operation that left the CE record Active (statecode 0). Active
+ * entries are invisible to payroll, so this is never swallowed: callers must
+ * tell the user the record needs closing. `changed` says whether the intended
+ * edit/delete itself was applied before things went wrong.
+ */
+export class TimeEntryLeftOpenError extends Error {
+  constructor(message: string, readonly entryId: string, readonly changed: boolean) {
+    super(message);
+    this.name = "TimeEntryLeftOpenError";
+  }
+}
+
+async function reopenTimeEntry(env: Env, entryId: string): Promise<void> {
+  await dynamicsPatch(env, `/amc_timeentries(${entryId})`, { statecode: 0, statuscode: 1 });
+}
+
 // Deletes an amc_timeentry. The entry is normally Completed (statecode=1),
 // and Dynamics blocks deletion of inactive records — so reopen it to Active
-// (statecode=0, statuscode=1) first, best-effort, then delete. Used when a PM
-// removes a time entry from the app so the CRM record goes too (no orphan left
-// in payroll's feed).
+// (statecode=0, statuscode=1) first, then delete. Used when a time entry is
+// removed from the app so the CRM record goes too (no orphan left in payroll's
+// feed).
+//
+// If the reopen fails (already active, or not permitted) the delete is still
+// attempted — it surfaces its own error if the record truly can't go. If the
+// delete fails AFTER we reopened it, the record is re-closed so a failed delete
+// doesn't silently pull it out of payroll; if that also fails, the caller gets
+// a TimeEntryLeftOpenError instead of a plain error.
 export async function deleteTimeEntry(env: Env, entryId: string): Promise<void> {
+  let reopened = false;
   try {
-    await dynamicsPatch(env, `/amc_timeentries(${entryId})`, { statecode: 0, statuscode: 1 });
+    await reopenTimeEntry(env, entryId);
+    reopened = true;
   } catch {
-    // If reopening fails (already active, or not permitted), still attempt the
-    // delete — it will surface its own error if the record truly can't go.
+    // fall through to the delete
   }
-  await dynamicsDelete(env, `/amc_timeentries(${entryId})`);
+  try {
+    await dynamicsDelete(env, `/amc_timeentries(${entryId})`);
+  } catch (err) {
+    if (reopened) await restoreCompleted(env, entryId, err, false);
+    throw err;
+  }
+}
+
+/** Re-close after a failed operation; escalate if the record stays Active. */
+async function restoreCompleted(env: Env, entryId: string, cause: unknown, changed: boolean): Promise<void> {
+  try {
+    await closeTimeEntry(env, entryId);
+  } catch (closeErr) {
+    const why = cause instanceof Error ? cause.message : String(cause);
+    const closeWhy = closeErr instanceof Error ? closeErr.message : String(closeErr);
+    throw new TimeEntryLeftOpenError(
+      `${why}; then re-closing failed (${closeWhy}). CE time entry ${entryId} is Active and will not reach payroll until it is closed.`,
+      entryId,
+      changed
+    );
+  }
+}
+
+export type UpdateTimeEntryInput = {
+  subject?: string;
+  scheduledStart?: string;
+  scheduledEnd?: string;
+  costCodeId?: string;
+};
+
+// Edits an amc_timeentry in place, keeping its GUID (the "proof" a caller was
+// given at create time stays valid). Completed entries are read-only in
+// Dynamics, so: reopen → patch → close again.
+//   - patch fails  → re-close, rethrow the patch error (nothing changed); if
+//                    the re-close fails too → TimeEntryLeftOpenError(changed=false)
+//   - close fails  → TimeEntryLeftOpenError(changed=true): the edit landed but
+//                    the record is Active
+// Either way an Active record is surfaced, never hidden.
+export async function updateTimeEntry(env: Env, entryId: string, input: UpdateTimeEntryInput): Promise<void> {
+  const body: Record<string, unknown> = {};
+  if (input.subject !== undefined) body.subject = input.subject;
+  if (input.scheduledStart !== undefined) body.scheduledstart = input.scheduledStart;
+  if (input.scheduledEnd !== undefined) body.scheduledend = input.scheduledEnd;
+  if (input.costCodeId !== undefined) body["amc_costcode_amc_timeentry@odata.bind"] = `/amc_costcodes(${input.costCodeId})`;
+  if (Object.keys(body).length === 0) return;
+
+  await reopenTimeEntry(env, entryId);
+  try {
+    await dynamicsPatch(env, `/amc_timeentries(${entryId})`, body);
+  } catch (err) {
+    await restoreCompleted(env, entryId, err, false);
+    throw err;
+  }
+  try {
+    await closeTimeEntry(env, entryId);
+  } catch (err) {
+    const why = err instanceof Error ? err.message : String(err);
+    throw new TimeEntryLeftOpenError(
+      `The edit was saved but closing the entry failed (${why}). CE time entry ${entryId} is Active and will not reach payroll until it is closed.`,
+      entryId,
+      true
+    );
+  }
+}
+
+/**
+ * Close the entry if it's Active; no-op if already Completed. Lets a retried
+ * edit recover a record an earlier attempt left open, even when there's
+ * nothing left to change.
+ */
+export async function ensureTimeEntryClosed(env: Env, entryId: string): Promise<void> {
+  const row = await dynamicsGet<{ statecode: number }>(env, `/amc_timeentries(${entryId})?$select=statecode`);
+  if (row.statecode !== 0) return;
+  try {
+    await closeTimeEntry(env, entryId);
+  } catch (err) {
+    const why = err instanceof Error ? err.message : String(err);
+    throw new TimeEntryLeftOpenError(
+      `Closing the entry failed (${why}). CE time entry ${entryId} is Active and will not reach payroll until it is closed.`,
+      entryId,
+      false
+    );
+  }
+}
+
+/**
+ * Existing amc_timeentry records for this case + owner with this start and end
+ * (to the minute). Used to reconcile a create that may already have reached CE
+ * before the Worker died, so a retry adopts that record instead of posting a
+ * second one.
+ */
+export async function findMatchingTimeEntries(
+  env: Env,
+  input: { caseId: string; ownerId: string; scheduledStart: string; scheduledEnd: string }
+): Promise<Array<{ id: string; open: boolean; payCodeId: string | null; costCodeId: string | null }>> {
+  if (!isConfigured(env)) return [];
+  const startMs = Date.parse(input.scheduledStart);
+  const lo = new Date(startMs - 60000).toISOString().replace(/\.\d{3}Z$/, "Z");
+  const hi = new Date(startMs + 60000).toISOString().replace(/\.\d{3}Z$/, "Z");
+  const filter = [
+    `_amc_case_value eq ${input.caseId}`,
+    `_ownerid_value eq ${input.ownerId}`,
+    `scheduledstart ge ${lo}`,
+    `scheduledstart le ${hi}`,
+  ].join(" and ");
+  const data = await dynamicsGet<{ value: Array<{
+    activityid: string; statecode: number; scheduledend: string | null;
+    _amc_paycode_value: string | null; _amc_costcode_value: string | null;
+  }> }>(
+    env,
+    `/amc_timeentries?$select=activityid,statecode,scheduledend,_amc_paycode_value,_amc_costcode_value&$filter=${filter}&$top=10`
+  );
+  const endMs = Date.parse(input.scheduledEnd);
+  return (data.value ?? [])
+    .filter((r) => r.scheduledend && Math.abs(Date.parse(r.scheduledend) - endMs) < 60000)
+    .map((r) => ({ id: r.activityid, open: r.statecode === 0, payCodeId: r._amc_paycode_value, costCodeId: r._amc_costcode_value }));
 }
