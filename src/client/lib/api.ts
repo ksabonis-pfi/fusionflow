@@ -1062,8 +1062,12 @@ export type MyTimeSuggestions = {
 };
 
 export type TimeEntrySetup = {
+  /** Only the caller's own pay code(s), from their CE user record. */
   pay_codes: Array<{ amc_paycodeid: string; amc_name: string; amc_description: string | null }>;
+  default_pay_code_id: string | null;
   cost_codes: Array<{ amc_costcodeid: string; amc_name: string; amc_description: string | null }>;
+  /** Their last cost code on this project, else the job's project-management code. */
+  default_cost_code_id: string | null;
   case_id: string | null;
   job_id: string | null;
   account_id: string | null;

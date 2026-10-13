@@ -1224,6 +1224,26 @@ export async function getPayCodes(env: Env): Promise<DynamicsPayCode[]> {
   }
 }
 
+/**
+ * The pay code(s) assigned to one employee — the "Pay Codes" panel on their
+ * systemuser form, an N:N relationship (amc_amc_paycode_systemuser). Usually
+ * exactly one. Cached 1 hour per user; throws on a CRM failure so callers can
+ * tell "none assigned" from "couldn't ask".
+ */
+export async function getPayCodesForSystemUser(env: Env, systemUserId: string): Promise<DynamicsPayCode[]> {
+  if (!isConfigured(env) || !UUID_RE.test(systemUserId)) return [];
+  const cacheKey = `dynamics:user-paycodes:${systemUserId}`;
+  const cached = await env.KV.get<DynamicsPayCode[]>(cacheKey, "json");
+  if (cached) return cached;
+  const data = await dynamicsGet<{ value: DynamicsPayCode[] }>(
+    env,
+    `/systemusers(${systemUserId})/amc_amc_paycode_systemuser?$select=amc_paycodeid,amc_name,amc_description&$orderby=amc_name asc`
+  );
+  const codes = data.value ?? [];
+  await env.KV.put(cacheKey, JSON.stringify(codes), { expirationTtl: 3600 });
+  return codes;
+}
+
 /** D365 GUID format. Exported for guarding any user-supplied ID before it
  * gets interpolated into an OData filter or path segment. */
 export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -1276,21 +1296,28 @@ export async function getCostCodesForJob(env: Env, jobId: string): Promise<Dynam
   }
 }
 
-/** Look up a Dynamics systemuser GUID by email address (cached 24 hours). */
-export async function getSystemUserIdByEmail(env: Env, email: string): Promise<string | null> {
+/** Look up a Dynamics systemuser GUID by email address (cached 24 hours).
+ *  Null means "no such active user"; a CRM failure throws, so callers that
+ *  must not guess (pay codes) can tell the two apart. */
+export async function findSystemUserIdByEmail(env: Env, email: string): Promise<string | null> {
   if (!isConfigured(env)) return null;
   const cacheKey = `dynamics:sysuser:${email.toLowerCase()}`;
   const cached = await env.KV.get(cacheKey);
   if (cached !== null) return cached || null;
+  const escaped = email.replace(/'/g, "''");
+  const data = await dynamicsGet<{ value: Array<{ systemuserid: string }> }>(
+    env,
+    `/systemusers?$select=systemuserid&$filter=internalemailaddress eq '${escaped}' and isdisabled eq false&$top=1`
+  );
+  const userId = data.value?.[0]?.systemuserid ?? null;
+  await env.KV.put(cacheKey, userId ?? "", { expirationTtl: 86400 });
+  return userId;
+}
+
+/** findSystemUserIdByEmail, with a CRM failure treated as "not found". */
+export async function getSystemUserIdByEmail(env: Env, email: string): Promise<string | null> {
   try {
-    const escaped = email.replace(/'/g, "''");
-    const data = await dynamicsGet<{ value: Array<{ systemuserid: string }> }>(
-      env,
-      `/systemusers?$select=systemuserid&$filter=internalemailaddress eq '${escaped}' and isdisabled eq false&$top=1`
-    );
-    const userId = data.value?.[0]?.systemuserid ?? null;
-    await env.KV.put(cacheKey, userId ?? "", { expirationTtl: 86400 });
-    return userId;
+    return await findSystemUserIdByEmail(env, email);
   } catch {
     return null;
   }
