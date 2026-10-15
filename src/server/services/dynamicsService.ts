@@ -270,6 +270,42 @@ export async function getAccountContacts(env: Env, accountId: string): Promise<D
   return data.value ?? [];
 }
 
+/** Does this contact id still resolve in Dynamics? Used to flag a project
+ *  contact as 'missing' when its linked CE record is gone. A true 404 means
+ *  deleted; any other failure is rethrown so a CRM outage isn't mistaken for
+ *  "the contact doesn't exist". */
+export async function contactExists(env: Env, contactId: string): Promise<boolean> {
+  if (!isConfigured(env)) return true; // can't check — don't flag as missing
+  const token = await getToken(env);
+  const res = await fetch(`${API_BASE}/contacts(${contactId})?$select=contactid`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: "application/json",
+      "OData-MaxVersion": "4.0",
+      "OData-Version": "4.0",
+    },
+  });
+  if (res.status === 404) return false;
+  if (!res.ok) throw new Error(`Dynamics API error: ${res.status} /contacts(${contactId})`);
+  return true;
+}
+
+/** Create a new Dynamics contact under `accountId` — used when a CloudConnect
+ *  project contact has no matching CE record (see contactCrmSync.ts). */
+export async function createContact(env: Env, input: {
+  firstName: string; lastName: string; email: string | null; phone: string | null; jobTitle: string | null; accountId: string;
+}): Promise<DynamicsContact> {
+  const body: Record<string, unknown> = {
+    lastname: input.lastName,
+    "parentcustomerid_account@odata.bind": `/accounts(${input.accountId})`,
+  };
+  if (input.firstName) body.firstname = input.firstName;
+  if (input.email) body.emailaddress1 = input.email;
+  if (input.phone) body.telephone1 = input.phone;
+  if (input.jobTitle) body.jobtitle = input.jobTitle;
+  return dynamicsPost<DynamicsContact>(env, "/contacts", body, { prefer: "return=representation" });
+}
+
 export type DynamicsUser = {
   systemuserid: string;
   firstname: string | null;

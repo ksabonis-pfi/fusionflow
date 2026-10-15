@@ -257,6 +257,57 @@ function PhasePicker({
   );
 }
 
+// CE (Dynamics) match status for a project contact — shown only for customer/
+// partner contacts (project_contacts), not staff or account-team rows, which
+// have no local-vs-CRM sync concept. 'null' means a legacy contact added
+// before this feature existed; everything else reflects the last sync/verify.
+function CeMatchStatus({ contact, canEdit, onAction }: {
+  contact: ProjectContact;
+  canEdit: boolean;
+  onAction: (action: "resolve-link" | "resolve-create" | "verify") => Promise<void>;
+}) {
+  const [busy, setBusy] = useState(false);
+  const run = async (action: "resolve-link" | "resolve-create" | "verify") => {
+    setBusy(true);
+    try { await onAction(action); } finally { setBusy(false); }
+  };
+
+  if (contact.ce_match_status === "needs_review") {
+    return (
+      <div style={{ marginTop: 4, fontSize: 11, color: "#92400e", background: "#fef3c7", border: "1px solid #fde68a", borderRadius: 4, padding: "4px 8px" }}>
+        Possible match in CE: <strong>{contact.ce_candidate_label}</strong> — same person?
+        {canEdit && (
+          <span style={{ display: "inline-flex", gap: 6, marginLeft: 8 }}>
+            <button disabled={busy} onClick={() => run("resolve-link")} style={{ fontSize: 11, fontWeight: 600, color: "#0891b2", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Yes, link</button>
+            <button disabled={busy} onClick={() => run("resolve-create")} style={{ fontSize: 11, fontWeight: 600, color: "#64748b", background: "none", border: "none", cursor: "pointer", padding: 0 }}>No, create new</button>
+          </span>
+        )}
+      </div>
+    );
+  }
+  if (contact.ce_match_status === "missing") {
+    return (
+      <div style={{ marginTop: 4, display: "flex", alignItems: "center", gap: 8 }}>
+        <Badge label="Not found in CE" color="#d13438" style={{ fontSize: 10, padding: "1px 8px" }} />
+        {canEdit && <button disabled={busy} onClick={() => run("verify")} style={{ fontSize: 11, fontWeight: 600, color: "#0891b2", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Push to CE</button>}
+      </div>
+    );
+  }
+  if (contact.ce_match_status === "created" || contact.ce_match_status === "matched") {
+    return (
+      <div style={{ marginTop: 4 }}>
+        <Badge label={contact.ce_match_status === "created" ? "Created in CE" : "Linked to CE"} color="#107c10" style={{ fontSize: 10, padding: "1px 8px" }} />
+      </div>
+    );
+  }
+  // Legacy row, never checked.
+  return canEdit ? (
+    <div style={{ marginTop: 4 }}>
+      <button disabled={busy} onClick={() => run("verify")} style={{ fontSize: 11, fontWeight: 600, color: "#94a3b8", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Check CE</button>
+    </div>
+  ) : null;
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function ProjectDetailPage() {
@@ -1599,6 +1650,9 @@ export default function ProjectDetailPage() {
           accent?: Accent;
           onRemove?: () => void;
           onMakeLead?: () => void;
+          /** Extra content under the name/job-title block — used for the CE
+           *  match-status badge/actions on project_contacts rows. */
+          extra?: React.ReactNode;
         };
 
         const renderPerson = (p: PersonRow, accent: Accent) => {
@@ -1618,6 +1672,7 @@ export default function ProjectDetailPage() {
                   )}
                 </div>
                 {p.jobTitle && <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 2 }}>{p.jobTitle}</div>}
+                {p.extra}
               </div>
               <ContactIcons email={p.email} phone={p.phone} schedulerUrl={p.scheduler} accent={accent.fg} />
               {p.onMakeLead && (
@@ -1745,6 +1800,17 @@ export default function ProjectDetailPage() {
           }
         }
 
+        async function handleCeAction(c: ProjectContact, action: "resolve-link" | "resolve-create" | "verify") {
+          try {
+            const updated = action === "verify"
+              ? await api.verifyProjectContactCe(project!.id, c.id)
+              : await api.resolveProjectContactCeMatch(project!.id, c.id, action === "resolve-link" ? "link" : "create");
+            setContacts((prev) => prev.map((x) => (x.id === c.id ? updated : x)));
+          } catch (err) {
+            showToast(err instanceof Error ? err.message : "CE check failed", "error");
+          }
+        }
+
         const projectContactToRow = (c: typeof contacts[number]): PersonRow => ({
           key: c.id,
           name: c.name,
@@ -1752,6 +1818,7 @@ export default function ProjectDetailPage() {
           jobTitle: c.job_title,
           email: c.email,
           phone: c.phone,
+          extra: <CeMatchStatus contact={c} canEdit={canEdit} onAction={(action) => handleCeAction(c, action)} />,
           onRemove: canEdit ? async () => {
             if (!window.confirm(`Remove ${c.name} from this project?`)) return;
             await api.removeProjectContact(project!.id, c.id);
