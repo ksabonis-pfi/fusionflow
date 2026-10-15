@@ -1,4 +1,4 @@
-import { getAccountContacts, createContact, contactExists, type DynamicsContact } from "../services/dynamicsService";
+import { getAccountContacts, findContactByEmail, createContact, contactExists, type DynamicsContact } from "../services/dynamicsService";
 import type { Bindings } from "../types";
 
 /** "John Smith" -> {firstName: "John", lastName: "Smith"}. A single-word name
@@ -62,14 +62,7 @@ type ProjectContactRow = {
   job_title: string | null;
 };
 
-/**
- * Resolves one CloudConnect project contact against Dynamics: links it to an
- * exact email match, flags a close-but-not-exact match for human review, or
- * creates a brand-new CE contact under the project's linked account. No-ops
- * when the project isn't tied to a CRM account — there's nothing to match or
- * create against.
- */
-export async function syncProjectContactToCrm(env: Bindings, db: D1Database, projectContactId: string): Promise<void> {
+async function loadContactAndAccount(db: D1Database, projectContactId: string): Promise<{ contact: ProjectContactRow; accountId: string } | null> {
   const contact = await db
     .prepare(
       `SELECT pc.id, pc.project_id, pc.dynamics_contact_id, pc.name, pc.email, pc.phone, pc.job_title
@@ -77,20 +70,36 @@ export async function syncProjectContactToCrm(env: Bindings, db: D1Database, pro
     )
     .bind(projectContactId)
     .first<ProjectContactRow>();
-  if (!contact) return;
+  if (!contact) return null;
 
   const project = await db
     .prepare("SELECT dynamics_account_id FROM projects WHERE id = ? LIMIT 1")
     .bind(contact.project_id)
     .first<{ dynamics_account_id: string | null }>();
   const accountId = project?.dynamics_account_id;
-  if (!accountId) return;
+  if (!accountId) return null;
 
-  const candidates = await getAccountContacts(env, accountId);
+  return { contact, accountId };
+}
+
+/**
+ * Checks one CloudConnect project contact against Dynamics — matching only,
+ * never creating: links an exact email match, flags a close-but-not-exact
+ * match for human review, or marks it 'not_found' when nothing looks like
+ * a match. Creating a CE record is a deliberate, separate action
+ * (`pushProjectContactToCrm`) — PF staff, partner reps, and people who exist
+ * under a different account would otherwise get duplicated into CE
+ * automatically just by being typed into a project. No-ops when the project
+ * isn't tied to a CRM account.
+ */
+export async function syncProjectContactToCrm(env: Bindings, db: D1Database, projectContactId: string): Promise<void> {
+  const loaded = await loadContactAndAccount(db, projectContactId);
+  if (!loaded) return;
+  const { contact, accountId } = loaded;
 
   const email = contact.email?.trim() || null;
   if (email) {
-    const exact = candidates.find((c) => c.emailaddress1 && normalize(c.emailaddress1) === normalize(email));
+    const exact = await findContactByEmail(env, accountId, email);
     if (exact) {
       await db
         .prepare("UPDATE project_contacts SET dynamics_contact_id = ?, ce_match_status = 'matched', ce_checked_at = CURRENT_TIMESTAMP, ce_candidate_contact_id = NULL, ce_candidate_label = NULL WHERE id = ?")
@@ -100,6 +109,12 @@ export async function syncProjectContactToCrm(env: Bindings, db: D1Database, pro
     }
   }
 
+  // Exact match (the only kind that's authoritative across the whole account)
+  // came up empty — now look for a close-but-uncertain match, from the
+  // capped candidate list. That cap is fine here: this is a suggestion for a
+  // human to confirm, not a duplicate check, which the exact lookup above
+  // already covers without a cap.
+  const candidates = await getAccountContacts(env, accountId);
   const fuzzy = candidates.find((c) => {
     const nameMatch = isCloseMatch(contact.name, [c.firstname, c.lastname].filter(Boolean).join(" "));
     const emailMatch = email && c.emailaddress1 ? isCloseMatch(emailLocalPart(email), emailLocalPart(c.emailaddress1)) : false;
@@ -109,6 +124,34 @@ export async function syncProjectContactToCrm(env: Bindings, db: D1Database, pro
     await db
       .prepare("UPDATE project_contacts SET ce_match_status = 'needs_review', ce_candidate_contact_id = ?, ce_candidate_label = ?, ce_checked_at = CURRENT_TIMESTAMP WHERE id = ?")
       .bind(fuzzy.contactid, contactLabel(fuzzy), projectContactId)
+      .run();
+    return;
+  }
+
+  await db
+    .prepare("UPDATE project_contacts SET ce_match_status = 'not_found', ce_checked_at = CURRENT_TIMESTAMP WHERE id = ?")
+    .bind(projectContactId)
+    .run();
+}
+
+/**
+ * The manual "Push to CE" action — the only path that creates a Dynamics
+ * contact. Re-checks the authoritative exact-email match first (it may have
+ * appeared in CE since the last check, or this may be recovering a 'missing'
+ * link) and creates only if that still comes up empty, clearing any stale
+ * link/candidate either way.
+ */
+export async function pushProjectContactToCrm(env: Bindings, db: D1Database, projectContactId: string): Promise<void> {
+  const loaded = await loadContactAndAccount(db, projectContactId);
+  if (!loaded) throw new Error("This project has no linked CRM account");
+  const { contact, accountId } = loaded;
+
+  const email = contact.email?.trim() || null;
+  const exact = email ? await findContactByEmail(env, accountId, email) : null;
+  if (exact) {
+    await db
+      .prepare("UPDATE project_contacts SET dynamics_contact_id = ?, ce_match_status = 'matched', ce_checked_at = CURRENT_TIMESTAMP, ce_candidate_contact_id = NULL, ce_candidate_label = NULL WHERE id = ?")
+      .bind(exact.contactid, projectContactId)
       .run();
     return;
   }
@@ -123,8 +166,9 @@ export async function syncProjectContactToCrm(env: Bindings, db: D1Database, pro
     .run();
 }
 
-/** Re-confirms an already-linked contact still exists in CE, flagging it
- *  'missing' if the CE record is gone. No-op if nothing is linked yet. */
+/** Re-confirms an already-linked contact still exists AND is active in CE,
+ *  flagging it 'missing' if the CE record is gone or deactivated. No-op if
+ *  nothing is linked yet. */
 export async function verifyProjectContactInCrm(env: Bindings, db: D1Database, projectContactId: string): Promise<void> {
   const contact = await db
     .prepare("SELECT dynamics_contact_id FROM project_contacts WHERE id = ? LIMIT 1")

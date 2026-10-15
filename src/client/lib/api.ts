@@ -936,7 +936,7 @@ export type ProjectContact = {
   contact_role: string | null;
   added_at: string;
   /** null = not yet checked against CE (contact predates this feature). */
-  ce_match_status: "matched" | "created" | "needs_review" | "missing" | null;
+  ce_match_status: "matched" | "created" | "needs_review" | "not_found" | "missing" | null;
   ce_candidate_contact_id: string | null;
   ce_candidate_label: string | null;
   ce_checked_at: string | null;
@@ -2407,10 +2407,18 @@ export const api = {
       body: JSON.stringify({ action }),
     }),
 
-  /** On-demand CE check: re-verifies an existing link, or runs the match/create
-   *  flow for a legacy contact that was never checked. */
+  /** On-demand CE check: re-verifies an existing link, or runs the match-only
+   *  flow for a legacy contact that was never checked. Never creates. */
   verifyProjectContactCe: (projectId: string, contactId: string) =>
     request<ProjectContact>(`/projects/${projectId}/contacts/${contactId}/verify-ce`, {
+      method: "POST",
+    }),
+
+  /** "Push to CE" — the deliberate action that creates (or relinks, if an
+   *  exact match has shown up since) a Dynamics contact. Only valid from
+   *  'not_found' or 'missing'. */
+  pushProjectContactCe: (projectId: string, contactId: string) =>
+    request<ProjectContact>(`/projects/${projectId}/contacts/${contactId}/push-ce`, {
       method: "POST",
     }),
 
