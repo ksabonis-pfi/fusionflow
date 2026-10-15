@@ -25,6 +25,8 @@ export type DynamicsContact = {
   emailaddress1: string | null;
   telephone1: string | null;
   jobtitle: string | null;
+  /** 0 = Active, 1 = Inactive. Optional: only populated by callers that select it. */
+  statecode?: number;
 };
 
 type Env = {
@@ -259,25 +261,42 @@ export async function createAccount(
   return raw;
 }
 
+/** Active contacts on an account, newest-capped at 50 — a candidate list for
+ *  the fuzzy-review suggestion only. Never used as an authoritative duplicate
+ *  check: large accounts can have more than 50 contacts, so an exact match
+ *  must go through `findContactByEmail` instead, not this list. */
 export async function getAccountContacts(env: Env, accountId: string): Promise<DynamicsContact[]> {
   if (!isConfigured(env)) return [];
 
-  const select = "contactid,firstname,lastname,emailaddress1,telephone1,jobtitle";
-  const filter = `_parentcustomerid_value eq ${accountId}`;
+  const select = "contactid,firstname,lastname,emailaddress1,telephone1,jobtitle,statecode";
+  const filter = `_parentcustomerid_value eq ${accountId} and statecode eq 0`;
   const path = `/contacts?$select=${select}&$filter=${filter}&$top=50&$orderby=lastname asc`;
 
   const data = await dynamicsGet<{ value: DynamicsContact[] }>(env, path);
   return data.value ?? [];
 }
 
-/** Does this contact id still resolve in Dynamics? Used to flag a project
- *  contact as 'missing' when its linked CE record is gone. A true 404 means
- *  deleted; any other failure is rethrown so a CRM outage isn't mistaken for
- *  "the contact doesn't exist". */
+/** Authoritative exact-email lookup on an account, active contacts only —
+ *  unlike `getAccountContacts` this isn't capped, so it's the right check
+ *  before creating a contact (avoids duplicates on accounts with 50+
+ *  contacts) or before trusting a "no match" result. */
+export async function findContactByEmail(env: Env, accountId: string, email: string): Promise<DynamicsContact | null> {
+  if (!isConfigured(env)) return null;
+  const escaped = email.replace(/'/g, "''");
+  const select = "contactid,firstname,lastname,emailaddress1,telephone1,jobtitle,statecode";
+  const filter = `_parentcustomerid_value eq ${accountId} and statecode eq 0 and emailaddress1 eq '${escaped}'`;
+  const data = await dynamicsGet<{ value: DynamicsContact[] }>(env, `/contacts?$select=${select}&$filter=${filter}&$top=1`);
+  return data.value?.[0] ?? null;
+}
+
+/** Does this contact id still resolve in Dynamics AND remain active? Used to
+ *  flag a project contact as 'missing' when its linked CE record is gone or
+ *  deactivated. A true 404 means deleted; any other failure is rethrown so a
+ *  CRM outage isn't mistaken for "the contact doesn't exist". */
 export async function contactExists(env: Env, contactId: string): Promise<boolean> {
   if (!isConfigured(env)) return true; // can't check — don't flag as missing
   const token = await getToken(env);
-  const res = await fetch(`${API_BASE}/contacts(${contactId})?$select=contactid`, {
+  const res = await fetch(`${API_BASE}/contacts(${contactId})?$select=contactid,statecode`, {
     headers: {
       Authorization: `Bearer ${token}`,
       Accept: "application/json",
@@ -287,7 +306,8 @@ export async function contactExists(env: Env, contactId: string): Promise<boolea
   });
   if (res.status === 404) return false;
   if (!res.ok) throw new Error(`Dynamics API error: ${res.status} /contacts(${contactId})`);
-  return true;
+  const data = await res.json() as { statecode: number };
+  return data.statecode === 0;
 }
 
 /** Create a new Dynamics contact under `accountId` — used when a CloudConnect
