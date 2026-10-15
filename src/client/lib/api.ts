@@ -935,6 +935,11 @@ export type ProjectContact = {
   job_title: string | null;
   contact_role: string | null;
   added_at: string;
+  /** null = not yet checked against CE (contact predates this feature). */
+  ce_match_status: "matched" | "created" | "needs_review" | "missing" | null;
+  ce_candidate_contact_id: string | null;
+  ce_candidate_label: string | null;
+  ce_checked_at: string | null;
 };
 
 export type SolutionContact = {
@@ -2392,6 +2397,21 @@ export const api = {
   removeProjectContact: (projectId: string, contactId: string) =>
     request<{ success: boolean }>(`/projects/${projectId}/contacts/${contactId}`, {
       method: "DELETE",
+    }),
+
+  /** Resolve a 'needs_review' CE match: "link" to the flagged candidate, or
+   *  "create" a fresh CE contact instead (they're not the same person). */
+  resolveProjectContactCeMatch: (projectId: string, contactId: string, action: "link" | "create") =>
+    request<ProjectContact>(`/projects/${projectId}/contacts/${contactId}/resolve-ce-match`, {
+      method: "POST",
+      body: JSON.stringify({ action }),
+    }),
+
+  /** On-demand CE check: re-verifies an existing link, or runs the match/create
+   *  flow for a legacy contact that was never checked. */
+  verifyProjectContactCe: (projectId: string, contactId: string) =>
+    request<ProjectContact>(`/projects/${projectId}/contacts/${contactId}/verify-ce`, {
+      method: "POST",
     }),
 
   // Documents
