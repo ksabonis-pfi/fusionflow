@@ -84,6 +84,7 @@ export default function PriceAvailability() {
   const [showRestricted, setShowRestricted] = useState(false);
 
   const groups = useMemo(() => (result ? groupOffers(result, showRestricted) : []), [result, showRestricted]);
+  const truncated = !!result?.distributors.some((d) => d.truncated);
   const restrictedCount = useMemo(
     () => (result ? result.distributors.reduce((n, d) => n + d.offers.filter((o) => o.restricted).length, 0) : 0),
     [result],
@@ -152,9 +153,17 @@ export default function PriceAvailability() {
       {result && groups.length === 0 && !loading && (
         <div style={{ padding: "32px 0", textAlign: "center", color: "#64748b", fontSize: 13 }}>
           {restrictedCount > 0 && !showRestricted
-            ? `Only restricted SKUs matched “${result.query}” — none are sold to us.`
+            ? truncated
+              ? `Only restricted SKUs among the first matches for “${result.query}” — try a more specific search.`
+              : `Only restricted SKUs matched “${result.query}” — none are sold to us.`
             : `No matching products for “${result.query}”.`}
           {!includeServices && " Services and warranties are hidden — tick the box to include them."}
+        </div>
+      )}
+
+      {groups.length > 0 && truncated && (
+        <div style={{ fontSize: 12, color: "#92400e", marginBottom: 8 }}>
+          Showing the first matches only — more exist. Add a part number or more keywords to narrow it down.
         </div>
       )}
 

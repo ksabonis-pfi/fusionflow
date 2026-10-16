@@ -7,7 +7,7 @@
 // returns nothing for those. So lookup always searches first, then prices the
 // resulting ScanSource item numbers (PartNumberType 1), which is unambiguous.
 import type { Bindings } from "../../types";
-import type { Distributor, DistributorOffer, LookupOptions } from "./types";
+import type { Distributor, DistributorOffer, LookupOptions, LookupResult } from "./types";
 
 const API_BASE = "https://api.scansource.com/scsc/product/v2";
 // ScanSource's tenant and API app registration — fixed values, not secrets.
@@ -115,55 +115,75 @@ function formatRestriction(raw: string): string | null {
   return out || null;
 }
 
-async function lookup(env: Bindings, query: string, opts: LookupOptions): Promise<DistributorOffer[]> {
+const SEARCH_PAGE_SIZE = 100;
+// Pricing accepts 100 lines (~6s); two parallel calls of 50 take ~4s.
+const PRICING_CHUNK = 50;
+
+async function lookup(env: Bindings, query: string, opts: LookupOptions): Promise<LookupResult> {
   const hits = await call<SearchResult[]>(env, "/search", {
     searchText: query,
     useAndOperator: "true",
     region: "0",
-    pageSize: "100",
+    pageSize: String(SEARCH_PAGE_SIZE),
   }) ?? [];
 
+  // Price every hit before applying the limit: only pricing reveals which SKUs
+  // are restricted, and those can fill the first page ahead of buyable ones.
   const matches = hits
     .filter((h) => opts.includeServices || !(h.CategoryPath ?? "").startsWith("Services"))
-    .slice(0, opts.limit);
-  if (matches.length === 0) return [];
+    .slice(0, SEARCH_PAGE_SIZE);
+  if (matches.length === 0) return { offers: [], truncated: false };
 
-  const prices = await call<PricingResult[]>(env, "/pricing", {}, {
-    Warehouse: WAREHOUSE_NA,
-    BusinessUnit: BUSINESS_UNIT_NA,
-    Lines: matches.map((m) => ({ ItemNumber: m.ScanSourceItemNumber, PartNumberType: 1, Quantity: 1 })),
-  }) ?? [];
+  const chunks: SearchResult[][] = [];
+  for (let i = 0; i < matches.length; i += PRICING_CHUNK) chunks.push(matches.slice(i, i + PRICING_CHUNK));
+  const prices = (await Promise.all(chunks.map((chunk) =>
+    call<PricingResult[]>(env, "/pricing", {}, {
+      Warehouse: WAREHOUSE_NA,
+      BusinessUnit: BUSINESS_UNIT_NA,
+      Lines: chunk.map((m) => ({ ItemNumber: m.ScanSourceItemNumber, PartNumberType: 1, Quantity: 1 })),
+    }),
+  ))).flatMap((p) => p ?? []);
   const priceBySku = new Map(prices.map((p) => [p.ItemNumber.toUpperCase(), p]));
 
-  return matches.map((m): DistributorOffer => {
-    const p = priceBySku.get(m.ScanSourceItemNumber.toUpperCase());
-    // "Authorization failed" here is per SKU, not our credentials: carrier- or
-    // program-specific SKUs (e.g. the "RC" RingCentral variants) are reserved
-    // for other partners.
-    const rawError = !p ? "No pricing returned" : bool(p.PricingError) ? (p.PricingErrorDesc || "Pricing error") : null;
-    const restricted = rawError === "Authorization failed";
-    const error = restricted ? "Restricted SKU — not sold to us" : rawError;
-    const priced = p && !error;
-    return {
-      sku: m.ScanSourceItemNumber,
-      mfrPart: m.ManufacturerItemNumber,
-      manufacturer: m.Manufacturer,
-      description: m.Description,
-      category: m.CategoryPath,
-      unitPrice: priced ? num(p.UnitPrice) : null,
-      msrp: priced ? num(p.MSRP) : null,
-      currency: priced ? p.UnitPriceCurrencyCode : null,
-      qtyAvailable: priced ? num(p.QuantityAvailable) : null,
-      totalInventory: priced ? num(p.TotalInventory) : null,
-      qtyOnOrder: priced ? num(p.QuantityOnOrder) : null,
-      dropShipQty: priced ? num(p.DropShipQuantityAvailable) : null,
-      authorized: priced ? bool(p.DealerAuthorized) : null,
-      specialPricing: priced && bool(p.SPA) ? (tidy(p.SPADescription) || "Special pricing applied") : null,
-      restriction: priced && bool(p.SPARestriction) ? formatRestriction(p.SPARestrictionDescription || "Restricted") : null,
-      error,
-      restricted,
-    };
-  });
+  const offers = matches.map((m) => toOffer(m, priceBySku.get(m.ScanSourceItemNumber.toUpperCase())));
+  const buyable = offers.filter((o) => !o.restricted);
+  const restricted = offers.filter((o) => o.restricted);
+  return {
+    // Buyable first, then restricted (shown only on request); each capped.
+    offers: [...buyable.slice(0, opts.limit), ...restricted.slice(0, opts.limit)],
+    // Not exhaustive if we dropped buyable SKUs, or search filled its page and
+    // may have more beyond it.
+    truncated: buyable.length > opts.limit || hits.length >= SEARCH_PAGE_SIZE,
+  };
+}
+
+function toOffer(m: SearchResult, p: PricingResult | undefined): DistributorOffer {
+  // "Authorization failed" here is per SKU, not our credentials: carrier- or
+  // program-specific SKUs (e.g. the "RC" RingCentral variants) are reserved
+  // for other partners.
+  const rawError = !p ? "No pricing returned" : bool(p.PricingError) ? (p.PricingErrorDesc || "Pricing error") : null;
+  const restricted = rawError === "Authorization failed";
+  const error = restricted ? "Restricted SKU — not sold to us" : rawError;
+  const priced = p && !error;
+  return {
+    sku: m.ScanSourceItemNumber,
+    mfrPart: m.ManufacturerItemNumber,
+    manufacturer: m.Manufacturer,
+    description: m.Description,
+    category: m.CategoryPath,
+    unitPrice: priced ? num(p.UnitPrice) : null,
+    msrp: priced ? num(p.MSRP) : null,
+    currency: priced ? p.UnitPriceCurrencyCode : null,
+    qtyAvailable: priced ? num(p.QuantityAvailable) : null,
+    totalInventory: priced ? num(p.TotalInventory) : null,
+    qtyOnOrder: priced ? num(p.QuantityOnOrder) : null,
+    dropShipQty: priced ? num(p.DropShipQuantityAvailable) : null,
+    authorized: priced ? bool(p.DealerAuthorized) : null,
+    specialPricing: priced && bool(p.SPA) ? (tidy(p.SPADescription) || "Special pricing applied") : null,
+    restriction: priced && bool(p.SPARestriction) ? formatRestriction(p.SPARestrictionDescription || "Restricted") : null,
+    error,
+    restricted,
+  };
 }
 
 export const scansource: Distributor = {

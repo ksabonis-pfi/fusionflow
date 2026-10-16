@@ -30,12 +30,19 @@ export interface Distributor {
   name: string;
   isConfigured(env: Bindings): boolean;
   /** Find SKUs matching a part number or keyword and return their price + stock. */
-  lookup(env: Bindings, query: string, opts: LookupOptions): Promise<DistributorOffer[]>;
+  lookup(env: Bindings, query: string, opts: LookupOptions): Promise<LookupResult>;
 }
 
 export interface LookupOptions {
   includeServices: boolean;
+  /** Max buyable offers to return; restricted offers are capped separately. */
   limit: number;
+}
+
+export interface LookupResult {
+  offers: DistributorOffer[];
+  /** More matches exist than were returned, so "none found" isn't final. */
+  truncated: boolean;
 }
 
 /** Comparison key: distributors format the same part differently
