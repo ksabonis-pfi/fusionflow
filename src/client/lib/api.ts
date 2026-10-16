@@ -1899,6 +1899,7 @@ export type DistributorOffer = {
   specialPricing: string | null;
   restriction: string | null;
   error: string | null;
+  restricted: boolean;
 };
 
 export type DistributorLookup = {

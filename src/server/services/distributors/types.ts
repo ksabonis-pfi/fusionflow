@@ -20,6 +20,7 @@ export interface DistributorOffer {
   specialPricing: string | null; // SPA / deal description, when one applied
   restriction: string | null;    // expiration, min/max qty, etc.
   error: string | null;          // per-SKU pricing error (e.g. "Material not found")
+  restricted: boolean;           // SKU reserved for other partners (carrier/program SKUs); hidden by default
 }
 
 export type DistributorId = "scansource";
