@@ -25,10 +25,11 @@ const priced = (o: DistributorOffer) => !o.error && o.unitPrice !== null && o.un
 // ranking and the best-price badge; unauthorized rows still display their price.
 const buyable = (o: DistributorOffer) => priced(o) && o.authorized !== false;
 
-function groupOffers(res: SalesOpsLookupResponse): Group[] {
+function groupOffers(res: SalesOpsLookupResponse, showRestricted: boolean): Group[] {
   const groups = new Map<string, Group>();
   for (const d of res.distributors) {
     for (const offer of d.offers) {
+      if (offer.restricted && !showRestricted) continue;
       const key = normalizeMfrPart(offer.mfrPart || offer.sku);
       let g = groups.get(key);
       if (!g) {
@@ -78,8 +79,15 @@ export default function PriceAvailability() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<SalesOpsLookupResponse | null>(null);
+  // Carrier/program SKUs (RingCentral, Charter, Verizon variants) we can't buy;
+  // they often outnumber the real results, so they start hidden.
+  const [showRestricted, setShowRestricted] = useState(false);
 
-  const groups = useMemo(() => (result ? groupOffers(result) : []), [result]);
+  const groups = useMemo(() => (result ? groupOffers(result, showRestricted) : []), [result, showRestricted]);
+  const restrictedCount = useMemo(
+    () => (result ? result.distributors.reduce((n, d) => n + d.offers.filter((o) => o.restricted).length, 0) : 0),
+    [result],
+  );
 
   async function search(e?: React.FormEvent) {
     e?.preventDefault();
@@ -87,6 +95,7 @@ export default function PriceAvailability() {
     if (q.length < 2) return;
     setLoading(true);
     setError(null);
+    setShowRestricted(false);
     try {
       setResult(await api.salesOpsLookup(q, includeServices));
     } catch (err) {
@@ -125,12 +134,26 @@ export default function PriceAvailability() {
       {result && (
         <div style={{ marginBottom: 12 }}>
           {result.distributors.map((d) => <DistributorStatus key={d.id} d={d} />)}
+          {restrictedCount > 0 && (
+            <button
+              type="button"
+              className="ms-btn-ghost"
+              onClick={() => setShowRestricted((v) => !v)}
+              style={{ fontSize: 12, padding: "2px 8px", marginLeft: 4 }}
+            >
+              {showRestricted
+                ? `Hide ${restrictedCount} restricted SKU${restrictedCount === 1 ? "" : "s"}`
+                : `Show ${restrictedCount} restricted SKU${restrictedCount === 1 ? "" : "s"} (not sold to us)`}
+            </button>
+          )}
         </div>
       )}
 
       {result && groups.length === 0 && !loading && (
         <div style={{ padding: "32px 0", textAlign: "center", color: "#64748b", fontSize: 13 }}>
-          No matching products for “{result.query}”.
+          {restrictedCount > 0 && !showRestricted
+            ? `Only restricted SKUs matched “${result.query}” — none are sold to us.`
+            : `No matching products for “${result.query}”.`}
           {!includeServices && " Services and warranties are hidden — tick the box to include them."}
         </div>
       )}

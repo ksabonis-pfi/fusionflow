@@ -100,6 +100,21 @@ const num = (v: number | string | undefined | null): number | null => {
 };
 const bool = (v: boolean | string | undefined): boolean => v === true || v === "true";
 
+const tidy = (s: string) => s.trim().replace(/\s+\.$/, "").trim();
+
+/** SPA restriction text arrives as e.g. "20261101 Expiration Date." Turn the
+ *  yyyymmdd into a readable date; 2100+ dates are ScanSource's "never expires"
+ *  placeholder (seen on rebox SKUs as 21001231), so drop those entirely. */
+function formatRestriction(raw: string): string | null {
+  const text = raw.replace(/(\d{4})(\d{2})(\d{2})\s*Expiration Date\.?/gi, (_m, y: string, mo: string, d: string) => {
+    if (Number(y) >= 2100) return "";
+    const date = new Date(Date.UTC(Number(y), Number(mo) - 1, Number(d)));
+    return `Expires ${date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })}`;
+  });
+  const out = tidy(text);
+  return out || null;
+}
+
 async function lookup(env: Bindings, query: string, opts: LookupOptions): Promise<DistributorOffer[]> {
   const hits = await call<SearchResult[]>(env, "/search", {
     searchText: query,
@@ -126,7 +141,8 @@ async function lookup(env: Bindings, query: string, opts: LookupOptions): Promis
     // program-specific SKUs (e.g. the "RC" RingCentral variants) are reserved
     // for other partners.
     const rawError = !p ? "No pricing returned" : bool(p.PricingError) ? (p.PricingErrorDesc || "Pricing error") : null;
-    const error = rawError === "Authorization failed" ? "Restricted SKU — not sold to us" : rawError;
+    const restricted = rawError === "Authorization failed";
+    const error = restricted ? "Restricted SKU — not sold to us" : rawError;
     const priced = p && !error;
     return {
       sku: m.ScanSourceItemNumber,
@@ -142,9 +158,10 @@ async function lookup(env: Bindings, query: string, opts: LookupOptions): Promis
       qtyOnOrder: priced ? num(p.QuantityOnOrder) : null,
       dropShipQty: priced ? num(p.DropShipQuantityAvailable) : null,
       authorized: priced ? bool(p.DealerAuthorized) : null,
-      specialPricing: priced && bool(p.SPA) ? (p.SPADescription || "Special pricing applied") : null,
-      restriction: priced && bool(p.SPARestriction) ? (p.SPARestrictionDescription || "Restricted") : null,
+      specialPricing: priced && bool(p.SPA) ? (tidy(p.SPADescription) || "Special pricing applied") : null,
+      restriction: priced && bool(p.SPARestriction) ? formatRestriction(p.SPARestrictionDescription || "Restricted") : null,
       error,
+      restricted,
     };
   });
 }
