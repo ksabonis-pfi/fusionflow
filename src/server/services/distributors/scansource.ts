@@ -9,7 +9,8 @@
 import type { Bindings } from "../../types";
 import type { Distributor, DistributorOffer, LookupOptions, LookupResult } from "./types";
 
-const API_BASE = "https://api.scansource.com/scsc/product/v2";
+// Paths passed to call() start with the API name, e.g. "/product/v2/search".
+const API_BASE = "https://api.scansource.com/scsc";
 // ScanSource's tenant and API app registration — fixed values, not secrets.
 const TOKEN_URL = "https://login.microsoftonline.com/ce986101-0c52-4693-a383-9869e4eac48f/oauth2/v2.0/token";
 const SCOPE = "a2eccdbd-b208-4e77-a82f-dddd1814309a/.default";
@@ -19,7 +20,7 @@ const BUSINESS_UNIT_NA = "1700";
 
 type TokenCache = { access_token: string; expires_at: number };
 
-function isConfigured(env: Bindings): boolean {
+export function isConfigured(env: Bindings): boolean {
   return !!(env.SCANSOURCE_CLIENT_ID && env.SCANSOURCE_CLIENT_SECRET
     && env.SCANSOURCE_SUBSCRIPTION_KEY && env.SCANSOURCE_CUSTOMER_NUMBER);
 }
@@ -45,7 +46,13 @@ async function getToken(env: Bindings): Promise<string> {
   return data.access_token;
 }
 
-async function call<T>(env: Bindings, path: string, params: Record<string, string>, body?: unknown): Promise<T | null> {
+export async function call<T>(
+  env: Bindings,
+  path: string,
+  params: Record<string, string>,
+  body?: unknown,
+  opts: { timeoutMs?: number } = {},
+): Promise<T | null> {
   const token = await getToken(env);
   const qs = new URLSearchParams({ customerNumber: env.SCANSOURCE_CUSTOMER_NUMBER!, ...params });
   const res = await fetch(`${API_BASE}${path}?${qs}`, {
@@ -56,6 +63,7 @@ async function call<T>(env: Bindings, path: string, params: Record<string, strin
       ...(body ? { "Content-Type": "application/json" } : {}),
     },
     body: body ? JSON.stringify(body) : undefined,
+    signal: opts.timeoutMs ? AbortSignal.timeout(opts.timeoutMs) : undefined,
   });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
@@ -134,7 +142,7 @@ async function getImageUrl(env: Bindings, sku: string): Promise<string | null> {
   const cached = await env.KV.get<{ url: string | null }>(key, "json");
   if (cached) return cached.url;
   try {
-    const detail = await call<ProductDetail>(env, "/detail", { itemNumber: sku, partNumberType: "1", region: "0" });
+    const detail = await call<ProductDetail>(env, "/product/v2/detail", { itemNumber: sku, partNumberType: "1", region: "0" });
     // "Primary" is the manufacturer logo; "Primary Image" is the product photo.
     const url = detail?.ProductMedia?.find((m) => m.MediaType === "Primary Image")?.URL || detail?.ItemImage || null;
     await env.KV.put(key, JSON.stringify({ url }), { expirationTtl: url ? IMAGE_TTL_FOUND : IMAGE_TTL_MISSING });
@@ -150,7 +158,7 @@ const SEARCH_PAGE_SIZE = 100;
 const PRICING_CHUNK = 50;
 
 async function lookup(env: Bindings, query: string, opts: LookupOptions): Promise<LookupResult> {
-  const hits = await call<SearchResult[]>(env, "/search", {
+  const hits = await call<SearchResult[]>(env, "/product/v2/search", {
     searchText: query,
     useAndOperator: "true",
     region: "0",
@@ -167,7 +175,7 @@ async function lookup(env: Bindings, query: string, opts: LookupOptions): Promis
   const chunks: SearchResult[][] = [];
   for (let i = 0; i < matches.length; i += PRICING_CHUNK) chunks.push(matches.slice(i, i + PRICING_CHUNK));
   const prices = (await Promise.all(chunks.map((chunk) =>
-    call<PricingResult[]>(env, "/pricing", {}, {
+    call<PricingResult[]>(env, "/product/v2/pricing", {}, {
       Warehouse: WAREHOUSE_NA,
       BusinessUnit: BUSINESS_UNIT_NA,
       Lines: chunk.map((m) => ({ ItemNumber: m.ScanSourceItemNumber, PartNumberType: 1, Quantity: 1 })),

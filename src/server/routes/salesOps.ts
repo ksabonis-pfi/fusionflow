@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import type { Bindings, Variables } from "../types";
-import { DISTRIBUTORS, type DistributorOffer } from "../services/distributors";
+import { DISTRIBUTORS, type DistributorOffer, type QuoteSummary } from "../services/distributors";
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
@@ -59,6 +59,45 @@ app.post("/lookup", async (c) => {
   }));
 
   return c.json({ query, distributors });
+});
+
+type QuoteListResult = {
+  id: string;
+  name: string;
+  status: "ok" | "error" | "not_configured";
+  error?: string;
+  quotes: QuoteSummary[];
+};
+
+/** Every quote from every distributor that exposes them. Filtering (open /
+ *  expired) and search happen client-side; lists are a few hundred at most. */
+app.get("/quotes", async (c) => {
+  const quoting = DISTRIBUTORS.filter((d) => d.listQuotes);
+  const distributors = await Promise.all(quoting.map(async (d): Promise<QuoteListResult> => {
+    if (!d.isConfigured(c.env)) return { id: d.id, name: d.name, status: "not_configured", quotes: [] };
+    try {
+      return { id: d.id, name: d.name, status: "ok", quotes: await d.listQuotes!(c.env) };
+    } catch (err) {
+      console.error(`[sales-ops] ${d.id} quote list failed`, err);
+      return { id: d.id, name: d.name, status: "error", error: "Couldn't load quotes — try again shortly", quotes: [] };
+    }
+  }));
+  return c.json({ distributors });
+});
+
+app.get("/quotes/:distributor/:quoteNumber", async (c) => {
+  const d = DISTRIBUTORS.find((x) => x.id === c.req.param("distributor"));
+  const quoteNumber = c.req.param("quoteNumber");
+  if (!d?.getQuote || !/^[A-Za-z0-9-]{1,40}$/.test(quoteNumber)) return c.json({ error: "Quote not found" }, 404);
+  if (!d.isConfigured(c.env)) return c.json({ error: `${d.name} isn't connected` }, 503);
+  try {
+    const quote = await d.getQuote(c.env, quoteNumber);
+    if (!quote) return c.json({ error: "Quote not found" }, 404);
+    return c.json({ distributor: { id: d.id, name: d.name }, quote });
+  } catch (err) {
+    console.error(`[sales-ops] ${d.id} quote ${quoteNumber} failed`, err);
+    return c.json({ error: `${d.name} couldn't load this quote. Some quotes (e.g. $0 ones) fail on their side — try again or check the ${d.name} portal.` }, 502);
+  }
 });
 
 export default app;

@@ -1915,6 +1915,52 @@ export type DistributorLookup = {
 
 export type SalesOpsLookupResponse = { query: string; distributors: DistributorLookup[] };
 
+export type DistributorQuoteSummary = {
+  quoteNumber: string;
+  name: string;
+  total: number | null;
+  currency: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+  expiresOn: string | null;
+  createdBy: string | null;
+  dealId: string | null;
+};
+
+export type DistributorQuoteLine = {
+  lineNumber: string;
+  mfrPart: string | null;
+  sku: string | null;
+  manufacturer: string | null;
+  description: string | null;
+  productType: string | null;
+  quantity: number;
+  unitPrice: number | null;
+  msrp: number | null;
+  extended: number | null;
+  stock: string | null;
+  serviceType: string | null;
+  term: string | null;
+  serviceStarts: string | null;
+  serviceEnds: string | null;
+  deals: { id: string; expiresOn: string | null }[];
+  imageUrl: string | null;
+};
+
+export type DistributorQuoteDetail = DistributorQuoteSummary & {
+  endUser: string | null;
+  shipTo: string | null;
+  shippingMethod: string | null;
+  orderType: string | null;
+  notes: string | null;
+  resellerContact: { name: string | null; email: string | null } | null;
+  lines: DistributorQuoteLine[];
+};
+
+export type SalesOpsQuotesResponse = {
+  distributors: { id: string; name: string; status: "ok" | "error" | "not_configured"; error?: string; quotes: DistributorQuoteSummary[] }[];
+};
+
 export const api = {
   me: () => request<MeResponse>("/me"),
   systemStatus: () => request<SystemStatusResponse>("/status"),
@@ -2322,6 +2368,14 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ query, includeServices }),
     }),
+
+  /** Quotes every distributor has issued us (requires is_sales_ops). */
+  salesOpsQuotes: () => request<SalesOpsQuotesResponse>("/sales-ops/quotes"),
+
+  salesOpsQuote: (distributor: string, quoteNumber: string) =>
+    request<{ distributor: { id: string; name: string }; quote: DistributorQuoteDetail }>(
+      `/sales-ops/quotes/${encodeURIComponent(distributor)}/${encodeURIComponent(quoteNumber)}`,
+    ),
 
   /** Suggested time entries for the signed-in user (requires is_time_assist).
    *  Suggestions only — confirming one calls logProjectTime, which is what

@@ -1,4 +1,5 @@
 import { useSearchParams } from "react-router-dom";
+import DistributorQuotes from "../components/salesOps/DistributorQuotes";
 import PriceAvailability from "../components/salesOps/PriceAvailability";
 
 type Tab = "price" | "quotes" | "orders";
@@ -55,7 +56,7 @@ export default function SalesOpsPage() {
       </div>
 
       {tab === "price" && <PriceAvailability />}
-      {tab === "quotes" && <ComingSoon label="Distributor Quotes" />}
+      {tab === "quotes" && <DistributorQuotes />}
       {tab === "orders" && <ComingSoon label="Orders & Tracking" />}
     </div>
   );
