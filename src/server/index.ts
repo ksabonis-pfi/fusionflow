@@ -44,6 +44,7 @@ import stakeholderRoutes from "./routes/stakeholder";
 import phasesRoutes from "./routes/phases";
 import meRoutes from "./routes/me";
 import salesToolsRoutes from "./routes/salesTools";
+import salesOpsRoutes from "./routes/salesOps";
 import customPlanRoutes from "./routes/customPlan"; // one-off MedVet custom plan (throwaway)
 import mcpAuthorizeRoutes, { AUTHORIZE_PATH } from "./mcp/authorize";
 import { isOAuthOrMcpPath, oauthProviderFor } from "./mcp/provider";
@@ -117,6 +118,7 @@ app.route("/api/projects", phasesRoutes);
 app.route("/api/projects", customPlanRoutes);
 app.route("/api/me", meRoutes);
 app.route("/api/sales-tools", salesToolsRoutes);
+app.route("/api/sales-ops", salesOpsRoutes);
 
 // Claude connector sign-in + consent. Outside /api: it's a page, it reads the
 // session itself, and it's only reachable through the OAuth provider (see the
