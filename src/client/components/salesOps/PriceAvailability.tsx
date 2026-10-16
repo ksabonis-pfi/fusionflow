@@ -6,7 +6,7 @@ import { api, type DistributorLookup, type DistributorOffer, type SalesOpsLookup
 const normalizeMfrPart = (p: string) => p.toUpperCase().replace(/[\s-]/g, "");
 
 type Row = { distributor: DistributorLookup; offer: DistributorOffer };
-type Group = { key: string; mfrPart: string; manufacturer: string | null; description: string | null; rows: Row[] };
+type Group = { key: string; mfrPart: string; manufacturer: string | null; description: string | null; imageUrl: string | null; rows: Row[] };
 
 function money(v: number | null, currency: string | null) {
   if (v === null) return "—";
@@ -33,9 +33,11 @@ function groupOffers(res: SalesOpsLookupResponse, showRestricted: boolean): Grou
       const key = normalizeMfrPart(offer.mfrPart || offer.sku);
       let g = groups.get(key);
       if (!g) {
-        g = { key, mfrPart: offer.mfrPart || offer.sku, manufacturer: offer.manufacturer, description: offer.description, rows: [] };
+        g = { key, mfrPart: offer.mfrPart || offer.sku, manufacturer: offer.manufacturer, description: offer.description, imageUrl: null, rows: [] };
         groups.set(key, g);
       }
+      // Same part, so any distributor's photo will do.
+      g.imageUrl ??= offer.imageUrl;
       g.rows.push({ distributor: d, offer });
     }
   }
@@ -64,6 +66,26 @@ function Badge({ children, tone }: { children: React.ReactNode; tone: "green" | 
     <span style={{ display: "inline-block", fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 999, background: tones.bg, color: tones.fg, marginRight: 4, marginBottom: 2 }}>
       {children}
     </span>
+  );
+}
+
+/** Fixed-size slot so rows line up whether or not a part has a photo; a
+ *  broken image link falls back to the empty slot. */
+function Thumbnail({ url, alt }: { url: string | null; alt: string }) {
+  const [failed, setFailed] = useState(false);
+  const box: React.CSSProperties = {
+    width: 56, height: 56, flexShrink: 0, borderRadius: 6,
+    border: "1px solid #e2e8f0", background: "#fff",
+  };
+  if (!url || failed) return <div style={box} aria-hidden />;
+  return (
+    <img
+      src={url}
+      alt={alt}
+      loading="lazy"
+      onError={() => setFailed(true)}
+      style={{ ...box, objectFit: "contain", padding: 2 }}
+    />
   );
 }
 
@@ -188,9 +210,14 @@ export default function PriceAvailability() {
                 return [
                   <tr key={`${g.key}-head`} style={{ background: "#f8fafc" }}>
                     <td colSpan={8} style={{ paddingTop: 10, paddingBottom: 6 }}>
-                      <span style={{ fontWeight: 700, color: "#0f172a", fontFamily: "ui-monospace, monospace" }}>{g.mfrPart}</span>
-                      {g.manufacturer && <span style={{ color: "#64748b", marginLeft: 8 }}>{g.manufacturer}</span>}
-                      {g.description && <div style={{ fontSize: 13, color: "#475569", marginTop: 2 }}>{g.description}</div>}
+                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                        <Thumbnail url={g.imageUrl} alt={g.description ?? g.mfrPart} />
+                        <div style={{ minWidth: 0 }}>
+                          <span style={{ fontWeight: 700, color: "#0f172a", fontFamily: "ui-monospace, monospace" }}>{g.mfrPart}</span>
+                          {g.manufacturer && <span style={{ color: "#64748b", marginLeft: 8 }}>{g.manufacturer}</span>}
+                          {g.description && <div style={{ fontSize: 13, color: "#475569", marginTop: 2 }}>{g.description}</div>}
+                        </div>
+                      </div>
                     </td>
                   </tr>,
                   ...g.rows.map((r) => {

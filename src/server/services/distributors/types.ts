@@ -21,6 +21,7 @@ export interface DistributorOffer {
   restriction: string | null;    // expiration, min/max qty, etc.
   error: string | null;          // per-SKU pricing error (e.g. "Material not found")
   restricted: boolean;           // SKU reserved for other partners (carrier/program SKUs); hidden by default
+  imageUrl: string | null;       // product photo, when the distributor has one
 }
 
 export type DistributorId = "scansource";

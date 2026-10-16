@@ -1900,6 +1900,7 @@ export type DistributorOffer = {
   restriction: string | null;
   error: string | null;
   restricted: boolean;
+  imageUrl: string | null;
 };
 
 export type DistributorLookup = {
