@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { api, type DistributorLookup, type DistributorOffer, type SalesOpsLookupResponse } from "../../lib/api";
+import ProductThumbnail from "./ProductThumbnail";
 
 // Same normalization as the server's normalizeMfrPart: distributors format the
 // same manufacturer part differently, and that part is the comparison key.
@@ -66,26 +67,6 @@ function Badge({ children, tone }: { children: React.ReactNode; tone: "green" | 
     <span style={{ display: "inline-block", fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 999, background: tones.bg, color: tones.fg, marginRight: 4, marginBottom: 2 }}>
       {children}
     </span>
-  );
-}
-
-/** Fixed-size slot so rows line up whether or not a part has a photo; a
- *  broken image link falls back to the empty slot. */
-function Thumbnail({ url, alt }: { url: string | null; alt: string }) {
-  const [failed, setFailed] = useState(false);
-  const box: React.CSSProperties = {
-    width: 56, height: 56, flexShrink: 0, borderRadius: 6,
-    border: "1px solid #e2e8f0", background: "#fff",
-  };
-  if (!url || failed) return <div style={box} aria-hidden />;
-  return (
-    <img
-      src={url}
-      alt={alt}
-      loading="lazy"
-      onError={() => setFailed(true)}
-      style={{ ...box, objectFit: "contain", padding: 2 }}
-    />
   );
 }
 
@@ -211,7 +192,7 @@ export default function PriceAvailability() {
                   <tr key={`${g.key}-head`} style={{ background: "#f8fafc" }}>
                     <td colSpan={8} style={{ paddingTop: 10, paddingBottom: 6 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                        <Thumbnail url={g.imageUrl} alt={g.description ?? g.mfrPart} />
+                        <ProductThumbnail key={g.imageUrl ?? "none"} url={g.imageUrl} title={g.mfrPart} caption={g.description} />
                         <div style={{ minWidth: 0 }}>
                           <span style={{ fontWeight: 700, color: "#0f172a", fontFamily: "ui-monospace, monospace" }}>{g.mfrPart}</span>
                           {g.manufacturer && <span style={{ color: "#64748b", marginLeft: 8 }}>{g.manufacturer}</span>}
