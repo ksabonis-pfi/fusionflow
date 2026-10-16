@@ -17,8 +17,13 @@ function qty(v: number | null) {
   return v === null ? "—" : v.toLocaleString("en-US");
 }
 
-const inStock = (o: DistributorOffer) => (o.qtyAvailable ?? 0) > 0 || (o.totalInventory ?? 0) > 0;
+// Only stock the distributor can promise now counts; on-hand units may be
+// allocated (ScanSource shows 0 available against 1,859 on hand for some SKUs).
+const inStock = (o: DistributorOffer) => (o.qtyAvailable ?? 0) > 0;
 const priced = (o: DistributorOffer) => !o.error && o.unitPrice !== null && o.unitPrice > 0;
+// Something we could actually buy: priced and not flagged unauthorized. Drives
+// ranking and the best-price badge; unauthorized rows still display their price.
+const buyable = (o: DistributorOffer) => priced(o) && o.authorized !== false;
 
 function groupOffers(res: SalesOpsLookupResponse): Group[] {
   const groups = new Map<string, Group>();
@@ -35,13 +40,13 @@ function groupOffers(res: SalesOpsLookupResponse): Group[] {
   }
   // Parts someone could actually buy now first, then priced, then errors.
   const rank = (g: Group) =>
-    g.rows.some((r) => priced(r.offer) && inStock(r.offer)) ? 0 : g.rows.some((r) => priced(r.offer)) ? 1 : 2;
+    g.rows.some((r) => buyable(r.offer) && inStock(r.offer)) ? 0 : g.rows.some((r) => buyable(r.offer)) ? 1 : 2;
   return [...groups.values()].sort((a, b) => rank(a) - rank(b));
 }
 
 /** Cheapest in-stock offer in a group, when the group spans more than one row. */
 function bestRow(g: Group): Row | null {
-  const candidates = g.rows.filter((r) => priced(r.offer) && inStock(r.offer));
+  const candidates = g.rows.filter((r) => buyable(r.offer) && inStock(r.offer));
   if (g.rows.length < 2 || candidates.length === 0) return null;
   return candidates.reduce((a, b) => (b.offer.unitPrice! < a.offer.unitPrice! ? b : a));
 }
