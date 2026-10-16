@@ -73,7 +73,10 @@ type ProductDetail = {
 type MaterialInfo = { sku: string | null; description: string | null; imageUrl: string | null };
 
 const MATERIAL_CACHE_PREFIX = "scansource:mat:";
-const MATERIAL_TTL = 365 * 24 * 60 * 60;
+// Complete results (description and photo) effectively never change; if either
+// is missing, retry after a week in case ScanSource fills it in.
+const MATERIAL_TTL_COMPLETE = 365 * 24 * 60 * 60;
+const MATERIAL_TTL_PARTIAL = 7 * 24 * 60 * 60;
 // Lookups normally take ~0.2s, but one occasionally hangs ~25s before
 // ScanSource 500s it. Cap it so one bad line can't stall the whole quote.
 const MATERIAL_TIMEOUT_MS = 4000;
@@ -114,7 +117,8 @@ async function getMaterialInfo(env: Bindings, material: string): Promise<Materia
       description: d.Description || null,
       imageUrl: d.ProductMedia?.find((m) => m.MediaType === "Primary Image")?.URL || d.ItemImage || null,
     };
-    await env.KV.put(key, JSON.stringify(info), { expirationTtl: MATERIAL_TTL });
+    const complete = !!(info.description && info.imageUrl);
+    await env.KV.put(key, JSON.stringify(info), { expirationTtl: complete ? MATERIAL_TTL_COMPLETE : MATERIAL_TTL_PARTIAL });
     return info;
   } catch (err) {
     // Enrichment only; the quote still renders from its own fields.
