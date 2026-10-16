@@ -115,6 +115,36 @@ function formatRestriction(raw: string): string | null {
   return out || null;
 }
 
+type ProductDetail = {
+  ItemImage: string | null;
+  ProductMedia?: { MediaType: string; URL: string }[] | null;
+};
+
+const IMAGE_CACHE_PREFIX = "scansource:img:";
+// A SKU's product image effectively never changes; a missing one might get
+// added later, so "no image" is remembered for less time.
+const IMAGE_TTL_FOUND = 365 * 24 * 60 * 60;
+const IMAGE_TTL_MISSING = 7 * 24 * 60 * 60;
+
+/** Product image URL for a SKU, from product detail (search results carry no
+ *  images). One detail call per SKU, so cached in KV. A failed lookup returns
+ *  null without caching; a thumbnail is never worth failing the search over. */
+async function getImageUrl(env: Bindings, sku: string): Promise<string | null> {
+  const key = IMAGE_CACHE_PREFIX + sku.toUpperCase();
+  const cached = await env.KV.get<{ url: string | null }>(key, "json");
+  if (cached) return cached.url;
+  try {
+    const detail = await call<ProductDetail>(env, "/detail", { itemNumber: sku, partNumberType: "1", region: "0" });
+    // "Primary" is the manufacturer logo; "Primary Image" is the product photo.
+    const url = detail?.ProductMedia?.find((m) => m.MediaType === "Primary Image")?.URL || detail?.ItemImage || null;
+    await env.KV.put(key, JSON.stringify({ url }), { expirationTtl: url ? IMAGE_TTL_FOUND : IMAGE_TTL_MISSING });
+    return url;
+  } catch (err) {
+    console.error(`[sales-ops] scansource image lookup failed for ${sku}`, err);
+    return null;
+  }
+}
+
 const SEARCH_PAGE_SIZE = 100;
 // Pricing accepts 100 lines (~6s); two parallel calls of 50 take ~4s.
 const PRICING_CHUNK = 50;
@@ -148,9 +178,13 @@ async function lookup(env: Bindings, query: string, opts: LookupOptions): Promis
   const offers = matches.map((m) => toOffer(m, priceBySku.get(m.ScanSourceItemNumber.toUpperCase())));
   const buyable = offers.filter((o) => !o.restricted);
   const restricted = offers.filter((o) => o.restricted);
+  const shown = buyable.slice(0, opts.limit);
+  // Thumbnails only for the buyable rows we return; restricted rows stay text-only.
+  const images = await Promise.all(shown.map((o) => getImageUrl(env, o.sku)));
+  shown.forEach((o, i) => { o.imageUrl = images[i]; });
   return {
     // Buyable first, then restricted (shown only on request); each capped.
-    offers: [...buyable.slice(0, opts.limit), ...restricted.slice(0, opts.limit)],
+    offers: [...shown, ...restricted.slice(0, opts.limit)],
     // Not exhaustive if we dropped buyable SKUs, or search filled its page and
     // may have more beyond it.
     truncated: buyable.length > opts.limit || hits.length >= SEARCH_PAGE_SIZE,
@@ -183,6 +217,7 @@ function toOffer(m: SearchResult, p: PricingResult | undefined): DistributorOffe
     restriction: priced && bool(p.SPARestriction) ? formatRestriction(p.SPARestrictionDescription || "Restricted") : null,
     error,
     restricted,
+    imageUrl: null, // filled in for the returned buyable rows
   };
 }
 
