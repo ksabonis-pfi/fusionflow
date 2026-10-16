@@ -1,0 +1,157 @@
+// ScanSource partner API (APIM at api.scansource.com/scsc). Azure AD
+// client-credentials token (cached in KV) plus the Ocp-Apim-Subscription-Key
+// header on every call. Specs: docs/scansource/specs/.
+//
+// Manufacturer part numbers are ambiguous here: "82M89AA" maps to both
+// HPP-82M89AA and HPP-82M89AARC, and pricing by mfr part (PartNumberType 2)
+// returns nothing for those. So lookup always searches first, then prices the
+// resulting ScanSource item numbers (PartNumberType 1), which is unambiguous.
+import type { Bindings } from "../../types";
+import type { Distributor, DistributorOffer, LookupOptions } from "./types";
+
+const API_BASE = "https://api.scansource.com/scsc/product/v2";
+// ScanSource's tenant and API app registration — fixed values, not secrets.
+const TOKEN_URL = "https://login.microsoftonline.com/ce986101-0c52-4693-a383-9869e4eac48f/oauth2/v2.0/token";
+const SCOPE = "a2eccdbd-b208-4e77-a82f-dddd1814309a/.default";
+const TOKEN_CACHE_KEY = "scansource:token";
+const WAREHOUSE_NA = "1710";
+const BUSINESS_UNIT_NA = "1700";
+
+type TokenCache = { access_token: string; expires_at: number };
+
+function isConfigured(env: Bindings): boolean {
+  return !!(env.SCANSOURCE_CLIENT_ID && env.SCANSOURCE_CLIENT_SECRET
+    && env.SCANSOURCE_SUBSCRIPTION_KEY && env.SCANSOURCE_CUSTOMER_NUMBER);
+}
+
+async function getToken(env: Bindings): Promise<string> {
+  const cached = await env.KV.get<TokenCache>(TOKEN_CACHE_KEY, "json");
+  if (cached && cached.expires_at > Date.now() + 60_000) return cached.access_token;
+
+  const res = await fetch(TOKEN_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "client_credentials",
+      client_id: env.SCANSOURCE_CLIENT_ID!,
+      client_secret: env.SCANSOURCE_CLIENT_SECRET!,
+      scope: SCOPE,
+    }),
+  });
+  if (!res.ok) throw new Error(`ScanSource token fetch failed: ${res.status}`);
+  const data = await res.json() as { access_token: string; expires_in: number };
+  const cache: TokenCache = { access_token: data.access_token, expires_at: Date.now() + data.expires_in * 1000 };
+  await env.KV.put(TOKEN_CACHE_KEY, JSON.stringify(cache), { expirationTtl: Math.max(60, data.expires_in - 60) });
+  return data.access_token;
+}
+
+async function call<T>(env: Bindings, path: string, params: Record<string, string>, body?: unknown): Promise<T | null> {
+  const token = await getToken(env);
+  const qs = new URLSearchParams({ customerNumber: env.SCANSOURCE_CUSTOMER_NUMBER!, ...params });
+  const res = await fetch(`${API_BASE}${path}?${qs}`, {
+    method: body ? "POST" : "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Ocp-Apim-Subscription-Key": env.SCANSOURCE_SUBSCRIPTION_KEY!,
+      ...(body ? { "Content-Type": "application/json" } : {}),
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`ScanSource ${path} failed: ${res.status} ${text.slice(0, 200)}`);
+  }
+  // Search answers an empty body (not []) when nothing matches.
+  const text = await res.text();
+  return text.trim() ? JSON.parse(text) as T : null;
+}
+
+type SearchResult = {
+  ScanSourceItemNumber: string;
+  ManufacturerItemNumber: string;
+  Manufacturer: string | null;
+  CategoryPath: string | null;
+  Description: string | null;
+};
+
+// Several fields come back as strings ("0", "false") despite the spec.
+type PricingResult = {
+  ItemNumber: string;
+  UnitPrice: number;
+  UnitPriceCurrencyCode: string | null;
+  MSRP: number;
+  DealerAuthorized: boolean | string;
+  SPA: boolean | string;
+  SPADescription: string;
+  SPARestriction: boolean | string;
+  SPARestrictionDescription: string;
+  QuantityAvailable: number | string;
+  TotalInventory?: number | string;
+  QuantityOnOrder: number | string;
+  DropShipQuantityAvailable: number | string;
+  PricingError: boolean | string;
+  PricingErrorDesc: string;
+};
+
+const num = (v: number | string | undefined | null): number | null => {
+  if (v === undefined || v === null || v === "") return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+};
+const bool = (v: boolean | string | undefined): boolean => v === true || v === "true";
+
+async function lookup(env: Bindings, query: string, opts: LookupOptions): Promise<DistributorOffer[]> {
+  const hits = await call<SearchResult[]>(env, "/search", {
+    searchText: query,
+    useAndOperator: "true",
+    region: "0",
+    pageSize: "100",
+  }) ?? [];
+
+  const matches = hits
+    .filter((h) => opts.includeServices || !(h.CategoryPath ?? "").startsWith("Services"))
+    .slice(0, opts.limit);
+  if (matches.length === 0) return [];
+
+  const prices = await call<PricingResult[]>(env, "/pricing", {}, {
+    Warehouse: WAREHOUSE_NA,
+    BusinessUnit: BUSINESS_UNIT_NA,
+    Lines: matches.map((m) => ({ ItemNumber: m.ScanSourceItemNumber, PartNumberType: 1, Quantity: 1 })),
+  }) ?? [];
+  const priceBySku = new Map(prices.map((p) => [p.ItemNumber.toUpperCase(), p]));
+
+  return matches.map((m): DistributorOffer => {
+    const p = priceBySku.get(m.ScanSourceItemNumber.toUpperCase());
+    // "Authorization failed" here is per SKU, not our credentials: carrier- or
+    // program-specific SKUs (e.g. the "RC" RingCentral variants) are reserved
+    // for other partners.
+    const rawError = !p ? "No pricing returned" : bool(p.PricingError) ? (p.PricingErrorDesc || "Pricing error") : null;
+    const error = rawError === "Authorization failed" ? "Restricted SKU — not sold to us" : rawError;
+    const priced = p && !error;
+    return {
+      sku: m.ScanSourceItemNumber,
+      mfrPart: m.ManufacturerItemNumber,
+      manufacturer: m.Manufacturer,
+      description: m.Description,
+      category: m.CategoryPath,
+      unitPrice: priced ? num(p.UnitPrice) : null,
+      msrp: priced ? num(p.MSRP) : null,
+      currency: priced ? p.UnitPriceCurrencyCode : null,
+      qtyAvailable: priced ? num(p.QuantityAvailable) : null,
+      totalInventory: priced ? num(p.TotalInventory) : null,
+      qtyOnOrder: priced ? num(p.QuantityOnOrder) : null,
+      dropShipQty: priced ? num(p.DropShipQuantityAvailable) : null,
+      authorized: priced ? bool(p.DealerAuthorized) : null,
+      specialPricing: priced && bool(p.SPA) ? (p.SPADescription || "Special pricing applied") : null,
+      restriction: priced && bool(p.SPARestriction) ? (p.SPARestrictionDescription || "Restricted") : null,
+      error,
+    };
+  });
+}
+
+export const scansource: Distributor = {
+  id: "scansource",
+  name: "ScanSource",
+  isConfigured,
+  lookup,
+};

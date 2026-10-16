@@ -46,6 +46,7 @@ export default function AppShell() {
   const [canProspect, setCanProspect] = useState(false);
   const [canSalesTools, setCanSalesTools] = useState(false);
   const [canTimeAssist, setCanTimeAssist] = useState(false);
+  const [canSalesOps, setCanSalesOps] = useState(false);
   const [isLeadership, setIsLeadership] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [impersonating, setImpersonating] = useState<string | null>(null);
@@ -99,6 +100,8 @@ export default function AppShell() {
         // Deliberately NOT granted to admins wholesale — this is a personal
         // convenience, so only the explicit per-user flag opens it.
         setCanTimeAssist(res.user.is_time_assist === 1);
+        // Same: distributor cost pricing, explicit flag only.
+        setCanSalesOps(res.user.is_sales_ops === 1);
         setIsLeadership(res.role === "admin" || res.role === "executive");
       })
       .catch(() => {});
@@ -189,6 +192,7 @@ export default function AppShell() {
             <SideLink to="/support/cases" icon={NAV_ICONS.support} onClick={() => setDrawerOpen(false)}>Support</SideLink>
             <SideLink to="/roadmap" icon={NAV_ICONS.roadmap} onClick={() => setDrawerOpen(false)}>Roadmap</SideLink>
             {canSalesTools && <SideLink to="/sales-tools" icon={NAV_ICONS.salesTools} onClick={() => setDrawerOpen(false)}>Sales Tools</SideLink>}
+            {canSalesOps && <SideLink to="/sales-ops" icon={NAV_ICONS.salesOps} onClick={() => setDrawerOpen(false)}>Sales Operations</SideLink>}
             {canTimeAssist && <SideLink to="/my-time" icon={NAV_ICONS.salesTools} onClick={() => setDrawerOpen(false)}>My Time</SideLink>}
             {isLeadership && <SideLink to="/leadership" icon={NAV_ICONS.leadership} onClick={() => setDrawerOpen(false)}>Leadership</SideLink>}
           </>
@@ -671,6 +675,13 @@ const NAV_ICONS = {
     <I>
       <line x1="12" y1="1" x2="12" y2="23"/>
       <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+    </I>
+  ),
+  salesOps: (
+    <I>
+      <rect x="2" y="7" width="20" height="14" rx="2"/>
+      <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
+      <path d="M2 13h20"/>
     </I>
   ),
   adminRoadmap: (

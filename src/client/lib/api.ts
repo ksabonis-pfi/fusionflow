@@ -90,6 +90,8 @@ export type User = {
   is_specialist?: number;
   /** Personal time-entry suggestions (migration 0144). Off by default. */
   is_time_assist?: number;
+  /** Sales Operations module, distributor cost & stock (migration 0153). Off by default; not implied by admin. */
+  is_sales_ops?: number;
   /** Claude MCP connector access (migration 0149). Off by default. */
   is_mcp?: number;
   /** amc_paycode GUID the connector logs time with (migration 0150). */
@@ -1878,6 +1880,37 @@ async function spUploadChunked(
   return { file: graphItemToSPFile(finalItem) };
 }
 
+// ── Sales Operations ─────────────────────────────────────────────────────────
+
+export type DistributorOffer = {
+  sku: string;
+  mfrPart: string;
+  manufacturer: string | null;
+  description: string | null;
+  category: string | null;
+  unitPrice: number | null;
+  msrp: number | null;
+  currency: string | null;
+  qtyAvailable: number | null;
+  totalInventory: number | null;
+  qtyOnOrder: number | null;
+  dropShipQty: number | null;
+  authorized: boolean | null;
+  specialPricing: string | null;
+  restriction: string | null;
+  error: string | null;
+};
+
+export type DistributorLookup = {
+  id: string;
+  name: string;
+  status: "ok" | "error" | "not_configured";
+  error?: string;
+  offers: DistributorOffer[];
+};
+
+export type SalesOpsLookupResponse = { query: string; distributors: DistributorLookup[] };
+
 export const api = {
   me: () => request<MeResponse>("/me"),
   systemStatus: () => request<SystemStatusResponse>("/status"),
@@ -2278,6 +2311,13 @@ export const api = {
       `/projects/${projectId}/cascade/apply`,
       { method: "POST", body: JSON.stringify(payload) }
     ),
+
+  /** Price + stock for a part number or keyword across every distributor (requires is_sales_ops). */
+  salesOpsLookup: (query: string, includeServices = false) =>
+    request<SalesOpsLookupResponse>("/sales-ops/lookup", {
+      method: "POST",
+      body: JSON.stringify({ query, includeServices }),
+    }),
 
   /** Suggested time entries for the signed-in user (requires is_time_assist).
    *  Suggestions only — confirming one calls logProjectTime, which is what
@@ -2721,6 +2761,7 @@ export const api = {
       is_integrations?: number;
       is_specialist?: number;
       is_time_assist?: number;
+      is_sales_ops?: number;
       is_mcp?: number;
       default_pay_code_id?: string | null;
       is_sales_tools?: number;
