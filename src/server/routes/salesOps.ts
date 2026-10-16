@@ -36,6 +36,7 @@ type DistributorResult = {
   status: "ok" | "error" | "not_configured";
   error?: string;
   offers: DistributorOffer[];
+  truncated: boolean;
 };
 
 /** Price + stock for a part number or keyword across every distributor.
@@ -47,13 +48,13 @@ app.post("/lookup", async (c) => {
   const { query, includeServices = false } = parsed.data;
 
   const distributors = await Promise.all(DISTRIBUTORS.map(async (d): Promise<DistributorResult> => {
-    if (!d.isConfigured(c.env)) return { id: d.id, name: d.name, status: "not_configured", offers: [] };
+    if (!d.isConfigured(c.env)) return { id: d.id, name: d.name, status: "not_configured", offers: [], truncated: false };
     try {
-      const offers = await d.lookup(c.env, query, { includeServices, limit: 25 });
-      return { id: d.id, name: d.name, status: "ok", offers };
+      const { offers, truncated } = await d.lookup(c.env, query, { includeServices, limit: 25 });
+      return { id: d.id, name: d.name, status: "ok", offers, truncated };
     } catch (err) {
       console.error(`[sales-ops] ${d.id} lookup failed`, err);
-      return { id: d.id, name: d.name, status: "error", error: "Lookup failed — try again shortly", offers: [] };
+      return { id: d.id, name: d.name, status: "error", error: "Lookup failed — try again shortly", offers: [], truncated: false };
     }
   }));
 

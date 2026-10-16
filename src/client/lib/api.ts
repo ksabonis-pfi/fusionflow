@@ -1908,6 +1908,8 @@ export type DistributorLookup = {
   status: "ok" | "error" | "not_configured";
   error?: string;
   offers: DistributorOffer[];
+  /** More matches exist than were returned — results aren't exhaustive. */
+  truncated: boolean;
 };
 
 export type SalesOpsLookupResponse = { query: string; distributors: DistributorLookup[] };
