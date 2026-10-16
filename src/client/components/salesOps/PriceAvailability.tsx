@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
 import { api, type DistributorLookup, type DistributorOffer, type SalesOpsLookupResponse } from "../../lib/api";
 import ProductThumbnail from "./ProductThumbnail";
+import { money } from "./format";
+import { Badge } from "./shared";
 
 // Same normalization as the server's normalizeMfrPart: distributors format the
 // same manufacturer part differently, and that part is the comparison key.
@@ -8,11 +10,6 @@ const normalizeMfrPart = (p: string) => p.toUpperCase().replace(/[\s-]/g, "");
 
 type Row = { distributor: DistributorLookup; offer: DistributorOffer };
 type Group = { key: string; mfrPart: string; manufacturer: string | null; description: string | null; imageUrl: string | null; rows: Row[] };
-
-function money(v: number | null, currency: string | null) {
-  if (v === null) return "—";
-  return new Intl.NumberFormat("en-US", { style: "currency", currency: currency || "USD" }).format(v);
-}
 
 function qty(v: number | null) {
   return v === null ? "—" : v.toLocaleString("en-US");
@@ -53,21 +50,6 @@ function bestRow(g: Group): Row | null {
   const candidates = g.rows.filter((r) => buyable(r.offer) && inStock(r.offer));
   if (g.rows.length < 2 || candidates.length === 0) return null;
   return candidates.reduce((a, b) => (b.offer.unitPrice! < a.offer.unitPrice! ? b : a));
-}
-
-function Badge({ children, tone }: { children: React.ReactNode; tone: "green" | "amber" | "red" | "slate" | "teal" }) {
-  const tones = {
-    green: { bg: "#dcfce7", fg: "#166534" },
-    amber: { bg: "#fef3c7", fg: "#92400e" },
-    red: { bg: "#fee2e2", fg: "#991b1b" },
-    slate: { bg: "#f1f5f9", fg: "#475569" },
-    teal: { bg: "#ccfbf1", fg: "#115e59" },
-  }[tone];
-  return (
-    <span style={{ display: "inline-block", fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 999, background: tones.bg, color: tones.fg, marginRight: 4, marginBottom: 2 }}>
-      {children}
-    </span>
-  );
 }
 
 function DistributorStatus({ d }: { d: DistributorLookup }) {

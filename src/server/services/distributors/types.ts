@@ -32,6 +32,52 @@ export interface Distributor {
   isConfigured(env: Bindings): boolean;
   /** Find SKUs matching a part number or keyword and return their price + stock. */
   lookup(env: Bindings, query: string, opts: LookupOptions): Promise<LookupResult>;
+  /** Quotes the distributor has issued us. Optional: not every distributor exposes them. */
+  listQuotes?(env: Bindings): Promise<QuoteSummary[]>;
+  /** One quote with its lines; null when the distributor has no such quote. */
+  getQuote?(env: Bindings, quoteNumber: string): Promise<QuoteDetail | null>;
+}
+
+export interface QuoteSummary {
+  quoteNumber: string;
+  name: string;               // display name, our own company prefix stripped
+  total: number | null;
+  currency: string | null;
+  createdAt: string | null;   // ISO timestamp
+  updatedAt: string | null;
+  expiresOn: string | null;   // YYYY-MM-DD
+  createdBy: string | null;   // distributor rep who built it
+  dealId: string | null;      // manufacturer deal / special pricing ID
+}
+
+export interface QuoteLine {
+  lineNumber: string;
+  mfrPart: string | null;
+  sku: string | null;           // distributor item number, when it could be resolved
+  manufacturer: string | null;
+  description: string | null;
+  productType: string | null;   // e.g. "HW/SW", "Service"
+  quantity: number;
+  unitPrice: number | null;     // our quoted cost per unit
+  msrp: number | null;
+  extended: number | null;      // quantity × unitPrice
+  stock: string | null;         // distributor's stock indicator as given ("Yes", "Call", "N/A")
+  serviceType: string | null;   // "New", "Renewal", ...
+  term: string | null;
+  serviceStarts: string | null;
+  serviceEnds: string | null;
+  deals: { id: string; expiresOn: string | null }[];
+  imageUrl: string | null;
+}
+
+export interface QuoteDetail extends QuoteSummary {
+  endUser: string | null;
+  shipTo: string | null;        // one-line address
+  shippingMethod: string | null;
+  orderType: string | null;
+  notes: string | null;
+  resellerContact: { name: string | null; email: string | null } | null;
+  lines: QuoteLine[];
 }
 
 export interface LookupOptions {
