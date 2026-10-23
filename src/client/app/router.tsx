@@ -17,6 +17,7 @@ import AdminTemplatesPage from "../pages/AdminTemplatesPage";
 import SolutionsPage from "../pages/SolutionsPage";
 import SolutionDetailPage from "../pages/SolutionDetailPage";
 import OptimizePage from "../pages/OptimizePage";
+import ClientSuccessPage from "../pages/ClientSuccessPage";
 import OptimizeAccountPage from "../pages/OptimizeAccountPage";
 import LoginPage from "../pages/LoginPage";
 import InboxPage from "../pages/InboxPage";
@@ -76,6 +77,7 @@ export default function Router() {
           <Route path="/solutions/:id" element={<SolutionDetailPage />} />
           <Route path="/optimize" element={<OptimizePage />} />
           <Route path="/optimize/:projectId" element={<OptimizeAccountPage />} />
+          <Route path="/client-success" element={<ClientSuccessPage />} />
           <Route path="/customers" element={<CustomersPage />} />
           <Route path="/customers/:id" element={<CustomerDetailPage />} />
           <Route path="/prospecting" element={<ProspectingPage />} />
