@@ -8,6 +8,7 @@ import {
   WORK_TYPES, createTimeEntryForUser, deleteTimeEntryForUser, isFailure, updateTimeEntryForUser, type WorkType,
 } from "./timeWrites";
 import { addInternalNoteForUser } from "./internalNotes";
+import { addTaskCommentForUser, getTaskDetails, listMyTasks, updateTaskForUser } from "./tasks";
 
 const zDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD");
 const zTime = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Use HH:MM, 24-hour");
@@ -48,7 +49,9 @@ export function buildMcpServer(env: Bindings, ctx: ExecutionContext, auth: AuthC
         "logged against. Dates and times are US Pacific. Hours: allotted_hours is the SOW quote, " +
         "hours_used is everything logged to the CE case. Logged time is billable and goes straight to " +
         "payroll: confirm project, date, hours and description with the user before calling " +
-        "create_time_entry, and show them the entry_id and ce_time_entry_id it returns.",
+        "create_time_entry, and show them the entry_id and ce_time_entry_id it returns. Tasks: " +
+        "list_my_tasks finds what's assigned to me; changing or completing a task notifies the PM " +
+        "like the app does, so confirm the change with the user first.",
     }
   );
   const user = auth.user;
@@ -130,6 +133,52 @@ export function buildMcpServer(env: Bindings, ctx: ExecutionContext, auth: AuthC
         entries,
       });
     }
+  );
+
+  server.registerTool(
+    "list_my_tasks",
+    {
+      title: "List my tasks",
+      description:
+        "Tasks assigned to me (as assignee or additional resource), same as the My Tasks page. " +
+        "Open tasks by default, blocked first, then in progress, then soonest due. Each task " +
+        "shows overdue and its last comment; a last comment that isn't from_me usually means " +
+        "someone is waiting on me. Use task_id with get_task, update_task, complete_task, or " +
+        "add_task_comment.",
+      inputSchema: {
+        project: z.string().optional().describe("Case number, project id, or name"),
+        status: z.enum(["open", "not_started", "in_progress", "blocked", "completed", "overdue"]).optional()
+          .describe("Default open (everything not completed)"),
+        due_within_days: z.number().int().min(0).max(365).optional()
+          .describe("Only tasks due within this many days from today, including overdue ones"),
+        limit: z.number().int().min(1).max(200).optional().describe("Default 50"),
+      },
+      annotations: { readOnlyHint: true },
+    },
+    async ({ project, status, due_within_days, limit }) => {
+      let projectIds: string[] | undefined;
+      if (project) {
+        const rows = await findProjects(env, user, project);
+        if (rows.length === 0) return toolError(`No project you can see matches "${project}".`);
+        if (rows.length > 1) return json({ ambiguous: true, matches: candidates(rows) });
+        projectIds = [rows[0].id];
+      }
+      const tasks = await listMyTasks(env, user, { projectIds, status, dueWithinDays: due_within_days, limit });
+      return json({ count: tasks.length, tasks });
+    }
+  );
+
+  server.registerTool(
+    "get_task",
+    {
+      title: "Get task",
+      description:
+        "One task in full: project, stage, status, due date, notes, every assignee, the whole " +
+        "comment thread, and my_edit_access (full, status_only, or none).",
+      inputSchema: { task_id: z.string().min(1) },
+      annotations: { readOnlyHint: true },
+    },
+    async ({ task_id }) => writeResult(await getTaskDetails(env, auth, task_id))
   );
 
   // ── Writes ───────────────────────────────────────────────────────────────
@@ -254,6 +303,74 @@ export function buildMcpServer(env: Bindings, ctx: ExecutionContext, auth: AuthC
         note, allow_duplicate ?? false
       ));
     }
+  );
+
+  server.registerTool(
+    "update_task",
+    {
+      title: "Update task",
+      description:
+        "Change a task's status, due date, priority, or notes, with the same permissions and " +
+        "side effects as the app: the PM is emailed, blocking a task alerts the PM, and stage " +
+        "and project status update. Only fields that differ are changed; if nothing differs, " +
+        "nothing happens (status \"no_change\"). notes REPLACES the task's notes, so read them " +
+        "with get_task first, and use add_task_comment for updates or replies. Confirm the " +
+        "change with the user before calling.",
+      inputSchema: {
+        task_id: z.string().min(1),
+        status: z.enum(["not_started", "in_progress", "blocked", "completed"]).optional(),
+        due_date: zDate.nullable().optional().describe("YYYY-MM-DD, or null to clear"),
+        priority: z.enum(["low", "medium", "high"]).nullable().optional(),
+        notes: z.string().max(10000).nullable().optional().describe("Replaces the task notes entirely"),
+        completed_on: zDate.optional().describe("Backdate completion, YYYY-MM-DD. Only with status completed"),
+        confirm_go_live: z.boolean().optional()
+          .describe("Required to complete a go-live task, after the user confirms"),
+      },
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
+    },
+    async ({ task_id, confirm_go_live, ...changes }) =>
+      writeResult(await updateTaskForUser(env, ctx, auth, task_id, changes, confirm_go_live ?? false))
+  );
+
+  server.registerTool(
+    "complete_task",
+    {
+      title: "Complete task",
+      description:
+        "Mark a task completed, as of today unless completed_on is given. Same effects as " +
+        "completing it in the app (PM emailed, stage and project status updated). Completing the " +
+        "project's go-live task also posts a go-live announcement to the company Zoom channel: " +
+        "that needs the user's explicit OK and confirm_go_live=true. Already completed returns " +
+        "\"no_change\". Confirm with the user before calling.",
+      inputSchema: {
+        task_id: z.string().min(1),
+        completed_on: zDate.optional().describe("YYYY-MM-DD, to backdate"),
+        confirm_go_live: z.boolean().optional(),
+      },
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
+    },
+    async ({ task_id, completed_on, confirm_go_live }) =>
+      writeResult(await updateTaskForUser(
+        env, ctx, auth, task_id, { status: "completed", completed_on }, confirm_go_live ?? false
+      ))
+  );
+
+  server.registerTool(
+    "add_task_comment",
+    {
+      title: "Comment on task",
+      description:
+        "Post a comment on a task as me, in its comment thread in the app. Use it to answer a " +
+        "question or give an update. Retrying the same comment within a day doesn't post it twice.",
+      inputSchema: {
+        task_id: z.string().min(1),
+        comment: z.string().trim().min(1).max(5000),
+        allow_duplicate: z.boolean().optional().describe("Post even if I left this exact comment in the last day"),
+      },
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
+    },
+    async ({ task_id, comment, allow_duplicate }) =>
+      writeResult(await addTaskCommentForUser(env, ctx, auth, task_id, comment, allow_duplicate ?? false))
   );
 
   return server;
