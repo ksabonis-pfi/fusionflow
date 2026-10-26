@@ -11,7 +11,7 @@ import { maybeSendEmail, sendEmail } from "../services/emailService";
 import { projectAtRisk, contactProjectInvite, projectReadyToClose } from "../lib/emailTemplates";
 import { computeProjectHealth } from "../lib/healthScore";
 import { getAccountTeam, getCase, getCaseTimeEntries, getAccountOpportunities, getOpportunityQuotes, pickSowQuote, closeCase } from "../services/dynamicsService";
-import { syncProjectContactToCrm, verifyProjectContactInCrm, pushProjectContactToCrm } from "../lib/contactCrmSync";
+import { syncProjectContactToCrm, verifyProjectContactInCrm, pushProjectContactToCrm, mirrorToCustomerContacts } from "../lib/contactCrmSync";
 import { ensureSharePointChildFolder, grantFolderEdit, lookupMailGroup, revokeAllProjectEditGrants } from "../services/graphService";
 import { resolveCustomerSharePointUrl } from "../lib/customerSharePoint";
 import { findOrCreatePfUser } from "../lib/crmUsers";
@@ -1261,9 +1261,13 @@ app.post("/:id/contacts/:contactId/resolve-ce-match", requireRole("admin", "pm",
   if (!parsed.success) throw new HTTPException(400, { message: "Invalid request body" });
 
   const contact = await db
-    .prepare("SELECT id, ce_match_status, ce_candidate_contact_id FROM project_contacts WHERE id = ? AND project_id = ? LIMIT 1")
+    .prepare(
+      `SELECT pc.id, pc.ce_match_status, pc.ce_candidate_contact_id, pc.name, pc.email, pc.phone, pc.job_title, p.customer_id
+       FROM project_contacts pc JOIN projects p ON p.id = pc.project_id
+       WHERE pc.id = ? AND pc.project_id = ? LIMIT 1`
+    )
     .bind(contactId, projectId)
-    .first<{ id: string; ce_match_status: string | null; ce_candidate_contact_id: string | null }>();
+    .first<{ id: string; ce_match_status: string | null; ce_candidate_contact_id: string | null; name: string; email: string | null; phone: string | null; job_title: string | null; customer_id: string | null }>();
   if (!contact) throw new HTTPException(404, { message: "Contact not found" });
   if (contact.ce_match_status !== "needs_review") {
     throw new HTTPException(400, { message: "This contact isn't awaiting CE review" });
@@ -1275,6 +1279,7 @@ app.post("/:id/contacts/:contactId/resolve-ce-match", requireRole("admin", "pm",
       .prepare("UPDATE project_contacts SET dynamics_contact_id = ?, ce_match_status = 'matched', ce_checked_at = CURRENT_TIMESTAMP, ce_candidate_contact_id = NULL, ce_candidate_label = NULL WHERE id = ?")
       .bind(contact.ce_candidate_contact_id, contactId)
       .run();
+    await mirrorToCustomerContacts(db, contact.customer_id, { dynamics_contact_id: contact.ce_candidate_contact_id, name: contact.name, email: contact.email, phone: contact.phone, job_title: contact.job_title });
   } else {
     await pushProjectContactToCrm(c.env, db, contactId);
   }
