@@ -62,7 +62,7 @@ type ProjectContactRow = {
   job_title: string | null;
 };
 
-async function loadContactAndAccount(db: D1Database, projectContactId: string): Promise<{ contact: ProjectContactRow; accountId: string } | null> {
+async function loadContactAndAccount(db: D1Database, projectContactId: string): Promise<{ contact: ProjectContactRow; accountId: string; customerId: string | null } | null> {
   const contact = await db
     .prepare(
       `SELECT pc.id, pc.project_id, pc.dynamics_contact_id, pc.name, pc.email, pc.phone, pc.job_title
@@ -73,13 +73,48 @@ async function loadContactAndAccount(db: D1Database, projectContactId: string): 
   if (!contact) return null;
 
   const project = await db
-    .prepare("SELECT dynamics_account_id FROM projects WHERE id = ? LIMIT 1")
+    .prepare("SELECT dynamics_account_id, customer_id FROM projects WHERE id = ? LIMIT 1")
     .bind(contact.project_id)
-    .first<{ dynamics_account_id: string | null }>();
+    .first<{ dynamics_account_id: string | null; customer_id: string | null }>();
   const accountId = project?.dynamics_account_id;
   if (!accountId) return null;
 
-  return { contact, accountId };
+  return { contact, accountId, customerId: project?.customer_id ?? null };
+}
+
+/**
+ * Mirrors a project contact that's now confirmed in CE onto the customer's
+ * own contact list (customer_contacts, surfaced on the Customer Detail
+ * page) — so a contact added from inside a project shows up there too, not
+ * just on that one project. Skipped if the project isn't linked to a
+ * CloudConnect customer record, or if a contact tied to the same Dynamics
+ * id (or email) is already there — never overwrites an existing row, since
+ * someone may have already edited it at the customer level.
+ */
+export async function mirrorToCustomerContacts(
+  db: D1Database,
+  customerId: string | null,
+  contact: { dynamics_contact_id: string; name: string; email: string | null; phone: string | null; job_title: string | null }
+): Promise<void> {
+  if (!customerId) return;
+
+  const existing = await db
+    .prepare(
+      `SELECT id FROM customer_contacts
+       WHERE customer_id = ? AND (dynamics_contact_id = ? OR (email IS NOT NULL AND LOWER(email) = LOWER(?)))
+       LIMIT 1`
+    )
+    .bind(customerId, contact.dynamics_contact_id, contact.email ?? "")
+    .first();
+  if (existing) return;
+
+  await db
+    .prepare(
+      `INSERT INTO customer_contacts (id, customer_id, dynamics_contact_id, name, email, phone, job_title)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`
+    )
+    .bind(crypto.randomUUID(), customerId, contact.dynamics_contact_id, contact.name, contact.email, contact.phone, contact.job_title)
+    .run();
 }
 
 /**
@@ -95,7 +130,7 @@ async function loadContactAndAccount(db: D1Database, projectContactId: string): 
 export async function syncProjectContactToCrm(env: Bindings, db: D1Database, projectContactId: string): Promise<void> {
   const loaded = await loadContactAndAccount(db, projectContactId);
   if (!loaded) return;
-  const { contact, accountId } = loaded;
+  const { contact, accountId, customerId } = loaded;
 
   const email = contact.email?.trim() || null;
   if (email) {
@@ -105,6 +140,7 @@ export async function syncProjectContactToCrm(env: Bindings, db: D1Database, pro
         .prepare("UPDATE project_contacts SET dynamics_contact_id = ?, ce_match_status = 'matched', ce_checked_at = CURRENT_TIMESTAMP, ce_candidate_contact_id = NULL, ce_candidate_label = NULL WHERE id = ?")
         .bind(exact.contactid, projectContactId)
         .run();
+      await mirrorToCustomerContacts(db, customerId, { dynamics_contact_id: exact.contactid, name: contact.name, email: contact.email, phone: contact.phone, job_title: contact.job_title });
       return;
     }
   }
@@ -144,7 +180,7 @@ export async function syncProjectContactToCrm(env: Bindings, db: D1Database, pro
 export async function pushProjectContactToCrm(env: Bindings, db: D1Database, projectContactId: string): Promise<void> {
   const loaded = await loadContactAndAccount(db, projectContactId);
   if (!loaded) throw new Error("This project has no linked CRM account");
-  const { contact, accountId } = loaded;
+  const { contact, accountId, customerId } = loaded;
 
   const email = contact.email?.trim() || null;
   const exact = email ? await findContactByEmail(env, accountId, email) : null;
@@ -153,6 +189,7 @@ export async function pushProjectContactToCrm(env: Bindings, db: D1Database, pro
       .prepare("UPDATE project_contacts SET dynamics_contact_id = ?, ce_match_status = 'matched', ce_checked_at = CURRENT_TIMESTAMP, ce_candidate_contact_id = NULL, ce_candidate_label = NULL WHERE id = ?")
       .bind(exact.contactid, projectContactId)
       .run();
+    await mirrorToCustomerContacts(db, customerId, { dynamics_contact_id: exact.contactid, name: contact.name, email: contact.email, phone: contact.phone, job_title: contact.job_title });
     return;
   }
 
@@ -164,6 +201,7 @@ export async function pushProjectContactToCrm(env: Bindings, db: D1Database, pro
     .prepare("UPDATE project_contacts SET dynamics_contact_id = ?, ce_match_status = 'created', ce_checked_at = CURRENT_TIMESTAMP, ce_candidate_contact_id = NULL, ce_candidate_label = NULL WHERE id = ?")
     .bind(created.contactid, projectContactId)
     .run();
+  await mirrorToCustomerContacts(db, customerId, { dynamics_contact_id: created.contactid, name: contact.name, email: contact.email, phone: contact.phone, job_title: contact.job_title });
 }
 
 /** Re-confirms an already-linked contact still exists AND is active in CE,
