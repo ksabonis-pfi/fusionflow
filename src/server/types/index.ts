@@ -10,6 +10,7 @@ export interface AppUser {
   is_support_supervisor?: number; // additive flag — supervisor-only digest feature
   is_sales_tools?: number; // additive flag — Sales Tools module access (Commissions Calculator, Zoom Resell, Zoom Agency)
   is_time_assist?: number; // additive flag — My Time page (suggested time entries from Zoom + Outlook)
+  is_sales_ops?: number; // additive flag — Sales Operations module (distributor cost & stock). Not implied by admin.
   dynamics_account_id: string | null;
   /** Every CRM account this session may see. A client who is a contact on more
    *  than one customer (sister agencies sharing staff — e.g. Placer County and
@@ -88,6 +89,11 @@ export type Bindings = {
   FEDEX_CLIENT_ID?: string;
   FEDEX_CLIENT_SECRET?: string;
   FEDEX_API_BASE?: string;
+  // ScanSource partner API (APIM, Azure AD client credentials + Ocp-Apim-Subscription-Key)
+  SCANSOURCE_CLIENT_ID?: string;
+  SCANSOURCE_CLIENT_SECRET?: string;
+  SCANSOURCE_SUBSCRIPTION_KEY?: string;
+  SCANSOURCE_CUSTOMER_NUMBER?: string;
   // Apollo.io prospecting API key
   APOLLO_API_KEY?: string;
   // Anthropic API key for AI content generation

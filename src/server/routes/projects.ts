@@ -11,6 +11,7 @@ import { maybeSendEmail, sendEmail } from "../services/emailService";
 import { projectAtRisk, contactProjectInvite, projectReadyToClose } from "../lib/emailTemplates";
 import { computeProjectHealth } from "../lib/healthScore";
 import { getAccountTeam, getCase, getCaseTimeEntries, getAccountOpportunities, getOpportunityQuotes, pickSowQuote, closeCase } from "../services/dynamicsService";
+import { syncProjectContactToCrm, verifyProjectContactInCrm, pushProjectContactToCrm } from "../lib/contactCrmSync";
 import { ensureSharePointChildFolder, grantFolderEdit, lookupMailGroup, revokeAllProjectEditGrants } from "../services/graphService";
 import { resolveCustomerSharePointUrl } from "../lib/customerSharePoint";
 import { findOrCreatePfUser } from "../lib/crmUsers";
@@ -1211,6 +1212,18 @@ app.post("/:id/contacts", requireRole("admin", "pm", "pf_ae", "pf_csm", "pf_engi
     })());
   }
 
+  // A manually-entered contact (no dynamics_contact_id picked from a live CRM
+  // search) may or may not already exist in CE — link it to an exact match,
+  // flag a close match for review, or create it fresh. Best-effort and off
+  // the response path, same as the SharePoint auto-grant above.
+  if (!dynamics_contact_id) {
+    c.executionCtx.waitUntil(
+      syncProjectContactToCrm(c.env, db, id).catch((err) =>
+        console.warn(`[projects.contacts] CE sync for ${id} failed:`, err instanceof Error ? err.message : err)
+      )
+    );
+  }
+
   return c.json(created, 201);
 });
 
@@ -1227,6 +1240,103 @@ app.delete("/:id/contacts/:contactId", requireRole("admin", "pm", "pf_ae", "pf_c
     .bind(c.req.param("contactId"), projectId)
     .run();
   return c.json({ success: true });
+});
+
+const resolveCeMatchSchema = z.object({ action: z.enum(["link", "create"]) });
+
+// A 'needs_review' contact's fuzzy CE match, resolved by a human: either it's
+// the same person (link to the candidate) or a different one (create fresh).
+// Only valid while still 'needs_review' — otherwise there's no candidate to
+// link, or a second "create" on an already-resolved contact would duplicate it.
+app.post("/:id/contacts/:contactId/resolve-ce-match", requireRole("admin", "pm", "pf_ae", "pf_csm", "pf_engineer"), async (c) => {
+  const auth = c.get("auth");
+  const db = c.env.DB;
+  const projectId = c.req.param("id");
+  const contactId = c.req.param("contactId");
+
+  const allowed = await canEditProject(db, auth.user, projectId);
+  if (!allowed) throw new HTTPException(403, { message: "Forbidden" });
+
+  const parsed = resolveCeMatchSchema.safeParse(await c.req.json());
+  if (!parsed.success) throw new HTTPException(400, { message: "Invalid request body" });
+
+  const contact = await db
+    .prepare("SELECT id, ce_match_status, ce_candidate_contact_id FROM project_contacts WHERE id = ? AND project_id = ? LIMIT 1")
+    .bind(contactId, projectId)
+    .first<{ id: string; ce_match_status: string | null; ce_candidate_contact_id: string | null }>();
+  if (!contact) throw new HTTPException(404, { message: "Contact not found" });
+  if (contact.ce_match_status !== "needs_review") {
+    throw new HTTPException(400, { message: "This contact isn't awaiting CE review" });
+  }
+
+  if (parsed.data.action === "link") {
+    if (!contact.ce_candidate_contact_id) throw new HTTPException(400, { message: "No candidate to link" });
+    await db
+      .prepare("UPDATE project_contacts SET dynamics_contact_id = ?, ce_match_status = 'matched', ce_checked_at = CURRENT_TIMESTAMP, ce_candidate_contact_id = NULL, ce_candidate_label = NULL WHERE id = ?")
+      .bind(contact.ce_candidate_contact_id, contactId)
+      .run();
+  } else {
+    await pushProjectContactToCrm(c.env, db, contactId);
+  }
+
+  const updated = await db.prepare("SELECT * FROM project_contacts WHERE id = ? LIMIT 1").bind(contactId).first();
+  return c.json(updated);
+});
+
+// On-demand CE check for a contact: re-verifies an existing link, or (for a
+// legacy row with none) runs the match-only flow a new contact gets. Never
+// creates — see POST .../push-ce for the deliberate create/relink action.
+app.post("/:id/contacts/:contactId/verify-ce", requireRole("admin", "pm", "pf_ae", "pf_csm", "pf_engineer"), async (c) => {
+  const auth = c.get("auth");
+  const db = c.env.DB;
+  const projectId = c.req.param("id");
+  const contactId = c.req.param("contactId");
+
+  const allowed = await canEditProject(db, auth.user, projectId);
+  if (!allowed) throw new HTTPException(403, { message: "Forbidden" });
+
+  const contact = await db
+    .prepare("SELECT dynamics_contact_id FROM project_contacts WHERE id = ? AND project_id = ? LIMIT 1")
+    .bind(contactId, projectId)
+    .first<{ dynamics_contact_id: string | null }>();
+  if (!contact) throw new HTTPException(404, { message: "Contact not found" });
+
+  if (contact.dynamics_contact_id) {
+    await verifyProjectContactInCrm(c.env, db, contactId);
+  } else {
+    await syncProjectContactToCrm(c.env, db, contactId);
+  }
+
+  const updated = await db.prepare("SELECT * FROM project_contacts WHERE id = ? LIMIT 1").bind(contactId).first();
+  return c.json(updated);
+});
+
+// "Push to CE" — the deliberate, human-triggered action that actually creates
+// (or relinks, if an exact match has shown up since) a Dynamics contact.
+// Used for 'not_found' (never matched anything) and 'missing' (a previously
+// linked CE record is gone) — the only two states this is offered from.
+app.post("/:id/contacts/:contactId/push-ce", requireRole("admin", "pm", "pf_ae", "pf_csm", "pf_engineer"), async (c) => {
+  const auth = c.get("auth");
+  const db = c.env.DB;
+  const projectId = c.req.param("id");
+  const contactId = c.req.param("contactId");
+
+  const allowed = await canEditProject(db, auth.user, projectId);
+  if (!allowed) throw new HTTPException(403, { message: "Forbidden" });
+
+  const contact = await db
+    .prepare("SELECT id, ce_match_status FROM project_contacts WHERE id = ? AND project_id = ? LIMIT 1")
+    .bind(contactId, projectId)
+    .first<{ id: string; ce_match_status: string | null }>();
+  if (!contact) throw new HTTPException(404, { message: "Contact not found" });
+  if (contact.ce_match_status !== "not_found" && contact.ce_match_status !== "missing") {
+    throw new HTTPException(400, { message: "This contact doesn't need to be pushed to CE" });
+  }
+
+  await pushProjectContactToCrm(c.env, db, contactId);
+
+  const updated = await db.prepare("SELECT * FROM project_contacts WHERE id = ? LIMIT 1").bind(contactId).first();
+  return c.json(updated);
 });
 
 // ── Project Staff ─────────────────────────────────────────────────────────────

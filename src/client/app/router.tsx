@@ -17,6 +17,7 @@ import AdminTemplatesPage from "../pages/AdminTemplatesPage";
 import SolutionsPage from "../pages/SolutionsPage";
 import SolutionDetailPage from "../pages/SolutionDetailPage";
 import OptimizePage from "../pages/OptimizePage";
+import ClientSuccessPage from "../pages/ClientSuccessPage";
 import OptimizeAccountPage from "../pages/OptimizeAccountPage";
 import LoginPage from "../pages/LoginPage";
 import InboxPage from "../pages/InboxPage";
@@ -39,6 +40,7 @@ import AdminStagingPromotePage from "../pages/AdminStagingPromotePage";
 import ProfilePage from "../pages/ProfilePage";
 import SalesToolsPage from "../pages/SalesToolsPage";
 import MyTimePage from "../pages/MyTimePage";
+import SalesOpsPage from "../pages/SalesOpsPage";
 
 export default function Router() {
   const isStaging = typeof window !== "undefined" && window.location.hostname.includes("staging");
@@ -75,6 +77,7 @@ export default function Router() {
           <Route path="/solutions/:id" element={<SolutionDetailPage />} />
           <Route path="/optimize" element={<OptimizePage />} />
           <Route path="/optimize/:projectId" element={<OptimizeAccountPage />} />
+          <Route path="/client-success" element={<ClientSuccessPage />} />
           <Route path="/customers" element={<CustomersPage />} />
           <Route path="/customers/:id" element={<CustomerDetailPage />} />
           <Route path="/prospecting" element={<ProspectingPage />} />
@@ -83,6 +86,7 @@ export default function Router() {
           <Route path="/roadmap" element={<RoadmapPage />} />
           <Route path="/sales-tools" element={<SalesToolsPage />} />
           <Route path="/my-time" element={<MyTimePage />} />
+          <Route path="/sales-ops" element={<SalesOpsPage />} />
           <Route path="/profile" element={<ProfilePage />} />
 <Route path="/admin/users" element={<AdminUsersPage />} />
           <Route path="/admin/help-requests" element={<AdminHelpRequestsPage />} />

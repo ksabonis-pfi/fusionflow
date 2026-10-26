@@ -90,6 +90,8 @@ export type User = {
   is_specialist?: number;
   /** Personal time-entry suggestions (migration 0144). Off by default. */
   is_time_assist?: number;
+  /** Sales Operations module, distributor cost & stock (migration 0153). Off by default; not implied by admin. */
+  is_sales_ops?: number;
   /** Claude MCP connector access (migration 0149). Off by default. */
   is_mcp?: number;
   /** amc_paycode GUID the connector logs time with (migration 0150). */
@@ -935,6 +937,11 @@ export type ProjectContact = {
   job_title: string | null;
   contact_role: string | null;
   added_at: string;
+  /** null = not yet checked against CE (contact predates this feature). */
+  ce_match_status: "matched" | "created" | "needs_review" | "not_found" | "missing" | null;
+  ce_candidate_contact_id: string | null;
+  ce_candidate_label: string | null;
+  ce_checked_at: string | null;
 };
 
 export type SolutionContact = {
@@ -1873,6 +1880,87 @@ async function spUploadChunked(
   return { file: graphItemToSPFile(finalItem) };
 }
 
+// ── Sales Operations ─────────────────────────────────────────────────────────
+
+export type DistributorOffer = {
+  sku: string;
+  mfrPart: string;
+  manufacturer: string | null;
+  description: string | null;
+  category: string | null;
+  unitPrice: number | null;
+  msrp: number | null;
+  currency: string | null;
+  qtyAvailable: number | null;
+  totalInventory: number | null;
+  qtyOnOrder: number | null;
+  dropShipQty: number | null;
+  authorized: boolean | null;
+  specialPricing: string | null;
+  restriction: string | null;
+  error: string | null;
+  restricted: boolean;
+  imageUrl: string | null;
+};
+
+export type DistributorLookup = {
+  id: string;
+  name: string;
+  status: "ok" | "error" | "not_configured";
+  error?: string;
+  offers: DistributorOffer[];
+  /** More matches exist than were returned — results aren't exhaustive. */
+  truncated: boolean;
+};
+
+export type SalesOpsLookupResponse = { query: string; distributors: DistributorLookup[] };
+
+export type DistributorQuoteSummary = {
+  quoteNumber: string;
+  name: string;
+  total: number | null;
+  currency: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+  expiresOn: string | null;
+  createdBy: string | null;
+  dealId: string | null;
+};
+
+export type DistributorQuoteLine = {
+  lineNumber: string;
+  mfrPart: string | null;
+  sku: string | null;
+  manufacturer: string | null;
+  description: string | null;
+  productType: string | null;
+  quantity: number;
+  unitPrice: number | null;
+  msrp: number | null;
+  extended: number | null;
+  stock: string | null;
+  serviceType: string | null;
+  term: string | null;
+  serviceStarts: string | null;
+  serviceEnds: string | null;
+  deals: { id: string; expiresOn: string | null }[];
+  imageUrl: string | null;
+};
+
+export type DistributorQuoteDetail = DistributorQuoteSummary & {
+  endUser: string | null;
+  shipTo: string | null;
+  shippingMethod: string | null;
+  orderType: string | null;
+  notes: string | null;
+  resellerContact: { name: string | null; email: string | null } | null;
+  lines: DistributorQuoteLine[];
+};
+
+export type SalesOpsQuotesResponse = {
+  distributors: { id: string; name: string; status: "ok" | "error" | "not_configured"; error?: string; quotes: DistributorQuoteSummary[] }[];
+};
+
 export const api = {
   me: () => request<MeResponse>("/me"),
   systemStatus: () => request<SystemStatusResponse>("/status"),
@@ -2274,6 +2362,21 @@ export const api = {
       { method: "POST", body: JSON.stringify(payload) }
     ),
 
+  /** Price + stock for a part number or keyword across every distributor (requires is_sales_ops). */
+  salesOpsLookup: (query: string, includeServices = false) =>
+    request<SalesOpsLookupResponse>("/sales-ops/lookup", {
+      method: "POST",
+      body: JSON.stringify({ query, includeServices }),
+    }),
+
+  /** Quotes every distributor has issued us (requires is_sales_ops). */
+  salesOpsQuotes: () => request<SalesOpsQuotesResponse>("/sales-ops/quotes"),
+
+  salesOpsQuote: (distributor: string, quoteNumber: string) =>
+    request<{ distributor: { id: string; name: string }; quote: DistributorQuoteDetail }>(
+      `/sales-ops/quotes/${encodeURIComponent(distributor)}/${encodeURIComponent(quoteNumber)}`,
+    ),
+
   /** Suggested time entries for the signed-in user (requires is_time_assist).
    *  Suggestions only — confirming one calls logProjectTime, which is what
    *  actually writes to Dynamics. */
@@ -2392,6 +2495,29 @@ export const api = {
   removeProjectContact: (projectId: string, contactId: string) =>
     request<{ success: boolean }>(`/projects/${projectId}/contacts/${contactId}`, {
       method: "DELETE",
+    }),
+
+  /** Resolve a 'needs_review' CE match: "link" to the flagged candidate, or
+   *  "create" a fresh CE contact instead (they're not the same person). */
+  resolveProjectContactCeMatch: (projectId: string, contactId: string, action: "link" | "create") =>
+    request<ProjectContact>(`/projects/${projectId}/contacts/${contactId}/resolve-ce-match`, {
+      method: "POST",
+      body: JSON.stringify({ action }),
+    }),
+
+  /** On-demand CE check: re-verifies an existing link, or runs the match-only
+   *  flow for a legacy contact that was never checked. Never creates. */
+  verifyProjectContactCe: (projectId: string, contactId: string) =>
+    request<ProjectContact>(`/projects/${projectId}/contacts/${contactId}/verify-ce`, {
+      method: "POST",
+    }),
+
+  /** "Push to CE" — the deliberate action that creates (or relinks, if an
+   *  exact match has shown up since) a Dynamics contact. Only valid from
+   *  'not_found' or 'missing'. */
+  pushProjectContactCe: (projectId: string, contactId: string) =>
+    request<ProjectContact>(`/projects/${projectId}/contacts/${contactId}/push-ce`, {
+      method: "POST",
     }),
 
   // Documents
@@ -2693,6 +2819,7 @@ export const api = {
       is_integrations?: number;
       is_specialist?: number;
       is_time_assist?: number;
+      is_sales_ops?: number;
       is_mcp?: number;
       default_pay_code_id?: string | null;
       is_sales_tools?: number;

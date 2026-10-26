@@ -61,7 +61,7 @@ app.get("/users", requireRole("admin"), async (c) => {
   const rows = await db
     .prepare(
       `SELECT id, email, name, organization_name, role, is_active, is_support_supervisor, is_project_resource, is_pm_eligible, is_sales_tools,
-              is_trainer, is_integrations, is_specialist, is_time_assist, is_mcp, default_pay_code_id, manager_id, zoom_user_id, cs_permission, created_at, updated_at
+              is_trainer, is_integrations, is_specialist, is_time_assist, is_sales_ops, is_mcp, default_pay_code_id, manager_id, zoom_user_id, cs_permission, created_at, updated_at
        FROM users
        ORDER BY name ASC`
     )
@@ -135,6 +135,7 @@ const updateUserSchema = z.object({
   is_integrations: z.number().int().min(0).max(1).optional(),
   is_specialist: z.number().int().min(0).max(1).optional(),
   is_time_assist: z.number().int().min(0).max(1).optional(),
+  is_sales_ops: z.number().int().min(0).max(1).optional(),
   is_mcp: z.number().int().min(0).max(1).optional(),
   default_pay_code_id: z.string().uuid().nullable().optional(),
   is_sales_tools: z.number().int().min(0).max(1).optional(),

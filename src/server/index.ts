@@ -29,6 +29,7 @@ import sharepointRoutes from "./routes/sharepoint";
 import authPublicRoutes from "./routes/authPublic";
 import inboxRoutes from "./routes/inbox";
 import customerRoutes from "./routes/customers";
+import clientSuccessRoutes from "./routes/clientSuccess";
 import prospectingRoutes from "./routes/prospecting";
 import myTasksRoutes from "./routes/myTasks";
 import myTimeRoutes from "./routes/myTime";
@@ -44,6 +45,7 @@ import stakeholderRoutes from "./routes/stakeholder";
 import phasesRoutes from "./routes/phases";
 import meRoutes from "./routes/me";
 import salesToolsRoutes from "./routes/salesTools";
+import salesOpsRoutes from "./routes/salesOps";
 import customPlanRoutes from "./routes/customPlan"; // one-off MedVet custom plan (throwaway)
 import mcpAuthorizeRoutes, { AUTHORIZE_PATH } from "./mcp/authorize";
 import { isOAuthOrMcpPath, oauthProviderFor } from "./mcp/provider";
@@ -100,6 +102,7 @@ app.route("/api/optimize", optimizeRoutes);
 app.route("/api/sharepoint", sharepointRoutes);
 app.route("/api/inbox", inboxRoutes);
 app.route("/api/customers", customerRoutes);
+app.route("/api/client-success", clientSuccessRoutes);
 app.route("/api/prospecting", prospectingRoutes);
 app.route("/api/my-tasks", myTasksRoutes);
 app.route("/api/my-time", myTimeRoutes);
@@ -117,6 +120,7 @@ app.route("/api/projects", phasesRoutes);
 app.route("/api/projects", customPlanRoutes);
 app.route("/api/me", meRoutes);
 app.route("/api/sales-tools", salesToolsRoutes);
+app.route("/api/sales-ops", salesOpsRoutes);
 
 // Claude connector sign-in + consent. Outside /api: it's a page, it reads the
 // session itself, and it's only reachable through the OAuth provider (see the

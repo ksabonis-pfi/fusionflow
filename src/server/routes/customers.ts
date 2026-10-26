@@ -239,6 +239,18 @@ const updateCustomerSchema = z.object({
   pf_sa_user_id: z.string().nullable().optional(),
   pf_csm_user_id: z.string().nullable().optional(),
   hypercare_engineer_user_id: z.string().nullable().optional(),
+  // Client Success module, Phase 1 — see migration 0154.
+  csm_tier: z.enum(["strategic", "core", "scale"]).nullable().optional(),
+  csm_industry: z.string().max(200).nullable().optional(),
+  csm_locations_count: z.number().int().min(0).nullable().optional(),
+  client_success_specialist_user_id: z.string().nullable().optional(),
+  executive_sponsor_contact_id: z.string().nullable().optional(),
+  primary_admin_contact_id: z.string().nullable().optional(),
+  relationship_strength: z.number().int().min(1).max(5).nullable().optional(),
+  last_qbr_date: z.string().nullable().optional(),
+  next_qbr_date: z.string().nullable().optional(),
+  customer_since_date: z.string().nullable().optional(),
+  csm_notes: z.string().max(4000).nullable().optional(),
 });
 
 app.patch("/:id", async (c) => {
@@ -342,6 +354,15 @@ const contactSchema = z.object({
   contact_role: z.string().nullable().optional(),
 });
 
+// Client Success module, Phase 1 — role/engagement/active-status tracking on
+// an existing contact. Separate from contactSchema above (used at create
+// time) since these fields are only ever set after the fact.
+const contactCsmUpdateSchema = z.object({
+  csm_role: z.enum(["executive_sponsor", "decision_maker", "admin", "champion", "procurement", "end_user"]).nullable().optional(),
+  engagement_level: z.enum(["high", "medium", "low"]).nullable().optional(),
+  still_active: z.number().int().min(0).max(1).optional(),
+});
+
 app.post("/:id/contacts", async (c) => {
   const auth = c.get("auth");
   if (!canEditCustomer(auth.role)) throw new HTTPException(403, { message: "Forbidden" });
@@ -382,6 +403,32 @@ app.delete("/:id/contacts/:contactId", async (c) => {
 
   await c.env.DB.prepare("DELETE FROM customer_contacts WHERE id = ?").bind(contactId).run();
   return c.json({ success: true });
+});
+
+app.patch("/:id/contacts/:contactId", async (c) => {
+  const auth = c.get("auth");
+  if (!canEditCustomer(auth.role)) throw new HTTPException(403, { message: "Forbidden" });
+
+  const db = c.env.DB;
+  const { id: customerId, contactId } = c.req.param();
+  const existing = await db
+    .prepare("SELECT id FROM customer_contacts WHERE id = ? AND customer_id = ? LIMIT 1")
+    .bind(contactId, customerId)
+    .first();
+  if (!existing) throw new HTTPException(404, { message: "Contact not found" });
+
+  const parsed = contactCsmUpdateSchema.safeParse(await c.req.json());
+  if (!parsed.success) throw new HTTPException(400, { message: "Invalid contact data" });
+
+  const fields: string[] = [];
+  const values: unknown[] = [];
+  for (const [key, value] of Object.entries(parsed.data)) {
+    if (value !== undefined) { fields.push(`${key} = ?`); values.push(value); }
+  }
+  if (!fields.length) throw new HTTPException(400, { message: "No fields to update" });
+
+  await db.prepare(`UPDATE customer_contacts SET ${fields.join(", ")} WHERE id = ?`).bind(...values, contactId).run();
+  return c.json(await db.prepare("SELECT * FROM customer_contacts WHERE id = ? LIMIT 1").bind(contactId).first());
 });
 
 // ── Provider AEs ───────────────────────────────────────────────────────────────
@@ -469,6 +516,290 @@ app.delete("/:id/provider-aes/:aeId", async (c) => {
 
   await c.env.DB.prepare("DELETE FROM customer_provider_aes WHERE id = ?").bind(aeId).run();
   return c.json({ success: true });
+});
+
+// ── Client Success: Platforms / Subscriptions ─────────────────────────────────
+// Phase 1 of the CSM App Spec. One row per vendor subscription on an account.
+
+app.get("/:id/platforms", async (c) => {
+  const auth = c.get("auth");
+  if (!canViewCustomers(auth.role)) throw new HTTPException(403, { message: "Forbidden" });
+
+  const rows = await c.env.DB
+    .prepare("SELECT * FROM customer_platforms WHERE customer_id = ? ORDER BY created_at ASC")
+    .bind(c.req.param("id"))
+    .all();
+  return c.json(rows.results ?? []);
+});
+
+const platformSchema = z.object({
+  vendor: z.enum(["zoom", "ringcentral", "8x8", "dialpad", "other"]),
+  product: z.enum(["phone", "contact_center", "meetings", "rooms", "webinar", "wem_qm", "ai_addons"]),
+  licenses_purchased: z.number().int().min(0).nullable().optional(),
+  licenses_assigned: z.number().int().min(0).nullable().optional(),
+  active_users_30d: z.number().int().min(0).nullable().optional(),
+  mrr: z.number().nullable().optional(),
+  arr: z.number().nullable().optional(),
+  contract_start_date: z.string().nullable().optional(),
+  contract_end_date: z.string().nullable().optional(),
+  term_length_months: z.number().int().min(0).nullable().optional(),
+  auto_renew: z.number().int().min(0).max(1).optional(),
+  go_live_date: z.string().nullable().optional(),
+  implementation_project_id: z.string().nullable().optional(),
+  integrations_in_place: z.array(z.string()).optional(),
+});
+
+app.post("/:id/platforms", async (c) => {
+  const auth = c.get("auth");
+  if (!canEditCustomer(auth.role)) throw new HTTPException(403, { message: "Forbidden" });
+
+  const db = c.env.DB;
+  const customerId = c.req.param("id");
+  const existing = await db.prepare("SELECT id FROM customers WHERE id = ? LIMIT 1").bind(customerId).first();
+  if (!existing) throw new HTTPException(404, { message: "Customer not found" });
+
+  const parsed = platformSchema.safeParse(await c.req.json());
+  if (!parsed.success) throw new HTTPException(400, { message: "Invalid platform data" });
+  const p = parsed.data;
+  const id = crypto.randomUUID();
+
+  await db
+    .prepare(
+      `INSERT INTO customer_platforms (
+        id, customer_id, vendor, product, licenses_purchased, licenses_assigned, active_users_30d,
+        mrr, arr, contract_start_date, contract_end_date, term_length_months, auto_renew,
+        go_live_date, implementation_project_id, integrations_in_place
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    )
+    .bind(
+      id, customerId, p.vendor, p.product, p.licenses_purchased ?? null, p.licenses_assigned ?? null, p.active_users_30d ?? null,
+      p.mrr ?? null, p.arr ?? null, p.contract_start_date ?? null, p.contract_end_date ?? null, p.term_length_months ?? null, p.auto_renew ?? 0,
+      p.go_live_date ?? null, p.implementation_project_id ?? null, p.integrations_in_place ? JSON.stringify(p.integrations_in_place) : null
+    )
+    .run();
+
+  // Every subscription starts a renewal record immediately — the Renewal
+  // Pipeline board and My Book both expect one per platform, even before the
+  // CSM has entered any renewal-specific detail yet.
+  await db
+    .prepare("INSERT INTO customer_renewals (id, customer_platform_id) VALUES (?, ?)")
+    .bind(crypto.randomUUID(), id)
+    .run();
+
+  return c.json(await db.prepare("SELECT * FROM customer_platforms WHERE id = ? LIMIT 1").bind(id).first(), 201);
+});
+
+app.patch("/:id/platforms/:platformId", async (c) => {
+  const auth = c.get("auth");
+  if (!canEditCustomer(auth.role)) throw new HTTPException(403, { message: "Forbidden" });
+
+  const db = c.env.DB;
+  const { id: customerId, platformId } = c.req.param();
+  const existing = await db
+    .prepare("SELECT id FROM customer_platforms WHERE id = ? AND customer_id = ? LIMIT 1")
+    .bind(platformId, customerId)
+    .first();
+  if (!existing) throw new HTTPException(404, { message: "Platform not found" });
+
+  const parsed = platformSchema.partial().safeParse(await c.req.json());
+  if (!parsed.success) throw new HTTPException(400, { message: "Invalid platform data" });
+
+  const fields: string[] = [];
+  const values: unknown[] = [];
+  for (const [key, value] of Object.entries(parsed.data)) {
+    if (value === undefined) continue;
+    if (key === "integrations_in_place") {
+      fields.push("integrations_in_place = ?");
+      values.push(JSON.stringify(value));
+      continue;
+    }
+    fields.push(`${key} = ?`);
+    values.push(value);
+  }
+  if (!fields.length) throw new HTTPException(400, { message: "No fields to update" });
+  fields.push("updated_at = CURRENT_TIMESTAMP");
+
+  await db.prepare(`UPDATE customer_platforms SET ${fields.join(", ")} WHERE id = ?`).bind(...values, platformId).run();
+  return c.json(await db.prepare("SELECT * FROM customer_platforms WHERE id = ? LIMIT 1").bind(platformId).first());
+});
+
+app.delete("/:id/platforms/:platformId", async (c) => {
+  const auth = c.get("auth");
+  if (!canEditCustomer(auth.role)) throw new HTTPException(403, { message: "Forbidden" });
+
+  const { id: customerId, platformId } = c.req.param();
+  const existing = await c.env.DB
+    .prepare("SELECT id FROM customer_platforms WHERE id = ? AND customer_id = ? LIMIT 1")
+    .bind(platformId, customerId)
+    .first();
+  if (!existing) throw new HTTPException(404, { message: "Platform not found" });
+
+  await c.env.DB.prepare("DELETE FROM customer_platforms WHERE id = ?").bind(platformId).run();
+  return c.json({ success: true });
+});
+
+// ── Client Success: Renewal ────────────────────────────────────────────────────
+// One active renewal per platform (the latest row). PATCH is what the Renewal
+// Pipeline board calls when a card is dragged to a new stage.
+
+app.get("/:id/platforms/:platformId/renewal", async (c) => {
+  const auth = c.get("auth");
+  if (!canViewCustomers(auth.role)) throw new HTTPException(403, { message: "Forbidden" });
+
+  const { id: customerId, platformId } = c.req.param();
+  const platform = await c.env.DB
+    .prepare("SELECT id FROM customer_platforms WHERE id = ? AND customer_id = ? LIMIT 1")
+    .bind(platformId, customerId)
+    .first();
+  if (!platform) throw new HTTPException(404, { message: "Platform not found" });
+
+  const renewal = await c.env.DB
+    .prepare("SELECT * FROM customer_renewals WHERE customer_platform_id = ? ORDER BY created_at DESC LIMIT 1")
+    .bind(platformId)
+    .first();
+  return c.json(renewal ?? null);
+});
+
+const renewalSchema = z.object({
+  stage: z.enum(["not_started", "discovery", "proposal", "negotiation", "committed", "renewed", "lost"]).optional(),
+  forecast: z.enum(["likely", "at_risk", "churn_expected"]).nullable().optional(),
+  current_arr: z.number().nullable().optional(),
+  expected_renewal_arr: z.number().nullable().optional(),
+  decision_maker_contact_id: z.string().nullable().optional(),
+  procurement_contact_id: z.string().nullable().optional(),
+  competitive_threat: z.string().nullable().optional(),
+  loss_reason: z.string().nullable().optional(),
+  linked_opportunity_id: z.string().nullable().optional(),
+});
+
+app.patch("/:id/platforms/:platformId/renewal", async (c) => {
+  const auth = c.get("auth");
+  if (!canEditCustomer(auth.role)) throw new HTTPException(403, { message: "Forbidden" });
+
+  const db = c.env.DB;
+  const { id: customerId, platformId } = c.req.param();
+  const platform = await db
+    .prepare("SELECT id FROM customer_platforms WHERE id = ? AND customer_id = ? LIMIT 1")
+    .bind(platformId, customerId)
+    .first();
+  if (!platform) throw new HTTPException(404, { message: "Platform not found" });
+
+  const renewal = await db
+    .prepare("SELECT id FROM customer_renewals WHERE customer_platform_id = ? ORDER BY created_at DESC LIMIT 1")
+    .bind(platformId)
+    .first<{ id: string }>();
+  if (!renewal) throw new HTTPException(404, { message: "No renewal record for this platform" });
+
+  const parsed = renewalSchema.safeParse(await c.req.json());
+  if (!parsed.success) throw new HTTPException(400, { message: "Invalid renewal data" });
+  if (parsed.data.stage === "lost" && !parsed.data.loss_reason) {
+    throw new HTTPException(400, { message: "A loss reason is required to mark a renewal as Lost" });
+  }
+
+  const fields: string[] = [];
+  const values: unknown[] = [];
+  for (const [key, value] of Object.entries(parsed.data)) {
+    if (value !== undefined) { fields.push(`${key} = ?`); values.push(value); }
+  }
+  if (!fields.length) throw new HTTPException(400, { message: "No fields to update" });
+  fields.push("updated_at = CURRENT_TIMESTAMP");
+
+  await db.prepare(`UPDATE customer_renewals SET ${fields.join(", ")} WHERE id = ?`).bind(...values, renewal.id).run();
+  return c.json(await db.prepare("SELECT * FROM customer_renewals WHERE id = ? LIMIT 1").bind(renewal.id).first());
+});
+
+// ── Client Success: Engagement Log ─────────────────────────────────────────────
+
+app.get("/:id/engagements", async (c) => {
+  const auth = c.get("auth");
+  if (!canViewCustomers(auth.role)) throw new HTTPException(403, { message: "Forbidden" });
+
+  const limit = Math.min(Number(c.req.query("limit")) || 100, 500);
+  const rows = await c.env.DB
+    .prepare("SELECT * FROM customer_engagements WHERE customer_id = ? ORDER BY engaged_at DESC LIMIT ?")
+    .bind(c.req.param("id"), limit)
+    .all();
+  return c.json(rows.results ?? []);
+});
+
+const engagementAttendeeSchema = z.object({ kind: z.enum(["contact", "user"]), id: z.string() });
+
+const engagementSchema = z.object({
+  engaged_at: z.string().min(1),
+  type: z.enum(["qbr", "health_check", "executive_call", "training", "escalation", "onsite", "email"]),
+  attendees: z.array(engagementAttendeeSchema).optional(),
+  summary: z.string().max(4000).nullable().optional(),
+  sentiment: z.enum(["positive", "neutral", "negative"]).nullable().optional(),
+  next_steps: z.string().max(2000).nullable().optional(),
+  follow_up_owner_user_id: z.string().nullable().optional(),
+  follow_up_due_date: z.string().nullable().optional(),
+});
+
+app.post("/:id/engagements", async (c) => {
+  const auth = c.get("auth");
+  if (!canEditCustomer(auth.role)) throw new HTTPException(403, { message: "Forbidden" });
+
+  const db = c.env.DB;
+  const customerId = c.req.param("id");
+  const existing = await db.prepare("SELECT id FROM customers WHERE id = ? LIMIT 1").bind(customerId).first();
+  if (!existing) throw new HTTPException(404, { message: "Customer not found" });
+
+  const parsed = engagementSchema.safeParse(await c.req.json());
+  if (!parsed.success) throw new HTTPException(400, { message: "Invalid engagement data" });
+  const e = parsed.data;
+  const id = crypto.randomUUID();
+
+  await db
+    .prepare(
+      `INSERT INTO customer_engagements (
+        id, customer_id, engaged_at, type, attendees, summary, sentiment,
+        next_steps, follow_up_owner_user_id, follow_up_due_date, created_by_user_id
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    )
+    .bind(
+      id, customerId, e.engaged_at, e.type, e.attendees ? JSON.stringify(e.attendees) : null, e.summary ?? null, e.sentiment ?? null,
+      e.next_steps ?? null, e.follow_up_owner_user_id ?? null, e.follow_up_due_date ?? null, auth.user.id
+    )
+    .run();
+
+  return c.json(await db.prepare("SELECT * FROM customer_engagements WHERE id = ? LIMIT 1").bind(id).first(), 201);
+});
+
+const engagementUpdateSchema = engagementSchema.partial().extend({
+  follow_up_done: z.number().int().min(0).max(1).optional(),
+});
+
+app.patch("/:id/engagements/:engagementId", async (c) => {
+  const auth = c.get("auth");
+  if (!canEditCustomer(auth.role)) throw new HTTPException(403, { message: "Forbidden" });
+
+  const db = c.env.DB;
+  const { id: customerId, engagementId } = c.req.param();
+  const existing = await db
+    .prepare("SELECT id FROM customer_engagements WHERE id = ? AND customer_id = ? LIMIT 1")
+    .bind(engagementId, customerId)
+    .first();
+  if (!existing) throw new HTTPException(404, { message: "Engagement not found" });
+
+  const parsed = engagementUpdateSchema.safeParse(await c.req.json());
+  if (!parsed.success) throw new HTTPException(400, { message: "Invalid engagement data" });
+
+  const fields: string[] = [];
+  const values: unknown[] = [];
+  for (const [key, value] of Object.entries(parsed.data)) {
+    if (value === undefined) continue;
+    if (key === "attendees") {
+      fields.push("attendees = ?");
+      values.push(JSON.stringify(value));
+      continue;
+    }
+    fields.push(`${key} = ?`);
+    values.push(value);
+  }
+  if (!fields.length) throw new HTTPException(400, { message: "No fields to update" });
+
+  await db.prepare(`UPDATE customer_engagements SET ${fields.join(", ")} WHERE id = ?`).bind(...values, engagementId).run();
+  return c.json(await db.prepare("SELECT * FROM customer_engagements WHERE id = ? LIMIT 1").bind(engagementId).first());
 });
 
 // ── Journey tabs ───────────────────────────────────────────────────────────────
