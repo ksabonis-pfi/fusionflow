@@ -285,7 +285,9 @@ export async function findContactByEmail(env: Env, accountId: string, email: str
   const escaped = email.replace(/'/g, "''");
   const select = "contactid,firstname,lastname,emailaddress1,telephone1,jobtitle,statecode";
   const filter = `_parentcustomerid_value eq ${accountId} and statecode eq 0 and emailaddress1 eq '${escaped}'`;
-  const data = await dynamicsGet<{ value: DynamicsContact[] }>(env, `/contacts?$select=${select}&$filter=${filter}&$top=1`);
+  // Encoded: a raw `+` in the query string decodes to a space, so plus-addressed
+  // emails never matched and Push to CE created duplicates; `&`/`#` broke the URL.
+  const data = await dynamicsGet<{ value: DynamicsContact[] }>(env, `/contacts?$select=${select}&$filter=${encodeURIComponent(filter)}&$top=1`);
   return data.value?.[0] ?? null;
 }
 
