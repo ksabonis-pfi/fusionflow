@@ -8,6 +8,7 @@ import { taskAssigned, taskBlocked, pmTaskUpdate } from "../lib/emailTemplates";
 import { createNotification, notifyGoLive } from "../lib/notifications";
 import { syncStageStatus, maybeGraduateProject, syncProjectGoLiveDate, syncProjectStatus } from "../lib/teamUtils";
 import { parseSolutionTypes, joinSolutionTypeLabels } from "../../shared/solutionTypes";
+import { pacificToday } from "../lib/pacificTime";
 
 /**
  * Task updates, shared by PATCH /api/projects/:id/tasks/:taskId and the Claude
@@ -126,9 +127,14 @@ export async function updateTask(
   // caller didn't supply an explicit completed_at (which lets PMs backdate via
   // the date picker on the Tasks page). A status->anything-else transition still
   // clears completed_at unless the caller is explicitly setting it.
+  //
+  // The stamp is today's Pacific date, not CURRENT_TIMESTAMP: that's UTC, so
+  // from 4/5 p.m. Pacific it recorded tomorrow, and a go-live task carried the
+  // wrong day into actual_go_live_date and the Zoom announcement.
   if (updates.completed_at === undefined) {
     if (updates.status === "completed") {
-      fields.push("completed_at = CURRENT_TIMESTAMP");
+      fields.push("completed_at = ?");
+      values.push(pacificToday());
     } else if (updates.status !== undefined) {
       fields.push("completed_at = NULL");
     }
