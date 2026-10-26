@@ -103,23 +103,6 @@ const MODULES: Module[] = [
       </svg>
     ),
   },
-  {
-    num: "05",
-    tag: "Client Success",
-    title: "Partnership",
-    subtitle: "Health & Advocacy",
-    desc: "Deepen the relationship after go-live — track renewals, gather feedback, and keep technology roadmaps aligned to what's next.",
-    features: ["Technology roadmaps", "Renewal tracking", "Satisfaction surveys", "Success plans"],
-    accent: "#7c3aed",
-    glow: "rgba(124,58,237,0.22)",
-    route: "/client-success",
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" style={{ width: 26, height: 26 }}>
-        <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>
-        <path d="m9 12 2 2 4-4"/>
-      </svg>
-    ),
-  },
 ];
 
 export default function ModuleSelectPage() {
