@@ -58,6 +58,24 @@ export async function listMyTasks(
   ];
   const binds: unknown[] = [user.id, user.id, user.id];
 
+  // Same visibility as the UI. Matters for partner_ae, whose stale assignment
+  // on a project they've since lost access to mustn't leak its tasks. Resolved
+  // up front and applied in SQL, so LIMIT counts only visible tasks.
+  const assignedProjectIds = ((await env.DB
+    .prepare(
+      `SELECT DISTINCT project_id FROM tasks
+        WHERE assignee_user_id = ? OR id IN (SELECT task_id FROM task_assignees WHERE user_id = ?)`
+    )
+    .bind(user.id, user.id)
+    .all<{ project_id: string }>()).results ?? []).map((r) => r.project_id);
+  const visibleProjectIds = (await Promise.all(
+    assignedProjectIds.map(async (id) => ((await canViewProject(env.DB, user, id)) ? id : null))
+  )).filter((id): id is string => !!id);
+  if (visibleProjectIds.length === 0) return [];
+  // json_each rather than one placeholder per id: D1 caps bound parameters.
+  where.push("t.project_id IN (SELECT value FROM json_each(?))");
+  binds.push(JSON.stringify(visibleProjectIds));
+
   if (status === "open") {
     where.push("COALESCE(t.status, '') != 'completed'", "p.closed_at IS NULL");
   } else if (status === "overdue") {
@@ -101,15 +119,7 @@ export async function listMyTasks(
     .bind(...binds, Math.min(Math.max(opts.limit ?? 50, 1), 200))
     .all<MyTaskRow>()).results ?? [];
 
-  // Same visibility as the UI. Matters for partner_ae, whose stale assignment
-  // on a project they've since lost access to mustn't leak its tasks.
-  const projectIds = [...new Set(rows.map((r) => r.project_id))];
-  const visible = new Set(
-    (await Promise.all(projectIds.map(async (id) => ((await canViewProject(env.DB, user, id)) ? id : null))))
-      .filter((id): id is string => !!id)
-  );
-
-  return rows.filter((r) => visible.has(r.project_id)).map((r) => ({
+  return rows.map((r) => ({
     task_id: r.id,
     title: r.title,
     customer: r.customer_name,
@@ -258,6 +268,15 @@ export async function updateTaskForUser(
       return fail("completed_on only applies when the task is being completed (or already is).");
     }
     if (changes.completed_on !== task.completed_at?.slice(0, 10)) body.completed_at = changes.completed_on;
+  }
+
+  // Completing without a date means today in Pacific. Left to updateTask, the
+  // completion would get SQLite's UTC CURRENT_TIMESTAMP, which is already
+  // tomorrow from 4/5 p.m. Pacific and would carry into actual_go_live_date
+  // and the go-live announcement. Only on the transition itself: a retry on an
+  // already-completed task must not move its date.
+  if (body.status === "completed" && body.completed_at === undefined) {
+    body.completed_at = pacificToday();
   }
 
   if (Object.keys(body).length === 0) {
