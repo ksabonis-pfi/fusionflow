@@ -1,4 +1,4 @@
-import { getAccountContacts, findContactByEmail, createContact, contactExists, type DynamicsContact } from "../services/dynamicsService";
+import { getAccountContacts, getAllAccountContacts, findContactByEmail, createContact, contactExists, type DynamicsContact } from "../services/dynamicsService";
 import type { Bindings } from "../types";
 
 /** "John Smith" -> {firstName: "John", lastName: "Smith"}. A single-word name
@@ -202,6 +202,62 @@ export async function pushProjectContactToCrm(env: Bindings, db: D1Database, pro
     .bind(created.contactid, projectContactId)
     .run();
   await mirrorToCustomerContacts(db, customerId, { dynamics_contact_id: created.contactid, name: contact.name, email: contact.email, phone: contact.phone, job_title: contact.job_title });
+}
+
+/**
+ * Mirrors the full CE contact list for a customer's linked account into
+ * `customer_contacts` — upserting by `dynamics_contact_id`, and marking any
+ * previously-synced row that no longer shows up as `ce_active = 0` (soft
+ * hide, never deleted, since the same row is read at login time to grant
+ * contact-based portal access). Rows with no `dynamics_contact_id` predate
+ * CE linkage and are left untouched — no fuzzy auto-linking, same as
+ * `syncProjectContactToCrm`.
+ */
+export async function syncCustomerContactsFromCrm(env: Bindings, db: D1Database, customerId: string): Promise<void> {
+  const customer = await db
+    .prepare("SELECT crm_account_id FROM customers WHERE id = ? LIMIT 1")
+    .bind(customerId)
+    .first<{ crm_account_id: string | null }>();
+  if (!customer?.crm_account_id) throw new Error("This customer has no linked CRM account");
+
+  const ceContacts = await getAllAccountContacts(env, customer.crm_account_id);
+  const ceIds = new Set(ceContacts.map((c) => c.contactid));
+
+  const existingRows = await db
+    .prepare("SELECT id, dynamics_contact_id FROM customer_contacts WHERE customer_id = ? AND dynamics_contact_id IS NOT NULL")
+    .bind(customerId)
+    .all<{ id: string; dynamics_contact_id: string }>();
+  const existingByCeId = new Map((existingRows.results ?? []).map((r) => [r.dynamics_contact_id, r.id]));
+
+  const statements: D1PreparedStatement[] = [];
+
+  for (const ce of ceContacts) {
+    const name = [ce.firstname, ce.lastname].filter(Boolean).join(" ") || ce.emailaddress1 || "(no name)";
+    const existingId = existingByCeId.get(ce.contactid);
+    if (existingId) {
+      statements.push(
+        db.prepare(
+          "UPDATE customer_contacts SET name = ?, email = ?, phone = ?, job_title = ?, ce_active = 1, ce_synced_at = CURRENT_TIMESTAMP WHERE id = ?"
+        ).bind(name, ce.emailaddress1, ce.telephone1, ce.jobtitle, existingId)
+      );
+    } else {
+      statements.push(
+        db.prepare(
+          `INSERT INTO customer_contacts (id, customer_id, dynamics_contact_id, name, email, phone, job_title, ce_active, ce_synced_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP)`
+        ).bind(crypto.randomUUID(), customerId, ce.contactid, name, ce.emailaddress1, ce.telephone1, ce.jobtitle)
+      );
+    }
+  }
+
+  const goneIds = [...existingByCeId.entries()].filter(([ceId]) => !ceIds.has(ceId)).map(([, rowId]) => rowId);
+  for (const rowId of goneIds) {
+    statements.push(
+      db.prepare("UPDATE customer_contacts SET ce_active = 0, ce_synced_at = CURRENT_TIMESTAMP WHERE id = ?").bind(rowId)
+    );
+  }
+
+  if (statements.length > 0) await db.batch(statements);
 }
 
 /** Re-confirms an already-linked contact still exists AND is active in CE,

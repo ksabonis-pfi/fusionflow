@@ -276,6 +276,27 @@ export async function getAccountContacts(env: Env, accountId: string): Promise<D
   return data.value ?? [];
 }
 
+/** Every active contact on an account, unlike `getAccountContacts` which is
+ *  capped at 50 — follows `@odata.nextLink` so large accounts come back
+ *  complete. Used to mirror an account's full CE contact list rather than
+ *  just suggest fuzzy-match candidates. */
+export async function getAllAccountContacts(env: Env, accountId: string): Promise<DynamicsContact[]> {
+  if (!isConfigured(env)) return [];
+
+  const select = "contactid,firstname,lastname,emailaddress1,telephone1,jobtitle,statecode";
+  const filter = `_parentcustomerid_value eq ${accountId} and statecode eq 0`;
+  let path: string | null = `/contacts?$select=${select}&$filter=${filter}&$orderby=lastname asc`;
+
+  const all: DynamicsContact[] = [];
+  while (path) {
+    const data: { value: DynamicsContact[]; "@odata.nextLink"?: string } = await dynamicsGet(env, path);
+    all.push(...(data.value ?? []));
+    const nextLink = data["@odata.nextLink"];
+    path = nextLink ? nextLink.replace(API_BASE, "") : null;
+  }
+  return all;
+}
+
 /** Authoritative exact-email lookup on an account, active contacts only —
  *  unlike `getAccountContacts` this isn't capped, so it's the right check
  *  before creating a contact (avoids duplicates on accounts with 50+

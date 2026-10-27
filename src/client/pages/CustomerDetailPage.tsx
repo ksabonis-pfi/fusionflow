@@ -109,9 +109,7 @@ export default function CustomerDetailPage() {
   const [saving, setSaving] = useState(false);
 
   // Contact form
-  const [showContactForm, setShowContactForm] = useState(false);
-  const [contactForm, setContactForm] = useState({ name: "", email: "", phone: "", job_title: "", contact_role: "" });
-  const [savingContact, setSavingContact] = useState(false);
+  const [syncingContacts, setSyncingContacts] = useState(false);
 
   // Provider AE form
   const [showAeForm, setShowAeForm] = useState(false);
@@ -213,26 +211,17 @@ export default function CustomerDetailPage() {
     }
   }
 
-  async function handleAddContact(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleSyncContacts() {
     if (!id) return;
-    setSavingContact(true);
+    setSyncingContacts(true);
     try {
-      const c = await api.addCustomerContact(id, {
-        name: contactForm.name,
-        email: contactForm.email || null,
-        phone: contactForm.phone || null,
-        job_title: contactForm.job_title || null,
-        contact_role: contactForm.contact_role || null,
-      });
-      setContacts((prev) => [...prev, c]);
-      setContactForm({ name: "", email: "", phone: "", job_title: "", contact_role: "" });
-      setShowContactForm(false);
-      showToast("Contact added.", "success");
+      const refreshed = await api.syncCustomerContacts(id);
+      setContacts(refreshed);
+      showToast("Contacts synced from CRM.", "success");
     } catch {
-      showToast("Failed to add contact", "error");
+      showToast("CRM contact sync failed", "error");
     } finally {
-      setSavingContact(false);
+      setSyncingContacts(false);
     }
   }
 
@@ -241,8 +230,8 @@ export default function CustomerDetailPage() {
     try {
       await api.deleteCustomerContact(id, contactId);
       setContacts((prev) => prev.filter((c) => c.id !== contactId));
-    } catch {
-      showToast("Failed to remove contact", "error");
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Failed to remove contact", "error");
     }
   }
 
@@ -528,10 +517,12 @@ export default function CustomerDetailPage() {
           <div className="ms-card" style={{ gridColumn: "1 / -1" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
               <div style={{ fontWeight: 700, fontSize: 13, color: "#475569", textTransform: "uppercase", letterSpacing: "0.06em" }}>Customer Contacts</div>
-              <button className="ms-btn-secondary" style={{ fontSize: 12, padding: "4px 10px" }} onClick={() => setShowContactForm(true)}>+ Add</button>
+              <button className="ms-btn-secondary" style={{ fontSize: 12, padding: "4px 10px" }} onClick={handleSyncContacts} disabled={syncingContacts}>
+                {syncingContacts ? "Syncing…" : "Sync from CRM"}
+              </button>
             </div>
             {contacts.length === 0 ? (
-              <div style={{ color: "#94a3b8", fontSize: 13 }}>No contacts yet.</div>
+              <div style={{ color: "#94a3b8", fontSize: 13 }}>No contacts yet — click "Sync from CRM" to pull this account's contacts.</div>
             ) : (
               <table className="ms-table">
                 <thead>
@@ -549,15 +540,19 @@ export default function CustomerDetailPage() {
                     <tr key={ct.id}>
                       <td style={{ fontWeight: 600, color: "#1e293b" }}>{ct.name}</td>
                       <td style={{ color: "#64748b", fontSize: 13 }}>{ct.job_title ?? "—"}</td>
-                      <td style={{ color: "#64748b", fontSize: 13 }}>{ct.contact_role ?? "—"}</td>
+                      <td style={{ color: "#64748b", fontSize: 13 }}>
+                        {ct.dynamics_contact_id ? <span style={{ color: "#0b9aad", fontWeight: 600 }}>Synced from CRM</span> : (ct.contact_role ?? "—")}
+                      </td>
                       <td style={{ color: "#64748b", fontSize: 13 }}>{ct.email ?? "—"}</td>
                       <td style={{ color: "#64748b", fontSize: 13 }}>{ct.phone ?? "—"}</td>
                       <td>
-                        <button
-                          onClick={() => handleDeleteContact(ct.id)}
-                          style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 16 }}
-                          title="Remove"
-                        >×</button>
+                        {!ct.dynamics_contact_id && (
+                          <button
+                            onClick={() => handleDeleteContact(ct.id)}
+                            style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 16 }}
+                            title="Remove"
+                          >×</button>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -765,43 +760,6 @@ export default function CustomerDetailPage() {
                 <button className="ms-btn-secondary" onClick={() => setEditing(false)}>Cancel</button>
               </div>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Add Contact Modal */}
-      {showContactForm && (
-        <div className="ms-modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setShowContactForm(false); }}>
-          <div className="ms-modal" style={{ maxWidth: 480 }}>
-            <h2>Add Contact</h2>
-            <form onSubmit={handleAddContact} style={{ display: "grid", gap: 14, marginTop: 16 }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                <label className="ms-label">
-                  <span>Name *</span>
-                  <input autoFocus className="ms-input" required value={contactForm.name} onChange={(e) => setContactForm((f) => ({ ...f, name: e.target.value }))} />
-                </label>
-                <label className="ms-label">
-                  <span>Title</span>
-                  <input className="ms-input" value={contactForm.job_title} onChange={(e) => setContactForm((f) => ({ ...f, job_title: e.target.value }))} />
-                </label>
-                <label className="ms-label">
-                  <span>Role</span>
-                  <input className="ms-input" placeholder="e.g. Champion, Sponsor" value={contactForm.contact_role} onChange={(e) => setContactForm((f) => ({ ...f, contact_role: e.target.value }))} />
-                </label>
-                <label className="ms-label">
-                  <span>Email</span>
-                  <input className="ms-input" type="email" value={contactForm.email} onChange={(e) => setContactForm((f) => ({ ...f, email: e.target.value }))} />
-                </label>
-                <label className="ms-label">
-                  <span>Phone</span>
-                  <input className="ms-input" value={contactForm.phone} onChange={(e) => setContactForm((f) => ({ ...f, phone: e.target.value }))} />
-                </label>
-              </div>
-              <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
-                <button type="submit" className="ms-btn-primary" disabled={savingContact || !contactForm.name.trim()}>{savingContact ? "Adding…" : "Add Contact"}</button>
-                <button type="button" className="ms-btn-secondary" onClick={() => setShowContactForm(false)}>Cancel</button>
-              </div>
-            </form>
           </div>
         </div>
       )}
