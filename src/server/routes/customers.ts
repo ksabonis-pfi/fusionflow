@@ -4,6 +4,7 @@ import { z } from "zod";
 import type { Bindings, Variables } from "../types";
 import { getAccountTeam, getLastUcaasVendor } from "../services/dynamicsService";
 import { findOrCreatePfUser } from "../lib/crmUsers";
+import { syncCustomerContactsFromCrm } from "../lib/contactCrmSync";
 import { refreshAccountTeamIfStale } from "../lib/accountTeamSync";
 import { normalizeSolutionTypesField, normalizeSolutionRow } from "../../shared/solutionTypes";
 import { getDemoVendor } from "../lib/appSettings";
@@ -327,46 +328,32 @@ app.get("/:id/contacts", async (c) => {
   if (!canViewCustomers(auth.role)) throw new HTTPException(403, { message: "Forbidden" });
 
   const rows = await c.env.DB
-    .prepare("SELECT * FROM customer_contacts WHERE customer_id = ? ORDER BY name ASC")
+    .prepare("SELECT * FROM customer_contacts WHERE customer_id = ? AND (ce_active IS NULL OR ce_active = 1) ORDER BY name ASC")
     .bind(c.req.param("id"))
     .all();
   return c.json(rows.results ?? []);
 });
 
-const contactSchema = z.object({
-  dynamics_contact_id: z.string().optional(),
-  name: z.string().min(1).max(200),
-  email: z.string().email().nullable().optional().or(z.literal("")),
-  phone: z.string().nullable().optional(),
-  job_title: z.string().nullable().optional(),
-  contact_role: z.string().nullable().optional(),
-});
-
-app.post("/:id/contacts", async (c) => {
+app.post("/:id/contacts/sync", async (c) => {
   const auth = c.get("auth");
   if (!canEditCustomer(auth.role)) throw new HTTPException(403, { message: "Forbidden" });
 
   const db = c.env.DB;
   const customerId = c.req.param("id");
-
   const existing = await db.prepare("SELECT id FROM customers WHERE id = ? LIMIT 1").bind(customerId).first();
   if (!existing) throw new HTTPException(404, { message: "Customer not found" });
 
-  const parsed = contactSchema.safeParse(await c.req.json());
-  if (!parsed.success) throw new HTTPException(400, { message: "Invalid contact data" });
+  try {
+    await syncCustomerContactsFromCrm(c.env, db, customerId);
+  } catch (err) {
+    throw new HTTPException(400, { message: err instanceof Error ? err.message : "CRM sync failed" });
+  }
 
-  const { dynamics_contact_id, name, email, phone, job_title, contact_role } = parsed.data;
-  const id = crypto.randomUUID();
-
-  await db
-    .prepare(
-      `INSERT INTO customer_contacts (id, customer_id, dynamics_contact_id, name, email, phone, job_title, contact_role)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-    )
-    .bind(id, customerId, dynamics_contact_id ?? null, name, email || null, phone ?? null, job_title ?? null, contact_role ?? null)
-    .run();
-
-  return c.json(await db.prepare("SELECT * FROM customer_contacts WHERE id = ? LIMIT 1").bind(id).first(), 201);
+  const rows = await db
+    .prepare("SELECT * FROM customer_contacts WHERE customer_id = ? AND (ce_active IS NULL OR ce_active = 1) ORDER BY name ASC")
+    .bind(customerId)
+    .all();
+  return c.json(rows.results ?? []);
 });
 
 app.delete("/:id/contacts/:contactId", async (c) => {
@@ -375,10 +362,11 @@ app.delete("/:id/contacts/:contactId", async (c) => {
 
   const { id: customerId, contactId } = c.req.param();
   const contact = await c.env.DB
-    .prepare("SELECT id FROM customer_contacts WHERE id = ? AND customer_id = ? LIMIT 1")
+    .prepare("SELECT id, dynamics_contact_id FROM customer_contacts WHERE id = ? AND customer_id = ? LIMIT 1")
     .bind(contactId, customerId)
-    .first();
+    .first<{ id: string; dynamics_contact_id: string | null }>();
   if (!contact) throw new HTTPException(404, { message: "Contact not found" });
+  if (contact.dynamics_contact_id) throw new HTTPException(400, { message: "Synced from CRM — remove it there" });
 
   await c.env.DB.prepare("DELETE FROM customer_contacts WHERE id = ?").bind(contactId).run();
   return c.json({ success: true });

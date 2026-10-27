@@ -279,12 +279,14 @@ export function buildMcpServer(env: Bindings, ctx: ExecutionContext, auth: AuthC
   server.registerTool(
     "add_internal_note",
     {
-      title: "Add to case Internal Notes",
+      title: "Add a project internal note",
       description:
-        "Append an entry to the Internal Notes field on a project's CE case, stamped with Pacific " +
-        "time and my name. Appends — never replaces what's in the field. This is the Internal " +
-        "Notes field only; it does NOT create a case note (the separate note records on the case " +
-        "Timeline). Retrying the same entry doesn't add it twice. Returns the exact text appended.",
+        "Add a progress/status note to a project in CloudConnect, stamped with Pacific time and my " +
+        "name. CloudConnect is the record — the note is saved there, then also pushed as a copy to " +
+        "the linked CE case's Internal Notes field, best-effort (a CE outage or an unlinked case " +
+        "never loses the note, it just doesn't appear in CE). This is the Internal Notes field " +
+        "only; it does NOT create a case note (the separate note records on the case Timeline). " +
+        "Retrying the same entry doesn't add it twice.",
       inputSchema: {
         project: z.string().min(1).describe("Case number, project id, or name"),
         note: z.string().trim().min(1).max(2000).describe("The note text"),
