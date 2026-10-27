@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, type OptimizeAccount, type OptimizeEligible, type User, type DynamicsAccount, type CrmAccountTeam, type Project } from "../lib/api";
 import { humanize } from "../lib/format";
@@ -64,8 +64,25 @@ export default function OptimizePage() {
   const [crmTeam, setCrmTeam] = useState<CrmAccountTeam | null>(null);
   const [crmTeamLoading, setCrmTeamLoading] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [search, setSearch] = useState("");
+  const [sortAsc, setSortAsc] = useState<boolean | null>(null);
   const { showToast } = useToast();
   const navigate = useNavigate();
+
+  const visibleAccounts = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    let list = q
+      ? accounts.filter((a) => a.project_name.toLowerCase().includes(q) || (a.customer_name ?? "").toLowerCase().includes(q))
+      : accounts;
+    if (sortAsc !== null) {
+      list = [...list].sort((a, b) => {
+        const an = (a.customer_name ?? a.project_name).toLowerCase();
+        const bn = (b.customer_name ?? b.project_name).toLowerCase();
+        return sortAsc ? an.localeCompare(bn) : bn.localeCompare(an);
+      });
+    }
+    return list;
+  }, [accounts, search, sortAsc]);
 
   useEffect(() => {
     load();
@@ -216,11 +233,37 @@ export default function OptimizePage() {
           </div>
         </div>
       ) : (
+        <>
+          <div style={{ display: "flex", gap: 10, marginBottom: 12, alignItems: "center" }}>
+            <input
+              className="ms-input"
+              placeholder="Search customers…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              style={{ maxWidth: 280 }}
+            />
+            {search && (
+              <button type="button" className="ms-btn-ghost" onClick={() => setSearch("")} style={{ fontSize: 12 }}>
+                Clear
+              </button>
+            )}
+          </div>
+          {visibleAccounts.length === 0 ? (
+            <div className="ms-card" style={{ textAlign: "center", padding: "32px 24px", color: "#94a3b8" }}>
+              No customers match "{search}".
+            </div>
+          ) : (
         <div className="ms-card" style={{ overflow: "hidden" }}>
           <table className="ms-table">
             <thead>
               <tr>
-                <th>Account</th>
+                <th
+                  onClick={() => setSortAsc((prev) => (prev === true ? false : true))}
+                  style={{ cursor: "pointer", userSelect: "none", whiteSpace: "nowrap" }}
+                  title="Sort alphabetically"
+                >
+                  Account {sortAsc === true ? "▲" : sortAsc === false ? "▼" : ""}
+                </th>
                 <th>Vendor</th>
                 <th>Completed</th>
                 <th>Status</th>
@@ -233,7 +276,7 @@ export default function OptimizePage() {
               </tr>
             </thead>
             <tbody>
-              {accounts.map((a) => (
+              {visibleAccounts.map((a) => (
                 <tr key={a.id} style={{ cursor: "pointer" }} onClick={() => navigate(`/optimize/${a.project_id}`)}>
                   <td>
                     <div style={{ fontWeight: 600, color: "#1e293b" }}>{a.project_name}</div>
@@ -279,6 +322,8 @@ export default function OptimizePage() {
             </tbody>
           </table>
         </div>
+          )}
+        </>
       )}
 
       {/* Direct Enroll Modal */}
