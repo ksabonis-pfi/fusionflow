@@ -92,7 +92,7 @@ async function resolveContactCompanies(db: D1Database, email: string): Promise<C
         SELECT cu.crm_account_id, cu.name, cc.id, cc.dynamics_contact_id, cc.name, cc.added_at
         FROM customer_contacts cc
         JOIN customers cu     ON cu.id = cc.customer_id
-        WHERE cc.email IS NOT NULL AND lower(cc.email) = lower(?)
+        WHERE cc.email IS NOT NULL AND lower(cc.email) = lower(?) AND (cc.ce_active IS NULL OR cc.ce_active = 1)
       )
       WHERE account_id IS NOT NULL AND account_id != ''
       GROUP BY account_id

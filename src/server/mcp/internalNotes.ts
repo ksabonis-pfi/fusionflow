@@ -6,31 +6,62 @@ import { utcToPacific } from "../lib/pacificTime";
 import { type ToolFailure } from "./timeWrites";
 
 /**
- * add_internal_note: append to the Internal Notes FIELD on a project's CE case
- * (incident.new_internalnotes). Not a "case note" — at Packet Fusion that means
- * the separate note records on the case Timeline (annotations), which this
- * never creates; the naming keeps the two apart for people and the model. Each entry is stamped with Pacific time and the
- * author, e.g.
+ * Project Internal Notes: a PM progress/status log. CloudConnect is the
+ * record — the row in `project_internal_notes` is the note, never a reparse
+ * of CE — and a stamped copy is pushed to the linked case's Internal Notes
+ * FIELD (incident.new_internalnotes) for leadership reading CE directly.
+ * That push is best-effort and happens after the local insert, so a CE
+ * outage or an unlinked case never loses the note, e.g.:
  *
  *   [2026-10-10 14:32 PT] Ryan Dyla: Customer confirmed go-live date.
+ *
+ * Not a "case note" — at Packet Fusion that means the separate note records
+ * on the case Timeline (annotations), which this never creates; the naming
+ * keeps the two apart for people and the model.
  */
 
 const fail = (error: string, extra: Record<string, unknown> = {}): ToolFailure => ({ error, ...extra });
 
-// An entry header at the start of a line: "[2026-10-10 14:32 PT] ".
-const ENTRY_HEAD = /^\[\d{4}-\d{2}-\d{2} \d{2}:\d{2} PT\] /gm;
+export type InternalNoteEntry = {
+  id: string;
+  timestamp_pacific: string;
+  author: string;
+  text: string;
+  ce_pushed: boolean;
+  ce_push_error: string | null;
+};
 
-/**
- * The bodies ("Author: text") of the stamped entries in Internal Notes, each
- * running to the next entry header or the end of the field. Text that isn't
- * under a header (notes typed in CE by hand) isn't an entry and is ignored.
- */
-function entryBodies(notes: string): string[] {
-  const normalized = notes.replace(/\r\n/g, "\n");
-  const heads = [...normalized.matchAll(ENTRY_HEAD)];
-  return heads.map((m, i) =>
-    normalized.slice(m.index! + m[0].length, i + 1 < heads.length ? heads[i + 1].index : undefined).trim()
-  );
+type NoteRow = {
+  id: string;
+  author_name: string;
+  text: string;
+  created_at: string;
+  ce_pushed_at: string | null;
+  ce_push_error: string | null;
+};
+
+function toEntry(row: NoteRow): InternalNoteEntry {
+  const stamp = utcToPacific(row.created_at);
+  return {
+    id: row.id,
+    timestamp_pacific: `${stamp.date} ${stamp.time} PT`,
+    author: row.author_name,
+    text: row.text,
+    ce_pushed: !!row.ce_pushed_at,
+    ce_push_error: row.ce_pushed_at ? null : row.ce_push_error,
+  };
+}
+
+/** A project's Internal Notes, newest first — read straight from CloudConnect, never from CE. */
+export async function getProjectInternalNotes(db: D1Database, projectId: string): Promise<{ entries: InternalNoteEntry[] }> {
+  const rows = (await db
+    .prepare(
+      `SELECT id, author_name, text, created_at, ce_pushed_at, ce_push_error
+         FROM project_internal_notes WHERE project_id = ? ORDER BY created_at DESC`
+    )
+    .bind(projectId)
+    .all<NoteRow>()).results ?? [];
+  return { entries: rows.map(toEntry) };
 }
 
 type ProjectForNote = { id: string; name: string; crm_case_id: string | null; crm_ticket_number: string | null };
@@ -39,69 +70,85 @@ export async function addInternalNoteForUser(
   env: Bindings, ctx: ExecutionContext, auth: AuthContext,
   project: ProjectForNote, note: string, allowDuplicate: boolean
 ) {
+  const db = env.DB;
   const user = auth.user;
   // Same people who can log time on the project: its editors, plus PMs and IEs.
-  if (!(await canLogTimeOnProject(env.DB, user, project.id))) return fail("You can't add notes on this project.");
-  if (!project.crm_case_id) return fail("This project has no linked CE case.");
+  if (!(await canLogTimeOnProject(db, user, project.id))) return fail("You can't add notes on this project.");
 
   const text = note.trim().replace(/\r\n/g, "\n");
-  // The schema trims too; this keeps a blank note from ever reaching CE as a
-  // bare "[stamp] Author:" header, whoever calls this.
   if (!text) return fail("The note is empty.");
   const author = user.name ?? user.email;
+
+  // Matched on this user's exact text, regardless of when — not a CE round
+  // trip, since the note lives here now.
+  if (!allowDuplicate) {
+    const dup = await db
+      .prepare(
+        `SELECT id FROM project_internal_notes WHERE project_id = ? AND author_id = ? AND text = ?
+         ORDER BY created_at DESC LIMIT 1`
+      )
+      .bind(project.id, user.id, text)
+      .first<{ id: string }>();
+    if (dup) {
+      return {
+        status: "duplicate",
+        message: "This exact note from you is already on this project, so it wasn't added again. Set allow_duplicate to add it anyway.",
+        project: project.name,
+      };
+    }
+  }
+
+  const id = crypto.randomUUID();
   const now = new Date().toISOString();
-  const stamp = utcToPacific(now);
-  const entry = `[${stamp.date} ${stamp.time} PT] ${author}: ${text}`;
+  await db
+    .prepare(
+      `INSERT INTO project_internal_notes (id, project_id, author_id, author_name, text, created_at)
+       VALUES (?, ?, ?, ?, ?, ?)`
+    )
+    .bind(id, project.id, user.id, author, text, now)
+    .run();
 
-  let caseId: string;
-  try {
-    const found = await getCaseAndJob(env, project.crm_case_id);
-    if (!found) return fail("Couldn't find the project's case in CE.");
-    caseId = found.caseId;
-  } catch (err) {
-    return fail("Couldn't reach CE to find the case.", { ce_push: { succeeded: false, error: err instanceof Error ? err.message : String(err) } });
-  }
-
-  // A retry (timeout, the model calling twice) must not add the note twice.
-  // Matched on a whole entry's author + text — not the timestamp, which
-  // differs per attempt, and not a substring, which would treat "Customer
-  // approved" as a repeat of an earlier "Customer approved migration schedule".
-  const body = `${author}: ${text}`;
-  let result: { appended: boolean; notes: string };
-  try {
-    result = await appendCaseInternalNote(env, caseId, entry, allowDuplicate ? undefined : (current) => entryBodies(current).includes(body));
-  } catch (err) {
-    return fail("The note was not added — the update to CE failed.", {
-      ce_push: { succeeded: false, error: err instanceof Error ? err.message : String(err) },
-    });
-  }
-
-  if (!result.appended) {
-    return {
-      status: "duplicate",
-      message: "This entry from you is already in the case's Internal Notes, so it wasn't added again. Set allow_duplicate to add it anyway.",
-      project: project.name,
-      ce_case_number: project.crm_ticket_number,
-    };
-  }
-
-  ctx.waitUntil(writeAuditLog(env.DB, {
+  ctx.waitUntil(writeAuditLog(db, {
     entityType: "project",
     entityId: project.id,
-    action: "mcp_internal_note",
+    action: "internal_note_add",
     method: "MCP",
     path: "/mcp",
     status: 200,
     actor: { id: user.id, name: user.name, email: user.email },
   }));
 
+  // The note is already saved; everything below is a best-effort mirror to CE.
+  let cePush: { succeeded: boolean; error?: string; ce_case_id?: string };
+  if (!project.crm_case_id) {
+    cePush = { succeeded: false, error: "This project has no linked CE case, so the note wasn't pushed." };
+    await db.prepare("UPDATE project_internal_notes SET ce_push_error = ? WHERE id = ?").bind(cePush.error, id).run();
+  } else {
+    const stamp = utcToPacific(now);
+    const entry = `[${stamp.date} ${stamp.time} PT] ${author}: ${text}`;
+    try {
+      const found = await getCaseAndJob(env, project.crm_case_id);
+      if (!found) throw new Error("Couldn't find the project's case in CE.");
+      await appendCaseInternalNote(env, found.caseId, entry);
+      await db
+        .prepare("UPDATE project_internal_notes SET ce_pushed_at = ?, ce_push_error = NULL WHERE id = ?")
+        .bind(new Date().toISOString(), id)
+        .run();
+      cePush = { succeeded: true, ce_case_id: found.caseId };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      await db.prepare("UPDATE project_internal_notes SET ce_push_error = ? WHERE id = ?").bind(message, id).run();
+      cePush = { succeeded: false, error: message };
+    }
+  }
+
+  const pushedAt = cePush.succeeded ? new Date().toISOString() : null;
   return {
     status: "added",
     added_at: now,
-    ce_push: { succeeded: true, ce_case_id: caseId },
+    note: toEntry({ id, author_name: author, text, created_at: now, ce_pushed_at: pushedAt, ce_push_error: cePush.succeeded ? null : cePush.error ?? null }),
+    ce_push: cePush,
     project: project.name,
     ce_case_number: project.crm_ticket_number,
-    appended_text: entry,
-    internal_notes_length: result.notes.length,
   };
 }

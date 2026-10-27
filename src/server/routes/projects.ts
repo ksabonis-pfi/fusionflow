@@ -23,6 +23,7 @@ import { syncStageStatus, syncProjectStatus, syncProjectGoLiveDate } from "../li
 import { canonicalizeVendor } from "../../shared/vendors";
 import { getDemoVendor } from "../lib/appSettings";
 import { notifyZoomEmailAliasForProject } from "../lib/notifications";
+import { getProjectInternalNotes, addInternalNoteForUser } from "../mcp/internalNotes";
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
@@ -983,6 +984,61 @@ app.get("/:id/case", async (c) => {
   const projectTimeEntriesTotalHours = projectTimeRows.reduce((s, e) => s + (Number(e.hours) || 0), 0);
 
   return c.json({ case: caseData, timeEntries, sowQuote, accountOpportunities, externalResourcesTotal, phaseCases, projectTimeEntries, projectTimeEntriesTotalHours });
+});
+
+// ── Internal Notes (lives in CloudConnect; also pushed to the linked case's
+// incident.new_internalnotes, best-effort) ──
+//
+// A PM-facing progress/status log, never shown to the customer — gated out
+// for client/partner_ae in addition to the normal canViewProject check, since
+// the whole point is a place for internal (and leadership) eyes only.
+
+function isInternalRole(role: string): boolean {
+  return role !== "client" && role !== "partner_ae";
+}
+
+app.get("/:id/internal-notes", async (c) => {
+  const auth = c.get("auth");
+  const db = c.env.DB;
+  const projectId = c.req.param("id");
+
+  if (!isInternalRole(auth.role) || !(await canViewProject(db, auth.user, projectId))) {
+    throw new HTTPException(403, { message: "Forbidden" });
+  }
+
+  const project = await db.prepare("SELECT id FROM projects WHERE id = ? LIMIT 1").bind(projectId).first<{ id: string }>();
+  if (!project) throw new HTTPException(404, { message: "Project not found" });
+
+  const result = await getProjectInternalNotes(db, projectId);
+  return c.json(result);
+});
+
+const internalNoteSchema = z.object({
+  note: z.string().min(1),
+  allow_duplicate: z.boolean().optional(),
+});
+
+app.post("/:id/internal-notes", async (c) => {
+  const auth = c.get("auth");
+  const db = c.env.DB;
+  const projectId = c.req.param("id");
+
+  if (!isInternalRole(auth.role) || !(await canViewProject(db, auth.user, projectId))) {
+    throw new HTTPException(403, { message: "Forbidden" });
+  }
+
+  const parsed = internalNoteSchema.safeParse(await c.req.json());
+  if (!parsed.success) throw new HTTPException(400, { message: "Invalid note" });
+
+  const project = await db
+    .prepare("SELECT id, name, crm_case_id, crm_ticket_number FROM projects WHERE id = ? LIMIT 1")
+    .bind(projectId)
+    .first<{ id: string; name: string; crm_case_id: string | null; crm_ticket_number: string | null }>();
+  if (!project) throw new HTTPException(404, { message: "Project not found" });
+
+  const result = await addInternalNoteForUser(c.env, c.executionCtx, auth, project, parsed.data.note, parsed.data.allow_duplicate ?? false);
+  if ("error" in result) throw new HTTPException(400, { message: result.error });
+  return c.json(result);
 });
 
 // ── SharePoint folder (retrofit for projects created before the auto-create) ─

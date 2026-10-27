@@ -6,6 +6,7 @@ import SortableTaskRow from "../components/project/SortableTaskRow";
 import {
   api,
   type CaseComplianceData,
+  type InternalNotesResult,
   type CaseTimeEntry,
   type Document,
   type DynamicsContact,
@@ -485,6 +486,10 @@ export default function ProjectDetailPage() {
   // CRM case compliance
   const [caseCompliance, setCaseCompliance] = useState<CaseComplianceData | null>(null);
   const [caseComplianceLoading, setCaseComplianceLoading] = useState(false);
+  const [internalNotes, setInternalNotes] = useState<InternalNotesResult | null>(null);
+  const [internalNotesLoading, setInternalNotesLoading] = useState(false);
+  const [newInternalNote, setNewInternalNote] = useState("");
+  const [savingInternalNote, setSavingInternalNote] = useState(false);
   const [caseSearchQuery, setCaseSearchQuery] = useState("");
   const [caseSearchResults, setCaseSearchResults] = useState<SupportCase[]>([]);
   const [caseSearching, setCaseSearching] = useState(false);
@@ -741,6 +746,43 @@ export default function ProjectDetailPage() {
       .catch(() => setCaseCompliance(null))
       .finally(() => setCaseComplianceLoading(false));
   }, [tab, project?.id]);
+
+  // Internal Notes — lives in CloudConnect (project_internal_notes), pushed to
+  // CE best-effort. Not fetched for external roles at all (the tab itself is
+  // hidden from them, but this avoids a pointless 403 round-trip too).
+  useEffect(() => {
+    if (tab !== "case" || !project?.id) return;
+    if (currentUserRole === "client" || currentUserRole === "partner_ae") return;
+    setInternalNotesLoading(true);
+    api.projectInternalNotes(project.id)
+      .then(setInternalNotes)
+      .catch(() => setInternalNotes(null))
+      .finally(() => setInternalNotesLoading(false));
+  }, [tab, project?.id, currentUserRole]);
+
+  async function handleAddInternalNote(allowDuplicate = false) {
+    if (!project?.id || !newInternalNote.trim()) return;
+    setSavingInternalNote(true);
+    try {
+      const result = await api.addProjectInternalNote(project.id, newInternalNote.trim(), allowDuplicate);
+      if (result.status === "duplicate") {
+        if (window.confirm(`${result.message}\n\nAdd it again anyway?`)) {
+          await handleAddInternalNote(true);
+        }
+        return;
+      }
+      setNewInternalNote("");
+      api.projectInternalNotes(project.id).then(setInternalNotes).catch(() => {});
+      showToast(
+        result.ce_push.succeeded ? "Note added." : `Note saved, but it didn't reach CE: ${result.ce_push.error}`,
+        result.ce_push.succeeded ? "success" : "error"
+      );
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Failed to add note", "error");
+    } finally {
+      setSavingInternalNote(false);
+    }
+  }
 
   // Persist solution-type filter per project (shared by Gantt + Tasks table)
   useEffect(() => {
@@ -3589,6 +3631,63 @@ export default function ProjectDetailPage() {
 
               </div>
             </div>
+
+            {/* ── Internal Notes ── */}
+            {/* PM progress/status log. CloudConnect is the record (stored in
+                project_internal_notes); a copy is also pushed to the linked
+                case's Internal Notes field in CE (incident.new_internalnotes)
+                best-effort — internal and leadership only, never shown on the
+                client-facing tabs. */}
+            {project && (
+              <div className="ms-section-card">
+                <div className="ms-section-title" style={{ marginBottom: 2 }}>Internal Notes</div>
+                <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 14 }}>
+                  Progress and status notes for PF staff and leadership — never visible to the customer. Kept here in CloudConnect, and also pushed to this project's CE case Internal Notes field when one is linked.
+                </div>
+                {canLogTime && (
+                  <div style={{ display: "flex", gap: 8, marginBottom: 14, alignItems: "flex-start" }}>
+                    <textarea
+                      className="ms-input"
+                      style={{ flex: 1, minHeight: 60, resize: "vertical" }}
+                      placeholder="What's the status? e.g. Discovery call held, awaiting porting docs from customer."
+                      value={newInternalNote}
+                      onChange={(e) => setNewInternalNote(e.target.value)}
+                      disabled={savingInternalNote}
+                    />
+                    <button
+                      type="button"
+                      className="ms-btn-primary"
+                      style={{ flexShrink: 0 }}
+                      disabled={savingInternalNote || !newInternalNote.trim()}
+                      onClick={() => handleAddInternalNote()}
+                    >
+                      {savingInternalNote ? "Adding…" : "Add Note"}
+                    </button>
+                  </div>
+                )}
+                {internalNotesLoading ? (
+                  <div style={{ fontSize: 13, color: "#94a3b8" }}>Loading…</div>
+                ) : !internalNotes || internalNotes.entries.length === 0 ? (
+                  <div style={{ fontSize: 13, color: "#94a3b8" }}>No notes yet.</div>
+                ) : (
+                  <div style={{ display: "grid", gap: 8 }}>
+                    {internalNotes.entries.map((entry) => (
+                      <div key={entry.id} style={{ padding: "8px 10px", border: "1px solid #e2e8f0", borderRadius: 6 }}>
+                        <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 2, display: "flex", gap: 6, alignItems: "center" }}>
+                          <span>{entry.timestamp_pacific}{entry.author ? ` · ${entry.author}` : ""}</span>
+                          {!entry.ce_pushed && (
+                            <span title={entry.ce_push_error ?? "Not pushed to CE"} style={{ color: "#b45309", fontWeight: 600 }}>
+                              · not in CE
+                            </span>
+                          )}
+                        </div>
+                        <div style={{ fontSize: 13, color: "#1e293b", whiteSpace: "pre-wrap" }}>{entry.text}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* ── Hours Compliance ── */}
             {(referenceHours != null || actualHours > 0) && (

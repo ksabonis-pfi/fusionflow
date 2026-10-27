@@ -749,6 +749,19 @@ export type CaseComplianceData = {
   projectTimeEntriesTotalHours: number;
 };
 
+export type InternalNoteEntry = {
+  id: string;
+  timestamp_pacific: string;
+  author: string;
+  text: string;
+  ce_pushed: boolean;
+  ce_push_error: string | null;
+};
+export type InternalNotesResult = { entries: InternalNoteEntry[] };
+export type InternalNoteResult =
+  | { status: "added"; added_at: string; note: InternalNoteEntry; ce_push: { succeeded: boolean; error?: string }; ce_case_number: string | null }
+  | { status: "duplicate"; message: string };
+
 export type ExternalResourceStatus = "new" | "posted" | "assigned" | "in_progress" | "closed" | "billed";
 export type ExternalResource = {
   id: string;
@@ -914,6 +927,8 @@ export type CustomerContact = {
   phone: string | null;
   job_title: string | null;
   contact_role: string | null;
+  ce_active: number | null;
+  ce_synced_at: string | null;
   added_at: string;
 };
 
@@ -2093,6 +2108,14 @@ export const api = {
 
   projectCaseCompliance: (projectId: string) =>
     request<CaseComplianceData>(`/projects/${projectId}/case`),
+
+  projectInternalNotes: (projectId: string) =>
+    request<InternalNotesResult>(`/projects/${projectId}/internal-notes`),
+  addProjectInternalNote: (projectId: string, note: string, allowDuplicate?: boolean) =>
+    request<InternalNoteResult>(`/projects/${projectId}/internal-notes`, {
+      method: "POST",
+      body: JSON.stringify({ note, allow_duplicate: allowDuplicate }),
+    }),
 
   externalResources: (projectId: string) =>
     request<ExternalResource[]>(`/projects/${projectId}/external-resources`),
@@ -3351,8 +3374,8 @@ export const api = {
     request<{ customer: Customer; crm: { ae_name: string | null; sa_name: string | null; csm_name: string | null } }>(`/customers/${id}/crm-sync`, { method: "POST" }),
   customerContacts: (id: string) =>
     request<CustomerContact[]>(`/customers/${id}/contacts`),
-  addCustomerContact: (id: string, data: { name: string; email?: string | null; phone?: string | null; job_title?: string | null; contact_role?: string | null; dynamics_contact_id?: string }) =>
-    request<CustomerContact>(`/customers/${id}/contacts`, { method: "POST", body: JSON.stringify(data) }),
+  syncCustomerContacts: (id: string) =>
+    request<CustomerContact[]>(`/customers/${id}/contacts/sync`, { method: "POST" }),
   deleteCustomerContact: (id: string, contactId: string) =>
     request<{ success: boolean }>(`/customers/${id}/contacts/${contactId}`, { method: "DELETE" }),
   customerProviderAes: (id: string) =>
