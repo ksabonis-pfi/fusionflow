@@ -3,8 +3,9 @@ import mockupHtml from "../assets/clientSuccessMockup.html?raw";
 import { api } from "../lib/api";
 
 // Clickable Client Success mockup (sample data only) for CSM feedback.
-// Deliberately unlinked: no module tile or nav entry — shared by URL.
-// Full page like ModuleSelectPage because the mockup draws its own sidebar.
+// Reached from the staging-only Client Success tile on ModuleSelectPage
+// (hidden on prod), or by URL. Full page because the mockup draws its own
+// sidebar; its sidebar links navigate the top window back into the app.
 // api.me() redirects to /login on 401, so only signed-in users reach it.
 const HIDDEN_FROM = ["client", "partner_ae"];
 
@@ -31,7 +32,7 @@ export default function ClientSuccessPreviewPage() {
     <iframe
       title="Client Success mockup"
       srcDoc={mockupHtml}
-      sandbox="allow-scripts allow-forms"
+      sandbox="allow-scripts allow-forms allow-top-navigation-by-user-activation"
       style={{ display: "block", width: "100%", height: isStaging ? "calc(100vh - 24px)" : "100vh", border: 0 }}
     />
   );

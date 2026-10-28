@@ -18,8 +18,8 @@
   --line: #dde4ef;
   --line-soft: #edf1f7;
   --brand: #22c55e;       /* the "Connect" green */
-  --accent: #4f46e5;      /* Client Success module accent */
-  --accent-soft: #eef0fd;
+  --accent: #7c3aed;      /* Client Success module accent (matches its home tile) */
+  --accent-soft: #f3eefe;
   --good: #15803d;  --good-bg: #dcfce7;
   --warn: #b45309;  --warn-bg: #fef3c7;
   --bad: #b91c1c;   --bad-bg: #fee2e2;
@@ -41,17 +41,18 @@ button, input, select, textarea { font: inherit; color: var(--text); }
 .nav-label { font-size: 10.5px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(255,255,255,0.45); padding: 0 10px 6px; }
 .nav a { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: rgba(255,255,255,0.78); text-decoration: none; padding: 8px 10px; border-radius: 8px; font-weight: 600; font-size: 13.5px; }
 .nav a:hover { background: rgba(255,255,255,0.07); color: #fff; }
-.nav a.on { background: rgba(79,70,229,0.35); color: #fff; }
+.nav a.on { background: rgba(124,58,237,0.4); color: #fff; }
 .nav .count { background: rgba(255,255,255,0.14); border-radius: 999px; font-size: 11px; padding: 1px 7px; font-variant-numeric: tabular-nums; }
 .nav .count.hot { background: #dc2626; }
-.nav a.dim { color: rgba(255,255,255,0.4); pointer-events: none; }
+.nav a.out { color: rgba(255,255,255,0.6); }
+a.logo { color: #fff; text-decoration: none; }
 .side-foot { margin-top: auto; font-size: 11.5px; color: rgba(255,255,255,0.5); padding: 0 10px; line-height: 1.5; }
 
 .main { min-width: 0; padding-block: 22px 48px; padding-left: max(28px, env(safe-area-inset-left, 0px)); padding-right: max(28px, env(safe-area-inset-right, 0px)); display: flex; flex-direction: column; gap: 18px; }
-.mock-banner { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; background: var(--accent-soft); border: 1px dashed #a5b4fc; color: #3730a3; border-radius: 10px; padding: 9px 14px; font-size: 12.5px; }
+.mock-banner { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; background: var(--accent-soft); border: 1px dashed #c4b5fd; color: #5b21b6; border-radius: 10px; padding: 9px 14px; font-size: 12.5px; }
 .mock-banner b { font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; font-size: 11px; }
 .viewas { margin-left: auto; display: flex; align-items: center; gap: 6px; }
-.viewas select { border: 1px solid #c7d2fe; border-radius: 6px; padding: 3px 6px; background: #fff; font-size: 12.5px; }
+.viewas select { border: 1px solid #ddd6fe; border-radius: 6px; padding: 3px 6px; background: #fff; font-size: 12.5px; }
 
 .head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px; }
 .title { font-size: 22px; font-weight: 800; color: var(--ink); letter-spacing: -0.02em; margin: 0; text-wrap: balance; }
@@ -103,7 +104,7 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .btn { border: 1px solid var(--line); background: #fff; border-radius: 8px; padding: 7px 12px; font-weight: 700; font-size: 13px; cursor: pointer; color: var(--ink); white-space: nowrap; }
 .btn:hover { border-color: #b8c4d8; }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-.btn.primary:hover { background: #4338ca; }
+.btn.primary:hover { background: #6d28d9; }
 .btn.sm { padding: 4px 9px; font-size: 12px; }
 
 .filters { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -206,7 +207,7 @@ form.logform .actions { grid-column: 1 / -1; display: flex; justify-content: fle
 
 <div class="shell">
   <aside class="side">
-    <div class="logo">Cloud<span>Connect</span></div>
+    <a class="logo" href="/" target="_top" title="Back to modules">Cloud<span>Connect</span></a>
     <nav class="nav-group nav" aria-label="Client Success">
       <div class="nav-label">Client Success</div>
       <a href="#book" data-nav="book">My Book <span class="count" id="n-book"></span></a>
@@ -215,10 +216,11 @@ form.logform .actions { grid-column: 1 / -1; display: flex; justify-content: fle
     </nav>
     <nav class="nav-group nav other" aria-label="Other modules">
       <div class="nav-label">Other modules</div>
-      <a class="dim">Solutioning</a>
-      <a class="dim">Implementation</a>
-      <a class="dim">Support</a>
-      <a class="dim">Optimization</a>
+      <a class="out" href="/" target="_top">← All modules</a>
+      <a class="out" href="/solutions" target="_top">Solutioning</a>
+      <a class="out" href="/dashboard" target="_top">Implementation</a>
+      <a class="out" href="/support/dashboard" target="_top">Support</a>
+      <a class="out" href="/optimize" target="_top">Optimization</a>
     </nav>
     <div class="side-foot">Clickable mockup. Customers, people and dollar amounts are made up.</div>
   </aside>
