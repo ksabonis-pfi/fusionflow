@@ -40,6 +40,7 @@ import ProfilePage from "../pages/ProfilePage";
 import SalesToolsPage from "../pages/SalesToolsPage";
 import MyTimePage from "../pages/MyTimePage";
 import SalesOpsPage from "../pages/SalesOpsPage";
+import ClientSuccessPreviewPage from "../pages/ClientSuccessPreviewPage";
 
 export default function Router() {
   const isStaging = typeof window !== "undefined" && window.location.hostname.includes("staging");
@@ -63,6 +64,9 @@ export default function Router() {
 
         {/* Module selection — full page, no app shell */}
         <Route path="/" element={<ModuleSelectPage />} />
+
+        {/* Client Success mockup for CSM feedback — unlinked, full page */}
+        <Route path="/client-success/preview" element={<ClientSuccessPreviewPage />} />
 
         {/* Implementation module */}
         <Route element={<AppShell />}>
