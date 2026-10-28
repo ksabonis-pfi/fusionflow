@@ -1,0 +1,849 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Client Success Mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito+Sans:opsz,wght@6..12,300;6..12,400;6..12,600;6..12,700;6..12,800&display=swap">
+<style>
+/* Layout: CloudConnect app shell — fixed navy sidebar + light work area of white section cards.
+   Single light theme on purpose: CloudConnect itself is light-only, and this mocks that app. */
+:root {
+  color-scheme: light;
+  --navy: #021e34;        /* sidebar */
+  --ink: #03395f;         /* titles */
+  --text: #1e293b;
+  --muted: #64748b;
+  --ground: #f0f4f8;      /* app background */
+  --card: #ffffff;
+  --line: #dde4ef;
+  --line-soft: #edf1f7;
+  --brand: #22c55e;       /* the "Connect" green */
+  --accent: #4f46e5;      /* Client Success module accent */
+  --accent-soft: #eef0fd;
+  --good: #15803d;  --good-bg: #dcfce7;
+  --warn: #b45309;  --warn-bg: #fef3c7;
+  --bad: #b91c1c;   --bad-bg: #fee2e2;
+  --neutral-bg: #eef2f7;
+  --font: 'avenir-lt-pro', 'Nunito Sans', 'Segoe UI', system-ui, sans-serif;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--ground); color: var(--text); font-family: var(--font); font-size: 14px; -webkit-font-smoothing: antialiased; }
+button, input, select, textarea { font: inherit; color: var(--text); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+.shell { display: grid; grid-template-columns: 232px minmax(0, 1fr); min-height: 100vh; }
+.side { background: var(--navy); color: #fff; padding: 22px 14px; display: flex; flex-direction: column; gap: 22px; position: sticky; top: 0; height: 100vh; }
+.logo { font-weight: 800; font-size: 24px; letter-spacing: -0.02em; padding: 0 8px; }
+.logo span { color: var(--brand); }
+.nav-group { display: flex; flex-direction: column; gap: 2px; }
+.nav-label { font-size: 10.5px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(255,255,255,0.45); padding: 0 10px 6px; }
+.nav a { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: rgba(255,255,255,0.78); text-decoration: none; padding: 8px 10px; border-radius: 8px; font-weight: 600; font-size: 13.5px; }
+.nav a:hover { background: rgba(255,255,255,0.07); color: #fff; }
+.nav a.on { background: rgba(79,70,229,0.35); color: #fff; }
+.nav .count { background: rgba(255,255,255,0.14); border-radius: 999px; font-size: 11px; padding: 1px 7px; font-variant-numeric: tabular-nums; }
+.nav .count.hot { background: #dc2626; }
+.nav a.dim { color: rgba(255,255,255,0.4); pointer-events: none; }
+.side-foot { margin-top: auto; font-size: 11.5px; color: rgba(255,255,255,0.5); padding: 0 10px; line-height: 1.5; }
+
+.main { min-width: 0; padding-block: 22px 48px; padding-left: max(28px, env(safe-area-inset-left, 0px)); padding-right: max(28px, env(safe-area-inset-right, 0px)); display: flex; flex-direction: column; gap: 18px; }
+.mock-banner { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; background: var(--accent-soft); border: 1px dashed #a5b4fc; color: #3730a3; border-radius: 10px; padding: 9px 14px; font-size: 12.5px; }
+.mock-banner b { font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; font-size: 11px; }
+.viewas { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+.viewas select { border: 1px solid #c7d2fe; border-radius: 6px; padding: 3px 6px; background: #fff; font-size: 12.5px; }
+
+.head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px; }
+.title { font-size: 22px; font-weight: 800; color: var(--ink); letter-spacing: -0.02em; margin: 0; text-wrap: balance; }
+.subtitle { font-size: 13px; color: var(--muted); margin: 4px 0 0; font-weight: 300; }
+.crumb { font-size: 12.5px; color: var(--muted); margin-bottom: 4px; }
+.crumb a { color: var(--accent); text-decoration: none; font-weight: 600; }
+
+.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.stat { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 18px; display: flex; flex-direction: column; gap: 2px; text-align: left; cursor: pointer; }
+.stat:hover { border-color: #b8c4d8; }
+.stat.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.stat .k { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.stat .v { font-size: 26px; font-weight: 800; color: var(--ink); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+.stat .s { font-size: 12px; color: var(--muted); }
+.stat .v.bad { color: var(--bad); }  .stat .v.warn { color: var(--warn); }
+
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 18px 22px; min-width: 0; }
+.card-h { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin: 0 0 14px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+.sec { font-size: 11px; font-weight: 700; color: var(--ink); text-transform: uppercase; letter-spacing: 0.1em; margin: 0; }
+.phase { font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); background: var(--accent-soft); border-radius: 4px; padding: 2px 6px; margin-left: 8px; }
+
+.toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.search { flex: 1 1 220px; border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; background: #fff; min-width: 0; }
+.select { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; background: #fff; }
+
+.tbl-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+th { text-align: left; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); padding: 0 12px 10px; white-space: nowrap; border-bottom: 1px solid var(--line); }
+td { padding: 11px 12px; border-bottom: 1px solid var(--line-soft); vertical-align: middle; }
+tbody tr.click { cursor: pointer; }
+tbody tr.click:hover td { background: #f7f9fc; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.cust { font-weight: 700; color: var(--ink); }
+.small { font-size: 12px; color: var(--muted); }
+
+.pill { display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; padding: 3px 10px 3px 8px; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.pill.healthy { color: var(--good); background: var(--good-bg); }
+.pill.monitor { color: var(--warn); background: var(--warn-bg); }
+.pill.atrisk { color: var(--bad); background: var(--bad-bg); }
+.pill .sc { font-weight: 400; opacity: 0.8; font-variant-numeric: tabular-nums; }
+.chip { display: inline-block; border-radius: 6px; padding: 2px 8px; font-size: 11.5px; font-weight: 700; background: var(--neutral-bg); color: var(--muted); white-space: nowrap; }
+.chip.bad { background: var(--bad-bg); color: var(--bad); }
+.chip.warn { background: var(--warn-bg); color: var(--warn); }
+.chip.good { background: var(--good-bg); color: var(--good); }
+.chip.accent { background: var(--accent-soft); color: var(--accent); }
+.bad-t { color: var(--bad); font-weight: 700; } .warn-t { color: var(--warn); font-weight: 700; }
+
+.btn { border: 1px solid var(--line); background: #fff; border-radius: 8px; padding: 7px 12px; font-weight: 700; font-size: 13px; cursor: pointer; color: var(--ink); white-space: nowrap; }
+.btn:hover { border-color: #b8c4d8; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn.primary:hover { background: #4338ca; }
+.btn.sm { padding: 4px 9px; font-size: 12px; }
+
+.filters { display: flex; gap: 6px; flex-wrap: wrap; }
+.fbtn { border: 1px solid var(--line); background: #fff; border-radius: 999px; padding: 5px 12px; font-size: 12.5px; font-weight: 700; cursor: pointer; color: var(--muted); }
+.fbtn.on { background: var(--ink); border-color: var(--ink); color: #fff; }
+
+/* account page */
+.tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); overflow-x: auto; }
+.tab { padding: 10px 14px; font-weight: 700; font-size: 13.5px; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; }
+.tab.on { color: var(--accent); border-color: var(--accent); }
+.acct-meta { display: flex; flex-wrap: wrap; gap: 6px 22px; font-size: 13px; color: var(--muted); }
+.acct-meta b { color: var(--text); font-weight: 700; }
+.grid2 { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 18px; align-items: start; }
+.col { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+
+.score-row { display: flex; align-items: center; gap: 18px; margin-bottom: 16px; }
+.dial { width: 92px; height: 92px; flex: none; }
+.dial text { font-family: var(--font); }
+.factor { display: grid; grid-template-columns: 112px minmax(0, 1fr) 42px; gap: 4px 12px; align-items: center; padding: 8px 0; border-top: 1px solid var(--line-soft); }
+.factor .nm { font-weight: 700; font-size: 13px; }
+.factor .pts { text-align: right; font-weight: 800; font-variant-numeric: tabular-nums; font-size: 13px; }
+.factor .note { grid-column: 2 / 4; font-size: 12px; color: var(--muted); }
+.bar { position: relative; height: 8px; background: var(--neutral-bg); border-radius: 4px; }
+.bar::after { content: ""; position: absolute; left: 50%; top: -3px; bottom: -3px; width: 1px; background: #b8c4d8; }
+.bar i { position: absolute; top: 0; bottom: 0; border-radius: 4px; }
+.override { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); font-size: 12.5px; color: var(--muted); }
+
+.log { display: flex; flex-direction: column; }
+.entry { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 4px 14px; padding: 12px 0; border-top: 1px solid var(--line-soft); }
+.entry:first-child { border-top: 0; padding-top: 0; }
+.entry .when { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.entry .what { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 12.5px; color: var(--muted); }
+.entry p { margin: 4px 0 0; line-height: 1.5; }
+.fu { display: flex; align-items: flex-start; gap: 8px; margin-top: 8px; background: #f7f9fc; border: 1px solid var(--line-soft); border-radius: 8px; padding: 7px 10px; font-size: 12.5px; }
+.fu input { margin-top: 2px; accent-color: var(--accent); }
+.fu.done span { text-decoration: line-through; color: var(--muted); }
+.sent { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+.sent.positive { background: var(--good); } .sent.neutral { background: #94a3b8; } .sent.negative { background: var(--bad); }
+
+form.logform { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; background: #f7f9fc; border: 1px solid var(--line); border-radius: 10px; padding: 14px; margin-bottom: 14px; }
+form.logform label { display: flex; flex-direction: column; gap: 4px; font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); min-width: 0; }
+form.logform .wide { grid-column: 1 / -1; }
+form.logform input, form.logform select, form.logform textarea { border: 1px solid var(--line); border-radius: 7px; padding: 7px 9px; background: #fff; font-size: 13.5px; text-transform: none; letter-spacing: 0; font-weight: 400; width: 100%; min-width: 0; }
+form.logform textarea { min-height: 64px; resize: vertical; }
+form.logform .actions { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 8px; }
+
+.spark { display: block; }
+.adopt { display: grid; grid-template-columns: minmax(0, 1fr) 120px 56px; gap: 4px 12px; align-items: center; padding: 10px 0; border-top: 1px solid var(--line-soft); }
+.adopt:first-child { border-top: 0; padding-top: 0; }
+.adopt .pct { text-align: right; font-weight: 800; font-variant-numeric: tabular-nums; }
+
+/* pipeline */
+.lanes { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; align-items: start; }
+.lane { background: #e8eef5; border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.lane-h { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; padding: 0 2px; }
+.lane-h b { font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink); }
+.lane-h span { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.rcard { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 11px 12px; display: flex; flex-direction: column; gap: 6px; cursor: pointer; text-align: left; width: 100%; }
+.rcard:hover { border-color: #b8c4d8; }
+.rcard.risk { border-left: 3px solid var(--bad); }
+.rcard .opp { font-size: 12px; color: var(--muted); }
+.rcard .row { display: flex; justify-content: space-between; gap: 8px; align-items: center; font-size: 12.5px; flex-wrap: wrap; }
+.rcard .amt { font-weight: 800; font-variant-numeric: tabular-nums; color: var(--ink); }
+.why { font-size: 11.5px; color: var(--bad); font-weight: 600; }
+.empty { font-size: 12.5px; color: var(--muted); text-align: center; padding: 14px 0; }
+
+/* queue */
+.qgroup { display: flex; flex-direction: column; }
+.qitem { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 12px 0; border-top: 1px solid var(--line-soft); }
+.qitem:first-child { border-top: 0; padding-top: 0; }
+.qitem .dot { width: 10px; height: 10px; border-radius: 50%; }
+.qitem .t { font-weight: 700; color: var(--ink); }
+.qitem .d { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+.qcols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; align-items: start; }
+
+.opp-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; padding: 10px 0; border-top: 1px solid var(--line-soft); }
+.opp-item:first-child { border-top: 0; padding-top: 0; }
+
+.toast { position: fixed; right: max(20px, env(safe-area-inset-right, 0px)); bottom: calc(20px + env(safe-area-inset-bottom, 0px)); background: var(--navy); color: #fff; padding: 10px 16px; border-radius: 10px; font-weight: 600; font-size: 13px; box-shadow: 0 8px 24px rgba(2,30,52,0.25); }
+
+@media (max-width: 1100px) {
+  .lanes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .grid2, .qcols { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 760px) {
+  .shell { grid-template-columns: minmax(0, 1fr); }
+  .side { position: static; height: auto; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 10px; padding-block: 12px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  .logo { font-size: 19px; padding: 0; }
+  .nav-group { flex-direction: row; flex-wrap: wrap; width: 100%; }
+  .nav-label, .side-foot, .nav-group.other { display: none; }
+  .nav a { padding: 6px 9px; font-size: 12.5px; }
+  .main { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .lanes { grid-template-columns: minmax(0, 1fr); }
+  form.logform { grid-template-columns: minmax(0, 1fr); }
+  .viewas { margin-left: 0; }
+  .card { padding: 16px; }
+}
+</style>
+
+<div class="shell">
+  <aside class="side">
+    <div class="logo">Cloud<span>Connect</span></div>
+    <nav class="nav-group nav" aria-label="Client Success">
+      <div class="nav-label">Client Success</div>
+      <a href="#book" data-nav="book">My Book <span class="count" id="n-book"></span></a>
+      <a href="#pipeline" data-nav="pipeline">Renewal Pipeline <span class="count" id="n-pipe"></span></a>
+      <a href="#queue" data-nav="queue">Action Queue <span class="count hot" id="n-queue"></span></a>
+    </nav>
+    <nav class="nav-group nav other" aria-label="Other modules">
+      <div class="nav-label">Other modules</div>
+      <a class="dim">Solutioning</a>
+      <a class="dim">Implementation</a>
+      <a class="dim">Support</a>
+      <a class="dim">Optimization</a>
+    </nav>
+    <div class="side-foot">Clickable mockup. Customers, people and dollar amounts are made up.</div>
+  </aside>
+
+  <main class="main">
+    <div class="mock-banner">
+      <b>Mockup</b>
+      <span>Sample data, today is Oct 28, 2026. Logging a touchpoint and checking off follow-ups work; nothing is saved.</span>
+      <label class="viewas" for="viewas">View as
+        <select id="viewas">
+          <option value="dana">Dana Whitfield (CSM)</option>
+          <option value="admin">Admin / executive (all CSMs)</option>
+        </select>
+      </label>
+    </div>
+    <div id="view"></div>
+  </main>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+const TODAY = new Date("2026-10-28T12:00:00");
+const CSMS = { dana: "Dana Whitfield", marcus: "Marcus Reyes", pool: "Pooled (CS)" };
+const AES = ["Tom Kearney", "Priya Shah", "Ben Ortega", "Lena Fischer"];
+
+function d(offset) { const x = new Date(TODAY); x.setDate(x.getDate() + offset); return x.toISOString().slice(0, 10); }
+function daysFrom(iso) { return Math.round((new Date(iso + "T12:00:00") - TODAY) / 86400000); }
+function fmtDate(iso) { return new Date(iso + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); }
+function fmtShort(iso) { return new Date(iso + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" }); }
+function money(n) { return "$" + n.toLocaleString("en-US"); }
+function esc(s) { return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+
+// Factor ranges mirror the proposal: sentiment ±15, adoption ±13, engagement ±12, delivery ±10, baseline 50.
+const FACTORS = [
+  { key: "sentiment", name: "Client sentiment", max: 15 },
+  { key: "adoption", name: "Adoption", max: 13 },
+  { key: "engagement", name: "Engagement", max: 12 },
+  { key: "delivery", name: "Delivery issues", max: 10 },
+];
+
+const CUSTOMERS = [
+  { id: "harborview", name: "Harborview Medical Group", vertical: "Healthcare", csm: "dana", ae: 0,
+    sentiment: { pts: -8, note: "Impact assessment Sep 30: 5.1/10, satisfaction 4/10" },
+    delivery: { pts: -6, note: "Zoom Contact Center: 1 high risk open (IVR routing)" },
+    projects: [
+      { name: "Zoom Phone rollout", vendor: "Zoom", licenses: 420, adoption: [61, 63, 60, 58, 55, 54] },
+      { name: "Zoom Contact Center", vendor: "Zoom", licenses: 38, adoption: [40, 52, 66, 71, 74, 76] },
+    ],
+    renewals: [{ opp: "Harborview - Zoom Renewal 2026", platform: "Zoom Phone", prev: 184200, close: d(24) }],
+    engagements: [
+      { date: d(-34), type: "Call", sentiment: "negative", by: "dana", summary: "IT director frustrated with call-quality tickets at the Eastside clinic. Asked for an escalation path before renewal talks.", fu: { note: "Send call-quality RCA from Support", due: d(-20), done: false } },
+      { date: d(-62), type: "QBR", sentiment: "neutral", by: "dana", summary: "Q3 QBR. Adoption flat; CC agents happy with new queues." },
+    ],
+    opps: [
+      { kind: "roadmap", title: "Zoom Workforce Management for CC agents", detail: "Roadmap item · Evaluating", tag: "Evaluating" },
+      { kind: "vendor", title: "Fortinet SD-WAN contract ends Mar 2027", detail: "Tech stack · Network · rated Migrate", tag: "Replace" },
+    ] },
+  { id: "coastal", name: "Coastal Valley Water District", vertical: "Public sector", csm: "dana", ae: 1,
+    sentiment: { pts: 4, note: "Impact assessment Aug 12: 7.0/10" },
+    delivery: { pts: 0, note: "No active projects" },
+    projects: [{ name: "RingCentral MVP", vendor: "RingCentral", licenses: 210, adoption: null }],
+    renewals: [{ opp: "Coastal Valley - renewal cloud - ring central - 2027", platform: "RingCentral MVP", prev: 61450, close: d(146) }],
+    engagements: [
+      { date: d(-41), type: "Email", sentiment: "neutral", by: "dana", summary: "Shared the new e911 address requirements. Waiting on site list.", fu: { note: "Follow up on e911 site list", due: d(3), done: false } },
+    ],
+    opps: [{ kind: "vendor", title: "Avaya voicemail server off support Jun 2027", detail: "Tech stack · UC · rated Eliminate", tag: "Replace" }] },
+  { id: "marlowe", name: "Marlowe & Pierce LLP", vertical: "Legal", csm: "dana", ae: 2,
+    sentiment: { pts: 12, note: "Impact assessment Oct 2: 8.6/10, satisfaction 9/10" },
+    delivery: { pts: 5, note: "No open high/critical risks" },
+    projects: [{ name: "Zoom Phone + Rooms", vendor: "Zoom", licenses: 160, adoption: [78, 81, 84, 86, 88, 89] }],
+    renewals: [{ opp: "Marlowe & Pierce - Zoom Renewal 2026", platform: "Zoom Phone", prev: 72800, close: d(52) }],
+    engagements: [
+      { date: d(-9), type: "Meeting", sentiment: "positive", by: "dana", summary: "Managing partner wants Zoom Rooms in the two new conference rooms. Intro'd to AE." },
+      { date: d(-48), type: "QBR", sentiment: "positive", by: "dana", summary: "Q3 QBR. Strong adoption; asked about AI Companion licensing." },
+    ],
+    opps: [
+      { kind: "roadmap", title: "Zoom Rooms for 2 new conference rooms", detail: "Roadmap item · Approved → Solution SOL-2291", tag: "Approved" },
+      { kind: "roadmap", title: "AI Companion add-on", detail: "Roadmap item · Identified", tag: "Identified" },
+    ] },
+  { id: "sierra", name: "Sierra Foothills Unified SD", vertical: "Education", csm: "dana", ae: 1,
+    sentiment: { pts: 9, note: "Impact assessment Sep 8: 7.9/10" },
+    delivery: { pts: 3, note: "Summer refresh project closed on time" },
+    projects: [{ name: "Zoom Phone district-wide", vendor: "Zoom", licenses: 940, adoption: [70, 72, 71, 74, 79, 82] }],
+    renewals: [{ opp: "Sierra Foothills USD - Zoom Renewal 2027", platform: "Zoom Phone", prev: 128900, close: d(212) }],
+    engagements: [{ date: d(-15), type: "Call", sentiment: "positive", by: "dana", summary: "Back-to-school went smoothly. Asked for bell-schedule paging options." }],
+    opps: [{ kind: "roadmap", title: "Paging integration for bell schedules", detail: "Roadmap item · Identified", tag: "Identified" }] },
+  { id: "bayline", name: "Bayline Logistics", vertical: "Transportation", csm: "dana", ae: 3,
+    sentiment: { pts: -3, note: "Impact assessment Jun 20: 5.8/10" },
+    delivery: { pts: 0, note: "No active projects" },
+    projects: [{ name: "RingCentral Contact Center", vendor: "RingCentral", licenses: 85, adoption: null }],
+    renewals: [{ opp: "Bayline - renewal cloud - ring central - 2026", platform: "RingCentral CC", prev: 96300, close: d(67) }],
+    engagements: [{ date: d(-74), type: "Call", sentiment: "neutral", by: "dana", summary: "New ops director started. Wants a review of agent licensing before renewal." }],
+    opps: [] },
+  { id: "redwood", name: "Redwood Credit Partners", vertical: "Financial services", csm: "dana", ae: 0,
+    sentiment: { pts: 2, note: "Impact assessment Jul 15: 6.6/10" },
+    delivery: { pts: -4, note: "Zoom CC expansion: 1 high risk open (CRM connector)" },
+    projects: [
+      { name: "Zoom Phone", vendor: "Zoom", licenses: 230, adoption: [66, 67, 69, 68, 70, 71] },
+      { name: "Zoom CC expansion", vendor: "Zoom", licenses: 24, adoption: [0, 0, 18, 35, 49, 58] },
+    ],
+    renewals: [{ opp: "Redwood Credit - Zoom Renewal 2027 (January)", platform: "Zoom Phone", prev: 54300, close: d(88) }],
+    engagements: [{ date: d(-27), type: "Onsite", sentiment: "neutral", by: "dana", summary: "Walked the CC floor. Agents like it; supervisors want better wallboards.", fu: { note: "Demo wallboard options to supervisors", due: d(-4), done: false } }],
+    opps: [{ kind: "roadmap", title: "CC wallboards / real-time dashboards", detail: "Roadmap item · Evaluating", tag: "Evaluating" }] },
+  { id: "portalder", name: "City of Port Alder", vertical: "Public sector", csm: "marcus", ae: 1,
+    sentiment: { pts: 10, note: "Impact assessment Sep 25: 8.1/10" },
+    delivery: { pts: 4, note: "No open high/critical risks" },
+    projects: [{ name: "Zoom Phone", vendor: "Zoom", licenses: 610, adoption: [74, 76, 77, 79, 80, 81] }],
+    renewals: [{ opp: "City of Port Alder - Zoom Resell Renewal 2027", platform: "Zoom Phone", prev: 143700, close: d(110) }],
+    engagements: [{ date: d(-12), type: "QBR", sentiment: "positive", by: "marcus", summary: "Council chambers AV upgrade budgeted for FY27." }],
+    opps: [{ kind: "roadmap", title: "Council chambers AV refresh", detail: "Roadmap item · Identified", tag: "Identified" }] },
+  { id: "northgate", name: "Northgate Biotech", vertical: "Life sciences", csm: "marcus", ae: 2,
+    sentiment: { pts: 1, note: "Impact assessment Aug 30: 6.4/10" },
+    delivery: { pts: 0, note: "No active projects" },
+    projects: [{ name: "RingCentral MVP", vendor: "RingCentral", licenses: 175, adoption: null }],
+    renewals: [{ opp: "Northgate - renewal cloud - ring central - 2027", platform: "RingCentral MVP", prev: 47200, close: d(180) }],
+    engagements: [{ date: d(-52), type: "Email", sentiment: "neutral", by: "marcus", summary: "Sent annual license true-up. No reply yet." }],
+    opps: [] },
+  { id: "pacificrim", name: "Pacific Rim Foods", vertical: "Manufacturing", csm: "marcus", ae: 3,
+    sentiment: { pts: 8, note: "Impact assessment Oct 10: 7.6/10" },
+    delivery: { pts: 3, note: "No open high/critical risks" },
+    projects: [{ name: "Zoom Phone + CC", vendor: "Zoom", licenses: 340, adoption: [69, 71, 73, 72, 75, 77] }],
+    renewals: [{ opp: "Pacific Rim Foods - Zoom Renewal 2027", platform: "Zoom Phone", prev: 88400, close: d(240) }],
+    engagements: [{ date: d(-20), type: "Call", sentiment: "positive", by: "marcus", summary: "Plant floor paging working well. Second plant opening Q2." }],
+    opps: [{ kind: "roadmap", title: "Second plant: Zoom Phone + paging", detail: "Roadmap item · Approved", tag: "Approved" }] },
+  { id: "summit", name: "Summit Ridge Hospitality", vertical: "Hospitality", csm: "pool", ae: 0,
+    sentiment: { pts: -6, note: "Impact assessment May 2: 5.0/10" },
+    delivery: { pts: 0, note: "No active projects" },
+    projects: [{ name: "Zoom Phone (3 properties)", vendor: "Zoom", licenses: 280, adoption: [58, 55, 53, 50, 49, 47] }],
+    renewals: [{ opp: "Summit Ridge - Zoom Renewal 2026 (December)", platform: "Zoom Phone", prev: 102600, close: d(41) }],
+    engagements: [{ date: d(-96), type: "Call", sentiment: "negative", by: "marcus", summary: "GM at Lakeside property asked about cheaper hotel-specific PBX options." }],
+    opps: [] },
+  { id: "tidewater", name: "Tidewater Engineering", vertical: "AEC", csm: "pool", ae: 2,
+    sentiment: { pts: 3, note: "Impact assessment Jul 1: 6.8/10" },
+    delivery: { pts: 0, note: "No active projects" },
+    projects: [{ name: "RingCentral MVP", vendor: "RingCentral", licenses: 120, adoption: null }],
+    renewals: [{ opp: "Tidewater - renewal cloud - ring central - 2026", platform: "RingCentral MVP", prev: 38900, close: d(15) }],
+    engagements: [{ date: d(-38), type: "Email", sentiment: "neutral", by: "dana", summary: "Confirmed renewal contact is the new office manager." }],
+    opps: [] },
+  { id: "alderfinch", name: "Alder & Finch Architects", vertical: "AEC", csm: "marcus", ae: 3,
+    sentiment: { pts: 11, note: "Impact assessment Sep 18: 8.4/10" },
+    delivery: { pts: 2, note: "No open high/critical risks" },
+    projects: [{ name: "Zoom Phone", vendor: "Zoom", licenses: 65, adoption: [80, 83, 85, 87, 86, 88] }],
+    renewals: [{ opp: "Alder & Finch - Zoom Renewal 2027", platform: "Zoom Phone", prev: 19800, close: d(198) }],
+    engagements: [{ date: d(-6), type: "Meeting", sentiment: "positive", by: "marcus", summary: "Happy client; agreed to be a reference for AEC prospects." }],
+    opps: [] },
+];
+CUSTOMERS.forEach(c => c.override = null);
+
+// ── derived values ─────────────────────────────────────────────────────────────
+function lastTouch(c) { return c.engagements.reduce((m, e) => (!m || e.date > m.date) ? e : m, null); }
+function daysSinceTouch(c) { const t = lastTouch(c); return t ? -daysFrom(t.date) : null; }
+function adoptionPct(c) {
+  const withData = c.projects.filter(p => p.adoption);
+  if (!withData.length) return null;
+  const lic = withData.reduce((s, p) => s + p.licenses, 0);
+  return Math.round(withData.reduce((s, p) => s + p.adoption[p.adoption.length - 1] * p.licenses, 0) / lic);
+}
+function adoptionFactor(c) {
+  const a = adoptionPct(c);
+  if (a === null) return { pts: 0, note: "No utilization data (RingCentral snapshots are manual), so this counts as neutral" };
+  const pts = a >= 85 ? 13 : a >= 75 ? 8 : a >= 65 ? 3 : a >= 55 ? -3 : -9;
+  return { pts, note: `${a}% of assigned licenses active in the last 30 days` };
+}
+function engagementFactor(c) {
+  const t = lastTouch(c);
+  if (!t) return { pts: -12, note: "No touchpoints logged" };
+  const days = -daysFrom(t.date);
+  let pts = days <= 14 ? 8 : days <= 30 ? 4 : days <= 60 ? -4 : -10;
+  pts += t.sentiment === "positive" ? 4 : t.sentiment === "negative" ? -4 : 0;
+  pts = Math.max(-12, Math.min(12, pts));
+  return { pts, note: `Last touchpoint ${days === 0 ? "today" : days + " days ago"} (${t.type.toLowerCase()}, ${t.sentiment})` };
+}
+function factors(c) {
+  return { sentiment: c.sentiment, adoption: adoptionFactor(c), engagement: engagementFactor(c), delivery: c.delivery };
+}
+function score(c) { const f = factors(c); return Math.max(0, Math.min(100, 50 + FACTORS.reduce((s, x) => s + f[x.key].pts, 0))); }
+function band(c) {
+  if (c.override) return c.override;
+  const s = score(c);
+  return s >= 65 ? "healthy" : s >= 38 ? "monitor" : "atrisk";
+}
+const BAND_LABEL = { healthy: "Healthy", monitor: "Monitor", atrisk: "At risk" };
+function pill(c, withScore = true) {
+  const b = band(c);
+  return `<span class="pill ${b}">${BAND_LABEL[b]}${withScore ? ` <span class="sc">${c.override ? "set by CSM" : score(c)}</span>` : ""}</span>`;
+}
+function nextRenewal(c) { return c.renewals.filter(r => daysFrom(r.close) >= 0).sort((a, b) => a.close.localeCompare(b.close))[0] || null; }
+function openFollowUps(c) { return c.engagements.filter(e => e.fu && !e.fu.done); }
+function renewalRisk(c, r) {
+  const days = daysFrom(r.close);
+  if (days < 0 || days > 120) return null;
+  const reasons = [];
+  if (band(c) !== "healthy") reasons.push(`health is ${BAND_LABEL[band(c)]}`);
+  const since = daysSinceTouch(c);
+  if (since === null || since > 60) reasons.push(`no touchpoint in ${since ?? "any"} days`);
+  return reasons.length ? reasons.join(" and ") : null;
+}
+
+// ── state ─────────────────────────────────────────────────────────────────────
+let viewAs = "dana";
+let bookFilter = "all";
+let bookSearch = "";
+let bookCsm = "all";
+let pipeCsm = "mine";
+let showLogForm = false;
+let current = "book";
+try { viewAs = localStorage.getItem("cs-mock-viewas") || "dana"; } catch (e) {}
+document.getElementById("viewas").value = viewAs;
+
+function inScope(c, csmFilter) {
+  if (viewAs === "dana") return csmFilter === "all-pool" ? (c.csm === "dana" || c.csm === "pool") : c.csm === "dana";
+  return csmFilter && csmFilter !== "all" && csmFilter !== "mine" && csmFilter !== "all-pool" ? c.csm === csmFilter : true;
+}
+function myCustomers() { return CUSTOMERS.filter(c => inScope(c)); }
+
+// ── views ─────────────────────────────────────────────────────────────────────
+function viewBook() {
+  const base = viewAs === "dana" ? CUSTOMERS.filter(c => c.csm === "dana") : CUSTOMERS.filter(c => bookCsm === "all" || c.csm === bookCsm);
+  const counts = { all: base.length, atrisk: 0, monitor: 0, healthy: 0 };
+  base.forEach(c => counts[band(c)]++);
+  const renewing = base.filter(c => { const r = nextRenewal(c); return r && daysFrom(r.close) <= 120; });
+  const renewingAmt = renewing.reduce((s, c) => s + nextRenewal(c).prev, 0);
+  const overdue = base.reduce((s, c) => s + openFollowUps(c).filter(e => daysFrom(e.fu.due) < 0).length, 0);
+
+  const rows = base
+    .filter(c => bookFilter === "all" || band(c) === bookFilter)
+    .filter(c => !bookSearch || c.name.toLowerCase().includes(bookSearch.toLowerCase()))
+    .sort((a, b) => score(a) - score(b));
+
+  const csmSelect = viewAs === "admin" ? `
+    <select class="select" id="book-csm" aria-label="Filter by CSM">
+      <option value="all">All CSMs</option>
+      ${Object.entries(CSMS).map(([k, v]) => `<option value="${k}" ${bookCsm === k ? "selected" : ""}>${v}</option>`).join("")}
+    </select>` : "";
+
+  return `
+    <div class="head">
+      <div>
+        <h1 class="title">${viewAs === "dana" ? "My Book" : "All Accounts"}</h1>
+        <p class="subtitle">${viewAs === "dana" ? "Customers where you're the CSM on the D365 account team" : "Every customer with a live project, across all CSMs"} · sorted by health, lowest first</p>
+      </div>
+    </div>
+    <div class="stats">
+      <button class="stat ${bookFilter === "all" ? "on" : ""}" data-filter="all"><span class="k">Accounts</span><span class="v">${counts.all}</span><span class="s">${base.reduce((s, c) => s + c.projects.length, 0)} live projects</span></button>
+      <button class="stat ${bookFilter === "atrisk" ? "on" : ""}" data-filter="atrisk"><span class="k">At risk</span><span class="v bad">${counts.atrisk}</span><span class="s">${counts.monitor} more on Monitor</span></button>
+      <a class="stat" href="#pipeline" style="text-decoration:none;color:inherit"><span class="k">Renewing ≤ 120 days</span><span class="v">${renewing.length}</span><span class="s">${money(renewingAmt)} up for renewal</span></a>
+      <a class="stat" href="#queue" style="text-decoration:none;color:inherit"><span class="k">Overdue follow-ups</span><span class="v ${overdue ? "warn" : ""}">${overdue}</span><span class="s">See Action Queue</span></a>
+    </div>
+    <section class="card">
+      <div class="card-h">
+        <div class="filters">
+          ${["all", "atrisk", "monitor", "healthy"].map(f => `<button class="fbtn ${bookFilter === f ? "on" : ""}" data-filter="${f}">${f === "all" ? "All" : BAND_LABEL[f]} · ${counts[f]}</button>`).join("")}
+        </div>
+        <div class="toolbar">
+          ${csmSelect}
+          <input class="search" id="book-search" type="search" placeholder="Search customers" value="${esc(bookSearch)}" aria-label="Search customers">
+        </div>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr>
+            <th>Customer</th><th>Health</th>${viewAs === "admin" ? "<th>CSM</th>" : ""}<th class="num">Projects</th><th class="num">Adoption</th><th>Next renewal</th><th>Last touch</th><th class="num">Follow-ups</th>
+          </tr></thead>
+          <tbody>
+            ${rows.map(c => {
+              const r = nextRenewal(c), rd = r ? daysFrom(r.close) : null, since = daysSinceTouch(c), a = adoptionPct(c);
+              const fus = openFollowUps(c), od = fus.filter(e => daysFrom(e.fu.due) < 0).length;
+              return `<tr class="click" data-go="account-${c.id}">
+                <td><div class="cust">${c.name}</div><div class="small">${c.vertical}</div></td>
+                <td>${pill(c)}</td>
+                ${viewAs === "admin" ? `<td>${c.csm === "pool" ? `<span class="chip warn">Pooled</span>` : CSMS[c.csm]}</td>` : ""}
+                <td class="num">${c.projects.length}</td>
+                <td class="num">${a === null ? `<span class="small">No data</span>` : a + "%"}</td>
+                <td>${r ? `<div class="${rd <= 120 && renewalRisk(c, r) ? "bad-t" : ""}">${fmtShort(r.close)} · ${rd}d</div><div class="small">${money(r.prev)}</div>` : `<span class="small">None open</span>`}</td>
+                <td>${since === null ? "Never" : `<span class="${since > 60 ? "bad-t" : since > 30 ? "warn-t" : ""}">${since}d ago</span>`}</td>
+                <td class="num">${fus.length ? `${fus.length}${od ? ` <span class="chip bad">${od} overdue</span>` : ""}` : `<span class="small">0</span>`}</td>
+              </tr>`;
+            }).join("") || `<tr><td colspan="8" class="empty">No customers match. Clear the search or pick another filter.</td></tr>`}
+          </tbody>
+        </table>
+      </div>
+    </section>`;
+}
+
+function dial(c) {
+  const s = score(c), b = band(c);
+  const col = { healthy: "var(--good)", monitor: "var(--warn)", atrisk: "var(--bad)" }[b];
+  const r = 38, circ = 2 * Math.PI * r, len = circ * 0.75, fill = len * (s / 100);
+  return `<svg class="dial" viewBox="0 0 92 92" role="img" aria-label="Health score ${s} of 100">
+    <circle cx="46" cy="46" r="${r}" fill="none" stroke="var(--neutral-bg)" stroke-width="9" stroke-dasharray="${len} ${circ}" transform="rotate(135 46 46)" stroke-linecap="round"/>
+    <circle cx="46" cy="46" r="${r}" fill="none" stroke="${col}" stroke-width="9" stroke-dasharray="${fill} ${circ}" transform="rotate(135 46 46)" stroke-linecap="round"/>
+    <text x="46" y="50" text-anchor="middle" font-size="24" font-weight="800" fill="var(--ink)">${s}</text>
+    <text x="46" y="66" text-anchor="middle" font-size="9" fill="var(--muted)">of 100</text>
+  </svg>`;
+}
+
+function spark(series) {
+  const w = 120, h = 30, pad = 3;
+  const xs = series.map((_, i) => pad + i * (w - 2 * pad) / (series.length - 1));
+  const ys = series.map(v => h - pad - (v / 100) * (h - 2 * pad));
+  const line = xs.map((x, i) => `${i ? "L" : "M"}${x.toFixed(1)},${ys[i].toFixed(1)}`).join(" ");
+  const area = `${line} L${xs[xs.length - 1].toFixed(1)},${h - pad} L${xs[0].toFixed(1)},${h - pad} Z`;
+  const up = series[series.length - 1] >= series[0];
+  const col = up ? "var(--good)" : "var(--bad)";
+  return `<svg class="spark" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" role="img" aria-label="Six-month adoption trend">
+    <line x1="${pad}" x2="${w - pad}" y1="${h - pad - 0.5 * (h - 2 * pad)}" y2="${h - pad - 0.5 * (h - 2 * pad)}" stroke="var(--line)" stroke-dasharray="2 3"/>
+    <path d="${area}" fill="${col}" fill-opacity="0.12"/>
+    <path d="${line}" fill="none" stroke="${col}" stroke-width="1.75"/>
+    <circle cx="${xs[xs.length - 1]}" cy="${ys[ys.length - 1]}" r="2.75" fill="${col}"/>
+  </svg>`;
+}
+
+function viewAccount(id) {
+  const c = CUSTOMERS.find(x => x.id === id);
+  if (!c) return `<p>Customer not found. <a href="#book">Back to My Book</a></p>`;
+  const f = factors(c);
+  const log = [...c.engagements].sort((a, b) => b.date.localeCompare(a.date));
+
+  return `
+    <div class="head">
+      <div>
+        <div class="crumb"><a href="#book">${viewAs === "dana" ? "My Book" : "All Accounts"}</a> / Customer</div>
+        <h1 class="title">${c.name}</h1>
+        <div class="acct-meta" style="margin-top:6px">
+          <span>CSM <b>${CSMS[c.csm]}</b></span><span>AE <b>${AES[c.ae]}</b></span><span>${c.vertical}</span><span>${c.projects.length} live project${c.projects.length > 1 ? "s" : ""}</span>
+        </div>
+      </div>
+      ${pill(c)}
+    </div>
+    <div class="tabs" role="tablist">
+      <span class="tab">Overview</span><span class="tab">Projects</span><span class="tab">Contacts</span><span class="tab">Documents</span><span class="tab on" aria-selected="true">Client Success</span>
+    </div>
+
+    <div class="grid2">
+      <div class="col">
+        <section class="card">
+          <div class="card-h"><h2 class="sec">Client health</h2><span class="small">Recalculated daily</span></div>
+          <div class="score-row">
+            ${dial(c)}
+            <div>
+              ${pill(c, false)}
+              <p class="small" style="margin:8px 0 0;line-height:1.5">Starts at 50. Each factor adds or subtracts points. 65+ is Healthy, 38–64 Monitor, under 38 At risk.</p>
+            </div>
+          </div>
+          ${FACTORS.map(x => {
+            const p = f[x.key].pts, pct = Math.abs(p) / x.max * 50;
+            const col = p > 0 ? "var(--good)" : p < 0 ? "var(--bad)" : "transparent";
+            const pos = p >= 0 ? `left:50%;width:${pct}%` : `right:50%;width:${pct}%`;
+            return `<div class="factor">
+              <span class="nm">${x.name}</span>
+              <div class="bar" aria-hidden="true"><i style="${pos};background:${col}"></i></div>
+              <span class="pts" style="color:${p > 0 ? "var(--good)" : p < 0 ? "var(--bad)" : "var(--muted)"}">${p > 0 ? "+" : ""}${p}</span>
+              <span class="note">${esc(f[x.key].note)}</span>
+            </div>`;
+          }).join("")}
+          <div class="override">
+            <label for="ovr">CSM override</label>
+            <select class="select" id="ovr" style="padding:5px 8px">
+              <option value="">None, use calculated</option>
+              ${["healthy", "monitor", "atrisk"].map(b => `<option value="${b}" ${c.override === b ? "selected" : ""}>${BAND_LABEL[b]}</option>`).join("")}
+            </select>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-h"><h2 class="sec">Renewals</h2><span class="small">From D365 renewal opportunities</span></div>
+          ${c.renewals.map(r => {
+            const days = daysFrom(r.close), why = renewalRisk(c, r);
+            return `<div style="display:flex;flex-direction:column;gap:4px">
+              <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><b style="color:var(--ink)">${r.platform}</b><b style="font-variant-numeric:tabular-nums">${money(r.prev)}</b></div>
+              <div class="small">${esc(r.opp)}</div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+                <span class="chip ${days <= 30 ? "bad" : days <= 90 ? "warn" : ""}">Closes ${fmtDate(r.close)} · ${days} days</span>
+                <span class="chip">Open</span>
+              </div>
+              ${why ? `<div class="why">At risk: ${why}</div>` : ""}
+            </div>`;
+          }).join("")}
+        </section>
+
+        <section class="card">
+          <div class="card-h"><h2 class="sec">Adoption by project</h2><span class="small">Active users ÷ assigned, last 6 months</span></div>
+          ${c.projects.map(p => {
+            const last = p.adoption ? p.adoption[p.adoption.length - 1] : null;
+            return `<div class="adopt">
+              <div style="min-width:0"><div style="font-weight:700">${p.name}</div><div class="small">${p.vendor} · ${p.licenses} licenses</div></div>
+              ${p.adoption ? spark(p.adoption) : `<span class="small">No snapshots</span>`}
+              <span class="pct">${last === null ? "–" : last + "%"}</span>
+            </div>`;
+          }).join("")}
+        </section>
+      </div>
+
+      <div class="col">
+        <section class="card">
+          <div class="card-h">
+            <h2 class="sec">Engagement log</h2>
+            <button class="btn primary sm" id="toggle-log">${showLogForm ? "Cancel" : "Log touchpoint"}</button>
+          </div>
+          ${showLogForm ? `
+          <form class="logform" id="logform">
+            <label for="lf-type">Type
+              <select id="lf-type">${["Call", "Meeting", "Email", "QBR", "Onsite", "Other"].map(t => `<option>${t}</option>`).join("")}</select>
+            </label>
+            <label for="lf-date">Date <input id="lf-date" type="date" value="${d(0)}" max="${d(0)}" required></label>
+            <label for="lf-sent">Sentiment
+              <select id="lf-sent"><option value="positive">Positive</option><option value="neutral" selected>Neutral</option><option value="negative">Negative</option></select>
+            </label>
+            <label class="wide" for="lf-sum">What happened <textarea id="lf-sum" required placeholder="e.g. Reviewed Q4 call-quality report with the IT director"></textarea></label>
+            <label class="wide" for="lf-fu">Follow-up (optional) <input id="lf-fu" type="text" placeholder="e.g. Send renewal quote"></label>
+            <label for="lf-due">Due <input id="lf-due" type="date" value="${d(7)}"></label>
+            <div class="actions"><button class="btn" type="button" id="lf-cancel">Cancel</button><button class="btn primary" type="submit">Save touchpoint</button></div>
+          </form>` : ""}
+          <div class="log">
+            ${log.map(e => {
+              const idx = c.engagements.indexOf(e);
+              const od = e.fu && !e.fu.done && daysFrom(e.fu.due) < 0;
+              return `<div class="entry">
+                <div class="when">${fmtShort(e.date)}<br><span class="small">${-daysFrom(e.date)}d ago</span></div>
+                <div style="min-width:0">
+                  <div class="what"><span class="chip accent">${e.type}</span><span class="sent ${e.sentiment}" title="${e.sentiment}"></span>${e.sentiment[0].toUpperCase() + e.sentiment.slice(1)} · ${CSMS[e.by] || e.by}</div>
+                  <p>${esc(e.summary)}</p>
+                  ${e.fu ? `<label class="fu ${e.fu.done ? "done" : ""}" for="fu-${idx}">
+                    <input type="checkbox" id="fu-${idx}" data-fu="${idx}" ${e.fu.done ? "checked" : ""}>
+                    <span>${esc(e.fu.note)} · due ${fmtShort(e.fu.due)} ${od ? `<span class="chip bad">Overdue</span>` : ""}</span>
+                  </label>` : ""}
+                </div>
+              </div>`;
+            }).join("")}
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-h"><h2 class="sec">Sales opportunities <span class="phase">Phase 2</span></h2><button class="btn sm">Add roadmap item</button></div>
+          ${c.opps.length ? c.opps.map(o => `<div class="opp-item">
+            <div style="min-width:0"><div style="font-weight:700">${o.title}</div><div class="small">${o.detail}</div></div>
+            <span class="chip ${o.kind === "vendor" ? "warn" : o.tag === "Approved" ? "good" : ""}">${o.tag}</span>
+          </div>`).join("") : `<div class="empty">Nothing yet. Roadmap items from Optimize and other vendors' contract end dates will show here.</div>`}
+        </section>
+      </div>
+    </div>`;
+}
+
+function viewPipeline() {
+  const lanes = [[0, 30, "0–30 days"], [31, 60, "31–60 days"], [61, 90, "61–90 days"], [91, 120, "91–120 days"]];
+  const scope = viewAs === "dana"
+    ? CUSTOMERS.filter(c => pipeCsm === "all-pool" ? (c.csm === "dana" || c.csm === "pool") : c.csm === "dana")
+    : CUSTOMERS.filter(c => pipeCsm === "mine" || pipeCsm === "all" || c.csm === pipeCsm);
+  const items = scope.flatMap(c => c.renewals.map(r => ({ c, r, days: daysFrom(r.close), why: renewalRisk(c, r) })));
+  const total = items.filter(i => i.days >= 0 && i.days <= 120);
+  const atRisk = total.filter(i => i.why);
+
+  const csmControl = viewAs === "dana"
+    ? `<div class="filters">
+        <button class="fbtn ${pipeCsm !== "all-pool" ? "on" : ""}" data-pipe="mine">Mine</button>
+        <button class="fbtn ${pipeCsm === "all-pool" ? "on" : ""}" data-pipe="all-pool">Mine + pooled</button>
+      </div>`
+    : `<select class="select" id="pipe-csm" aria-label="Filter by CSM">
+        <option value="all">All CSMs</option>
+        ${Object.entries(CSMS).map(([k, v]) => `<option value="${k}" ${pipeCsm === k ? "selected" : ""}>${v}</option>`).join("")}
+      </select>`;
+
+  return `
+    <div class="head">
+      <div>
+        <h1 class="title">Renewal Pipeline</h1>
+        <p class="subtitle">Open D365 renewal opportunities closing in the next 120 days</p>
+      </div>
+      ${csmControl}
+    </div>
+    <div class="stats">
+      <div class="stat" style="cursor:default"><span class="k">Renewals</span><span class="v">${total.length}</span><span class="s">next 120 days</span></div>
+      <div class="stat" style="cursor:default"><span class="k">Up for renewal</span><span class="v">${money(total.reduce((s, i) => s + i.r.prev, 0))}</span><span class="s">previous revenue</span></div>
+      <div class="stat" style="cursor:default"><span class="k">At risk</span><span class="v bad">${atRisk.length}</span><span class="s">${money(atRisk.reduce((s, i) => s + i.r.prev, 0))}</span></div>
+      <div class="stat" style="cursor:default"><span class="k">Risk rule</span><span class="v" style="font-size:14px;line-height:1.35;font-weight:700;letter-spacing:0">Health not Healthy, or no touchpoint in 60 days</span></div>
+    </div>
+    <div class="lanes">
+      ${lanes.map(([lo, hi, label]) => {
+        const li = total.filter(i => i.days >= lo && i.days <= hi).sort((a, b) => a.days - b.days);
+        return `<div class="lane">
+          <div class="lane-h"><b>${label}</b><span>${li.length} · ${money(li.reduce((s, i) => s + i.r.prev, 0))}</span></div>
+          ${li.map(i => `<button class="rcard ${i.why ? "risk" : ""}" data-go="account-${i.c.id}">
+            <div class="row"><span class="cust">${i.c.name}</span></div>
+            <div class="opp">${esc(i.r.opp)}</div>
+            <div class="row"><span class="amt">${money(i.r.prev)}</span><span class="small">${fmtShort(i.r.close)} · ${i.days}d</span></div>
+            <div class="row">${pill(i.c)}${i.c.csm === "pool" ? `<span class="chip warn">Pooled</span>` : `<span class="small">${CSMS[i.c.csm]}</span>`}</div>
+            ${i.why ? `<div class="why">${i.why[0].toUpperCase() + i.why.slice(1)}</div>` : ""}
+          </button>`).join("") || `<div class="empty">No renewals</div>`}
+        </div>`;
+      }).join("")}
+    </div>`;
+}
+
+function queueItems() {
+  const scope = viewAs === "dana" ? CUSTOMERS.filter(c => c.csm === "dana" || c.csm === "pool") : CUSTOMERS;
+  const overdue = [], dueSoon = [], risky = [], stale = [];
+  scope.forEach(c => {
+    openFollowUps(c).forEach(e => {
+      const dd = daysFrom(e.fu.due);
+      const item = { c, title: e.fu.note, detail: `${c.name} · due ${fmtShort(e.fu.due)}${dd < 0 ? ` (${-dd} days overdue)` : dd === 0 ? " (today)" : ` (in ${dd} days)`}` };
+      if (dd < 0) overdue.push(item); else if (dd <= 7) dueSoon.push(item);
+    });
+    c.renewals.forEach(r => { const why = renewalRisk(c, r); if (why) risky.push({ c, title: `${c.name}: ${money(r.prev)} renewal in ${daysFrom(r.close)} days`, detail: why[0].toUpperCase() + why.slice(1) }); });
+    const since = daysSinceTouch(c);
+    if (since === null || since > 60) stale.push({ c, title: c.name, detail: `Last touchpoint ${since ?? "never"} days ago${c.csm === "pool" ? " · pooled account" : ""}` });
+  });
+  return { overdue, dueSoon, risky, stale };
+}
+
+function viewQueue() {
+  const q = queueItems();
+  const group = (title, items, color, empty) => `
+    <section class="card">
+      <div class="card-h"><h2 class="sec">${title}</h2><span class="chip ${items.length ? color : ""}">${items.length}</span></div>
+      <div class="qgroup">
+        ${items.map(i => `<div class="qitem">
+          <span class="dot" style="background:var(--${color === "bad" ? "bad" : color === "warn" ? "warn" : "accent"})"></span>
+          <div style="min-width:0"><div class="t">${esc(i.title)}</div><div class="d">${esc(i.detail)}</div></div>
+          <button class="btn sm" data-go="account-${i.c.id}">Open</button>
+        </div>`).join("") || `<div class="empty">${empty}</div>`}
+      </div>
+    </section>`;
+  return `
+    <div class="head">
+      <div>
+        <h1 class="title">Action Queue</h1>
+        <p class="subtitle">${viewAs === "dana" ? "Your accounts plus pooled accounts" : "All accounts"} · what needs attention this week</p>
+      </div>
+    </div>
+    <div class="qcols">
+      <div class="col">
+        ${group("Overdue follow-ups", q.overdue, "bad", "Nothing overdue")}
+        ${group("At-risk renewals", q.risky, "bad", "No renewals at risk")}
+      </div>
+      <div class="col">
+        ${group("Follow-ups due in 7 days", q.dueSoon, "warn", "Nothing due this week")}
+        ${group("No touchpoint in 60+ days", q.stale, "warn", "Every account touched in the last 60 days")}
+      </div>
+    </div>`;
+}
+
+// ── router + wiring ───────────────────────────────────────────────────────────
+const view = document.getElementById("view");
+function route() {
+  const h = current;
+  let page = h.startsWith("account-") ? "book" : h;
+  if (h.startsWith("account-")) view.innerHTML = viewAccount(h.slice(8));
+  else if (h === "pipeline") view.innerHTML = viewPipeline();
+  else if (h === "queue") view.innerHTML = viewQueue();
+  else { page = "book"; view.innerHTML = viewBook(); }
+  document.querySelectorAll("[data-nav]").forEach(a => a.classList.toggle("on", a.dataset.nav === page));
+  const book = viewAs === "dana" ? CUSTOMERS.filter(c => c.csm === "dana") : CUSTOMERS;
+  document.getElementById("n-book").textContent = book.length;
+  document.getElementById("n-pipe").textContent = (viewAs === "dana" ? CUSTOMERS.filter(c => c.csm === "dana") : CUSTOMERS)
+    .flatMap(c => c.renewals).filter(r => { const x = daysFrom(r.close); return x >= 0 && x <= 120; }).length;
+  const q = queueItems();
+  document.getElementById("n-queue").textContent = q.overdue.length + q.risky.length;
+}
+function rerender(keepFocusId) {
+  const pos = keepFocusId && document.getElementById(keepFocusId)?.selectionStart;
+  route();
+  if (keepFocusId) { const el = document.getElementById(keepFocusId); if (el) { el.focus(); try { el.setSelectionRange(pos, pos); } catch (e) {} } }
+}
+function toast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.hidden = false;
+  clearTimeout(toast._t); toast._t = setTimeout(() => t.hidden = true, 2400);
+}
+function currentAccount() { return current.startsWith("account-") ? CUSTOMERS.find(c => c.id === current.slice(8)) : null; }
+// Embedded in a srcdoc iframe inside CloudConnect, so routing stays in memory
+// rather than on location.hash; in-page "#…" links are intercepted below.
+function navigate(h) { current = h || "book"; showLogForm = false; route(); window.scrollTo(0, 0); }
+document.addEventListener("click", e => {
+  const a = e.target.closest('a[href^="#"]');
+  if (a) { e.preventDefault(); navigate(a.getAttribute("href").slice(1)); }
+});
+
+view.addEventListener("click", e => {
+  const go = e.target.closest("[data-go]");
+  if (go && !e.target.closest("input")) { navigate(go.dataset.go); return; }
+  const f = e.target.closest("[data-filter]");
+  if (f) { bookFilter = f.dataset.filter; rerender(); return; }
+  const p = e.target.closest("[data-pipe]");
+  if (p) { pipeCsm = p.dataset.pipe; rerender(); return; }
+  if (e.target.id === "toggle-log" || e.target.id === "lf-cancel") { showLogForm = !showLogForm; rerender(); if (showLogForm) document.getElementById("lf-sum")?.focus(); }
+});
+view.addEventListener("input", e => {
+  if (e.target.id === "book-search") { bookSearch = e.target.value; rerender("book-search"); }
+});
+view.addEventListener("change", e => {
+  const c = currentAccount();
+  if (e.target.id === "book-csm") { bookCsm = e.target.value; rerender(); }
+  else if (e.target.id === "pipe-csm") { pipeCsm = e.target.value; rerender(); }
+  else if (e.target.id === "ovr" && c) { c.override = e.target.value || null; rerender(); toast(c.override ? `Health set to ${BAND_LABEL[c.override]}` : "Override removed"); }
+  else if (e.target.dataset.fu && c) {
+    const en = c.engagements[+e.target.dataset.fu];
+    en.fu.done = e.target.checked; rerender(); toast(en.fu.done ? "Follow-up marked done" : "Follow-up reopened");
+  }
+});
+view.addEventListener("submit", e => {
+  if (e.target.id !== "logform") return;
+  e.preventDefault();
+  const c = currentAccount();
+  const summary = document.getElementById("lf-sum").value.trim();
+  if (!c || !summary) return;
+  const before = score(c);
+  const fuNote = document.getElementById("lf-fu").value.trim();
+  c.engagements.push({
+    date: document.getElementById("lf-date").value || d(0),
+    type: document.getElementById("lf-type").value,
+    sentiment: document.getElementById("lf-sent").value,
+    by: viewAs === "dana" ? "dana" : "You",
+    summary,
+    fu: fuNote ? { note: fuNote, due: document.getElementById("lf-due").value || d(7), done: false } : undefined,
+  });
+  showLogForm = false;
+  rerender();
+  const after = score(c);
+  toast(after !== before ? `Touchpoint saved. Health score ${before} → ${after}` : "Touchpoint saved");
+});
+document.getElementById("viewas").addEventListener("change", e => {
+  viewAs = e.target.value; bookCsm = "all"; pipeCsm = viewAs === "dana" ? "mine" : "all";
+  try { localStorage.setItem("cs-mock-viewas", viewAs); } catch (err) {}
+  rerender();
+});
+if (viewAs !== "dana") pipeCsm = "all";
+route();
+</script>
