@@ -111,7 +111,8 @@ const MODULES: Module[] = [
     features: ["Floor plans & pins", "Device photos", "Works offline on site", "Live results & totals"],
     accent: "#3860b2",
     glow: "rgba(56,96,178,0.25)",
-    route: null,
+    // Demo link to the standalone Site Survey app (Packet-Fusion-Development/pf-site-survey) until it's integrated.
+    route: "https://survey-test.packetfusion.com/survey",
     visibleTo: INTERNAL_ROLES,
     stagingOnly: true,
     icon: (
@@ -176,7 +177,9 @@ export default function ModuleSelectPage() {
         .map((m) => m.route === "/support/cases" ? { ...m, route: "/support/dashboard" } : m);
 
   function handleCardClick(mod: Module) {
-    if (mod.route) {
+    if (mod.route?.startsWith("https://")) {
+      window.open(mod.route, "_blank", "noopener");
+    } else if (mod.route) {
       navigate(mod.route);
     } else {
       setToast(`${mod.title} — Coming Soon`);
