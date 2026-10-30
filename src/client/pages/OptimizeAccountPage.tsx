@@ -13,7 +13,6 @@ import PersonAvatar from "../components/ui/PersonAvatar";
 import ImpactAssessmentWizard from "../components/optimize/ImpactAssessmentWizard";
 import ImpactAssessmentDetail from "../components/optimize/ImpactAssessmentDetail";
 import OptimizeCredentialsSetup from "../components/optimize/OptimizeCredentialsSetup";
-import OptimizeRelinkModal from "../components/optimize/OptimizeRelinkModal";
 import {
   ExportAccountSummaryButton,
   ExportImpactAssessmentButton,
@@ -57,7 +56,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export default function OptimizeAccountPage() {
-  const { projectId } = useParams<{ projectId: string }>();
+  const { accountId } = useParams<{ accountId: string }>();
   const navigate = useNavigate();
   const { showToast } = useToast();
   const [account, setAccount] = useState<OptimizeAccount | null>(null);
@@ -89,23 +88,31 @@ export default function OptimizeAccountPage() {
   const [rcConfigured, setRcConfigured] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [crmSyncing, setCrmSyncing] = useState(false);
-  const [showRelinkModal, setShowRelinkModal] = useState(false);
 
   useEffect(() => {
-    if (projectId) loadAll(projectId);
-  }, [projectId]);
+    if (accountId) loadAll(accountId);
+  }, [accountId]);
 
-  async function loadAll(pid: string) {
+  async function loadAll(aid: string) {
     try {
       setLoading(true);
-      const [acc, ass, tech, road, util, zoomCfg, rcCfg] = await Promise.all([
-        api.optimizeAccount(pid),
-        api.optimizeAssessments(pid),
-        api.optimizeTechStack(pid),
-        api.optimizeRoadmap(pid),
-        api.optimizeUtilization(pid),
-        api.zoomConfigured(pid).catch(() => ({ configured: false })),
-        api.rcConfigured(pid).catch(() => ({ configured: false })),
+      const [acc, ass, tech, road, util] = await Promise.all([
+        api.optimizeAccount(aid),
+        api.optimizeAssessments(aid),
+        api.optimizeTechStack(aid),
+        api.optimizeRoadmap(aid),
+        api.optimizeUtilization(aid),
+      ]);
+      // An old link carried the account's original project id; move to the
+      // account's own URL so every follow-up call uses the account id.
+      if (acc.id !== aid) {
+        navigate(`/optimize/${acc.id}`, { replace: true });
+        return;
+      }
+      // Credentials are stored under the account's creds_key, not its id.
+      const [zoomCfg, rcCfg] = await Promise.all([
+        api.zoomConfigured(acc.creds_key).catch(() => ({ configured: false })),
+        api.rcConfigured(acc.creds_key).catch(() => ({ configured: false })),
       ]);
       setAccount(acc);
       setAssessments(ass as ImpactAssessment[]);
@@ -115,7 +122,7 @@ export default function OptimizeAccountPage() {
       setZoomConfigured(zoomCfg.configured);
       setRcConfigured(rcCfg.configured);
       // Fetch photos for customer PF team
-      // GET /optimize/accounts/:projectId returns the joined account-team names + emails as
+      // GET /optimize/accounts/:accountId returns the joined account-team names + emails as
       // `ae_name`/`ae_email` (etc.), not the `customer_pf_*` shape the type also declares.
       const customerEmails = [acc.ae_email, acc.sa_email, acc.csm_email].filter(Boolean) as string[];
       if (customerEmails.length > 0) {
@@ -129,10 +136,10 @@ export default function OptimizeAccountPage() {
   }
 
   async function handleCrmSync() {
-    if (!projectId) return;
+    if (!accountId) return;
     setCrmSyncing(true);
     try {
-      const { account: updated, crm } = await api.optimizeCrmSync(projectId);
+      const { account: updated, crm } = await api.optimizeCrmSync(accountId);
       setAccount(updated);
       const matched = [
         crm.ae_name && updated.ae_name ? `AE: ${updated.ae_name}` : null,
@@ -148,10 +155,10 @@ export default function OptimizeAccountPage() {
   }
 
   async function handleSyncUtilization() {
-    if (!projectId) return;
+    if (!accountId) return;
     setSyncing(true);
     try {
-      const snapshot = await api.optimizeUtilizationSync(projectId);
+      const snapshot = await api.optimizeUtilizationSync(accountId);
       setUtilization((prev) => [snapshot, ...prev]);
       showToast("Utilization snapshot captured.", "success");
     } catch (err) {
@@ -171,7 +178,7 @@ export default function OptimizeAccountPage() {
 
   async function handleDeleteAssessment(id: string) {
     try {
-      await api.optimizeDeleteAssessment(projectId!, id);
+      await api.optimizeDeleteAssessment(accountId!, id);
       setAssessments((prev) => prev.filter((a) => a.id !== id));
       setSelectedAssessment(null);
       setAssessmentView("list");
@@ -221,7 +228,7 @@ export default function OptimizeAccountPage() {
 
   async function handleSaveTech(e: React.FormEvent) {
     e.preventDefault();
-    if (!projectId) return;
+    if (!accountId) return;
     setSavingTech(true);
     const payload = {
       tech_area: techForm.tech_area,
@@ -238,10 +245,10 @@ export default function OptimizeAccountPage() {
     };
     try {
       if (editingTechId) {
-        const updated = await api.optimizeUpdateTechStack(projectId, editingTechId, payload);
+        const updated = await api.optimizeUpdateTechStack(accountId, editingTechId, payload);
         setTechStack((prev) => prev.map((t) => (t.id === editingTechId ? updated : t)));
       } else {
-        const created = await api.optimizeCreateTechStack({ project_id: projectId, ...payload });
+        const created = await api.optimizeCreateTechStack({ account_id: accountId, ...payload });
         setTechStack((prev) => [...prev, created]);
       }
       closeTechForm();
@@ -255,7 +262,7 @@ export default function OptimizeAccountPage() {
 
   async function handleDeleteTech(id: string) {
     try {
-      await api.optimizeDeleteTechStack(projectId!, id);
+      await api.optimizeDeleteTechStack(accountId!, id);
       setTechStack((prev) => prev.filter((t) => t.id !== id));
       showToast("Tech area deleted.", "success");
     } catch {
@@ -265,11 +272,11 @@ export default function OptimizeAccountPage() {
 
   async function handleCreateRoadmap(e: React.FormEvent) {
     e.preventDefault();
-    if (!projectId) return;
+    if (!accountId) return;
     setSavingRoadmap(true);
     try {
       const created = await api.optimizeCreateRoadmapItem({
-        project_id: projectId,
+        account_id: accountId,
         title: roadmapForm.title,
         description: roadmapForm.description || null,
         category: roadmapForm.category,
@@ -291,7 +298,7 @@ export default function OptimizeAccountPage() {
 
   async function handleDeleteRoadmap(id: string) {
     try {
-      await api.optimizeDeleteRoadmapItem(projectId!, id);
+      await api.optimizeDeleteRoadmapItem(accountId!, id);
       setRoadmap((prev) => prev.filter((r) => r.id !== id));
       showToast("Roadmap item deleted.", "success");
     } catch {
@@ -361,12 +368,20 @@ export default function OptimizeAccountPage() {
       <div style={{ marginBottom: 24 }}>
         <div className="ms-page-header" style={{ marginBottom: 0 }}>
           <div>
-            {/* Suppress the page title when it duplicates the customer name (typical
-                for direct-enrolled optimize accounts where the project shell was
-                synthesized from the customer name). The Customer card above already
-                identifies the account. */}
-            {account.project_name?.trim().toLowerCase() !== account.customer_name?.trim().toLowerCase() && (
-              <h1 className="ms-page-title">{account.project_name}</h1>
+            {/* The Customer card above identifies the account. Graduated
+                implementation projects are history links, not the account. */}
+            {(account.linked_projects?.length ?? 0) > 0 && (
+              <div style={{ fontSize: 12, color: "#64748b" }}>
+                Implementation history:{" "}
+                {account.linked_projects!.map((p, i) => (
+                  <span key={p.id}>
+                    {i > 0 && ", "}
+                    <a href={`/projects/${p.id}`} onClick={(e) => { e.preventDefault(); navigate(`/projects/${p.id}`); }} style={{ color: "#0b9aad", textDecoration: "none" }}>
+                      {p.name}
+                    </a>
+                  </span>
+                ))}
+              </div>
             )}
           </div>
           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
@@ -378,14 +393,6 @@ export default function OptimizeAccountPage() {
                 {crmSyncing ? "Syncing…" : "Sync from CRM"}
               </button>
             )}
-            <button
-              className="ms-btn-secondary"
-              onClick={() => setShowRelinkModal(true)}
-              style={{ fontSize: 12 }}
-              title="Move this Optimize account to point at a different project"
-            >
-              Link to project
-            </button>
             <ExportAccountSummaryButton
               account={account}
               assessment={assessments[0] ?? null}
@@ -520,8 +527,8 @@ export default function OptimizeAccountPage() {
 
           {assessmentView === "wizard" && account && (
             <ImpactAssessmentWizard
-              projectId={projectId!}
-              accountName={account.project_name}
+              accountId={accountId!}
+              accountName={account.customer_name}
               onComplete={handleAssessmentComplete}
               onCancel={() => setAssessmentView("list")}
             />
@@ -869,12 +876,12 @@ export default function OptimizeAccountPage() {
 
           {/* Inline vendor picker + credentials form when not yet configured.
               Returns null automatically once vendor is set + creds are saved. */}
-          {!configured && projectId && (
+          {!configured && accountId && (
             <OptimizeCredentialsSetup
               account={account}
               zoomConfigured={zoomConfigured}
               rcConfigured={rcConfigured}
-              onUpdated={() => loadAll(projectId)}
+              onUpdated={() => loadAll(accountId)}
             />
           )}
 
@@ -1184,15 +1191,6 @@ export default function OptimizeAccountPage() {
         </div>
         );
       })()}
-
-      {/* Relink modal — page-level so it's accessible from any tab. */}
-      {showRelinkModal && account && (
-        <OptimizeRelinkModal
-          currentProjectId={account.project_id}
-          customerName={account.customer_name}
-          onClose={() => setShowRelinkModal(false)}
-        />
-      )}
     </div>
   );
 }

@@ -371,7 +371,7 @@ app.get("/projects", requireRole("admin"), async (c) => {
               p.kickoff_date, p.target_go_live_date, p.archived, p.created_at, p.updated_at,
               CASE WHEN oa.project_id IS NOT NULL THEN 1 ELSE 0 END AS in_optimize
        FROM projects p
-       LEFT JOIN optimize_accounts oa ON oa.project_id = p.id
+       LEFT JOIN optimize_account_projects oa ON oa.project_id = p.id
        ORDER BY p.updated_at DESC`
     )
     .all();
@@ -459,17 +459,8 @@ app.delete("/projects/:id", requireRole("admin"), async (c) => {
   const existing = await db.prepare("SELECT id, name FROM projects WHERE id = ? LIMIT 1").bind(projectId).first<{ id: string; name: string }>();
   if (!existing) throw new HTTPException(404, { message: "Project not found" });
 
-  const optimizeLink = await db
-    .prepare("SELECT id FROM optimize_accounts WHERE project_id = ? LIMIT 1")
-    .bind(projectId)
-    .first();
-  if (optimizeLink) {
-    throw new HTTPException(409, {
-      message:
-        `"${existing.name}" is in Optimize. Remove it from Optimize first ` +
-        `(Admin → Optimize Accounts → Remove), then delete the project.`,
-    });
-  }
+  // A graduated project's Optimize account belongs to the customer and isn't
+  // affected; only the history link goes (ON DELETE CASCADE).
 
   // Cascade delete in dependency order
   await db.prepare("DELETE FROM task_comments WHERE task_id IN (SELECT id FROM tasks WHERE project_id = ?)").bind(projectId).run();
@@ -477,7 +468,6 @@ app.delete("/projects/:id", requireRole("admin"), async (c) => {
   await db.prepare("DELETE FROM project_access WHERE project_id = ?").bind(projectId).run();
   await db.prepare("DELETE FROM project_staff WHERE project_id = ?").bind(projectId).run();
   await db.prepare("DELETE FROM project_contacts WHERE project_id = ?").bind(projectId).run();
-  await db.prepare("DELETE FROM utilization_snapshots WHERE project_id = ?").bind(projectId).run();
   await db.prepare("DELETE FROM notes WHERE project_id = ?").bind(projectId).run();
   await db.prepare("DELETE FROM risks WHERE project_id = ?").bind(projectId).run();
   await db.prepare("DELETE FROM tasks WHERE project_id = ?").bind(projectId).run();

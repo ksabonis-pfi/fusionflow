@@ -52,10 +52,10 @@ app.get("/summary", async (c) => {
   // pf_sa, pf_csm, admin, and executive: no filter — portfolio-wide visibility
 
   // Always exclude archived projects from dashboard aggregations, plus
-  // Optimize accounts (graduated projects and Optimize-only project shells)
-  // and closed-out projects — same rule as the Leadership dashboard and the
-  // weekly summary, so this counts only implementations still in flight.
-  const ACTIVE_ONLY = "(archived = 0 OR archived IS NULL) AND id NOT IN (SELECT project_id FROM optimize_accounts) AND closed_at IS NULL";
+  // projects that graduated into Optimize and closed-out projects — same rule
+  // as the Leadership dashboard and the weekly summary, so this counts only
+  // implementations still in flight.
+  const ACTIVE_ONLY = "(archived = 0 OR archived IS NULL) AND id NOT IN (SELECT project_id FROM optimize_account_projects) AND closed_at IS NULL";
   projectFilter = projectFilter
     ? `${projectFilter} AND ${ACTIVE_ONLY}`
     : `WHERE ${ACTIVE_ONLY}`;
@@ -447,10 +447,8 @@ app.get("/leadership", async (c) => {
     // null — same fallback projects.ts uses for "my projects" — since a PM
     // can be attached to a project either way and pm_user_id isn't always
     // backfilled (e.g. solution→project handoff never sets it). Excludes
-    // projects already graduated to Optimize — including direct-enrolled
-    // shells (POST /accounts/direct), which stand in for a standalone
-    // Optimize engagement and never run an implementation, so they never
-    // get a PM — and projects a PM has deliberately closed out (closed_at,
+    // projects already graduated to Optimize and projects a PM has
+    // deliberately closed out (closed_at,
     // POST /:id/close), which should read as Closed, not carry any other
     // status. Same exclusions wentLiveStillOpen below already uses. Keeps
     // the "no PM assigned" bucket visible while still filtering out a PM
@@ -465,7 +463,7 @@ app.get("/leadership", async (c) => {
                 ) AS pm_user_id
          FROM projects p
          WHERE (p.archived = 0 OR p.archived IS NULL)
-           AND p.id NOT IN (SELECT project_id FROM optimize_accounts)
+           AND p.id NOT IN (SELECT project_id FROM optimize_account_projects)
            AND p.closed_at IS NULL
        ) x
        LEFT JOIN users u ON u.id = x.pm_user_id
@@ -484,7 +482,7 @@ app.get("/leadership", async (c) => {
        JOIN projects p ON p.id = ps.project_id
        JOIN users u ON u.id = ps.user_id
        WHERE (p.archived = 0 OR p.archived IS NULL)
-         AND p.id NOT IN (SELECT project_id FROM optimize_accounts)
+         AND p.id NOT IN (SELECT project_id FROM optimize_account_projects)
          AND p.closed_at IS NULL
          AND ps.staff_role IN ('engineer', 'sa')
          AND u.role IN (${PF_ROLES_SQL})
@@ -501,7 +499,7 @@ app.get("/leadership", async (c) => {
        FROM projects p
        WHERE p.actual_go_live_date IS NOT NULL
          AND (p.archived = 0 OR p.archived IS NULL)
-         AND p.id NOT IN (SELECT project_id FROM optimize_accounts)
+         AND p.id NOT IN (SELECT project_id FROM optimize_account_projects)
          AND p.closed_at IS NULL
        ORDER BY p.actual_go_live_date ASC
        LIMIT 10`
@@ -514,22 +512,22 @@ app.get("/leadership", async (c) => {
     // and excludes closed-out projects, which read purely as Closed below
     // regardless of whatever status/health they carried when closed.
     db.prepare(
-      `SELECT COUNT(*) AS n FROM projects WHERE (archived = 0 OR archived IS NULL) AND id NOT IN (SELECT project_id FROM optimize_accounts) AND closed_at IS NULL`
+      `SELECT COUNT(*) AS n FROM projects WHERE (archived = 0 OR archived IS NULL) AND id NOT IN (SELECT project_id FROM optimize_account_projects) AND closed_at IS NULL`
     ).first<{ n: number }>(),
 
     db.prepare(
-      `SELECT COUNT(*) AS n FROM projects WHERE (archived = 0 OR archived IS NULL) AND health = 'at_risk' AND id NOT IN (SELECT project_id FROM optimize_accounts) AND closed_at IS NULL`
+      `SELECT COUNT(*) AS n FROM projects WHERE (archived = 0 OR archived IS NULL) AND health = 'at_risk' AND id NOT IN (SELECT project_id FROM optimize_account_projects) AND closed_at IS NULL`
     ).first<{ n: number }>(),
 
     db.prepare(
-      `SELECT COUNT(*) AS n FROM projects WHERE (archived = 0 OR archived IS NULL) AND status = 'blocked' AND id NOT IN (SELECT project_id FROM optimize_accounts) AND closed_at IS NULL`
+      `SELECT COUNT(*) AS n FROM projects WHERE (archived = 0 OR archived IS NULL) AND status = 'blocked' AND id NOT IN (SELECT project_id FROM optimize_account_projects) AND closed_at IS NULL`
     ).first<{ n: number }>(),
 
     // ── Click-to-expand detail lists — each backs a metric tile's drill-down ──
     db.prepare(
       `SELECT id, name, customer_name, health, status
        FROM projects
-       WHERE (archived = 0 OR archived IS NULL) AND id NOT IN (SELECT project_id FROM optimize_accounts) AND closed_at IS NULL
+       WHERE (archived = 0 OR archived IS NULL) AND id NOT IN (SELECT project_id FROM optimize_account_projects) AND closed_at IS NULL
        ORDER BY name ASC
        LIMIT 15`
     ).all<{ id: string; name: string; customer_name: string | null; health: string | null; status: string | null }>(),
@@ -537,7 +535,7 @@ app.get("/leadership", async (c) => {
     db.prepare(
       `SELECT id, name, customer_name, health, status
        FROM projects
-       WHERE (archived = 0 OR archived IS NULL) AND health = 'at_risk' AND id NOT IN (SELECT project_id FROM optimize_accounts) AND closed_at IS NULL
+       WHERE (archived = 0 OR archived IS NULL) AND health = 'at_risk' AND id NOT IN (SELECT project_id FROM optimize_account_projects) AND closed_at IS NULL
        ORDER BY name ASC
        LIMIT 15`
     ).all<{ id: string; name: string; customer_name: string | null; health: string | null; status: string | null }>(),
@@ -545,7 +543,7 @@ app.get("/leadership", async (c) => {
     db.prepare(
       `SELECT id, name, customer_name, health, status
        FROM projects
-       WHERE (archived = 0 OR archived IS NULL) AND status = 'blocked' AND id NOT IN (SELECT project_id FROM optimize_accounts) AND closed_at IS NULL
+       WHERE (archived = 0 OR archived IS NULL) AND status = 'blocked' AND id NOT IN (SELECT project_id FROM optimize_account_projects) AND closed_at IS NULL
        ORDER BY name ASC
        LIMIT 15`
     ).all<{ id: string; name: string; customer_name: string | null; health: string | null; status: string | null }>(),
@@ -582,14 +580,14 @@ app.get("/leadership", async (c) => {
          SELECT p.pm_user_id AS user_id, p.id AS project_id
          FROM projects p
          WHERE p.pm_user_id IS NOT NULL AND (p.archived = 0 OR p.archived IS NULL)
-           AND p.id NOT IN (SELECT project_id FROM optimize_accounts)
+           AND p.id NOT IN (SELECT project_id FROM optimize_account_projects)
            AND p.closed_at IS NULL
          UNION
          SELECT ps.user_id AS user_id, ps.project_id AS project_id
          FROM project_staff ps
          JOIN projects p ON p.id = ps.project_id
          WHERE (p.archived = 0 OR p.archived IS NULL)
-           AND p.id NOT IN (SELECT project_id FROM optimize_accounts)
+           AND p.id NOT IN (SELECT project_id FROM optimize_account_projects)
            AND p.closed_at IS NULL
        ) x
        JOIN users u ON u.id = x.user_id

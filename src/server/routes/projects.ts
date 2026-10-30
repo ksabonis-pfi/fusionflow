@@ -37,7 +37,7 @@ app.get("/", async (c) => {
            kickoff_date, target_go_live_date, actual_go_live_date,
            pm_user_id, managed_in_asana, asana_project_id, crm_case_id, crm_opportunity_id, created_at, updated_at,
            closed_at,
-           CASE WHEN EXISTS(SELECT 1 FROM optimize_accounts oa WHERE oa.project_id = projects.id) THEN 1 ELSE 0 END AS has_optimization
+           CASE WHEN EXISTS(SELECT 1 FROM optimize_account_projects oa WHERE oa.project_id = projects.id) THEN 1 ELSE 0 END AS has_optimization
     FROM projects
     WHERE (archived = 0 OR archived IS NULL)
   `;
@@ -163,10 +163,10 @@ app.get("/", async (c) => {
   if (pmId) {
     if (pmId === "none") {
       sql += ` AND pm_user_id IS NULL AND id NOT IN (SELECT project_id FROM project_staff WHERE staff_role = 'pm')
-                AND id NOT IN (SELECT project_id FROM optimize_accounts)`;
+                AND id NOT IN (SELECT project_id FROM optimize_account_projects)`;
     } else {
       sql += ` AND (pm_user_id = ? OR id IN (SELECT project_id FROM project_staff WHERE user_id = ? AND staff_role = 'pm'))
-                AND id NOT IN (SELECT project_id FROM optimize_accounts)`;
+                AND id NOT IN (SELECT project_id FROM optimize_account_projects)`;
       bindings.push(pmId, pmId);
     }
   }
@@ -206,7 +206,7 @@ app.get("/:id", async (c) => {
              cpu2.name AS customer_pf_sa_name, cpu2.email AS customer_pf_sa_email, cpu2.phone AS customer_pf_sa_phone, cpu2.scheduler_url AS customer_pf_sa_scheduler_url,
              cpu3.name AS customer_pf_csm_name, cpu3.email AS customer_pf_csm_email, cpu3.phone AS customer_pf_csm_phone, cpu3.scheduler_url AS customer_pf_csm_scheduler_url,
              c.sharepoint_url AS customer_sharepoint_url,
-             CASE WHEN EXISTS(SELECT 1 FROM optimize_accounts oa WHERE oa.project_id = p.id) THEN 1 ELSE 0 END AS has_optimization
+             CASE WHEN EXISTS(SELECT 1 FROM optimize_account_projects oa WHERE oa.project_id = p.id) THEN 1 ELSE 0 END AS has_optimization
       FROM projects p
       LEFT JOIN users pmu ON pmu.id = p.pm_user_id
       LEFT JOIN customers c ON c.id = p.customer_id

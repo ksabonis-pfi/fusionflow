@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { api, type OptimizeAccount, type OptimizeEligible, type User, type DynamicsAccount, type CrmAccountTeam, type Project } from "../lib/api";
+import { api, type OptimizeAccount, type OptimizeEligible, type DynamicsAccount, type CrmAccountTeam } from "../lib/api";
 import { humanize } from "../lib/format";
 import { useToast } from "../components/ui/ToastProvider";
 import { SolutionTypePicker } from "../components/ui/SolutionTypePicker";
@@ -26,24 +26,16 @@ const EMPTY_DIRECT: {
   vendor: string;
   solution_types: SolutionType[];
   actual_go_live_date: string;
-  ae_user_id: string;
-  sa_user_id: string;
-  csm_user_id: string;
   next_review_date: string;
   notes: string;
-  project_id: string;
 } = {
   customer_name: "",
   dynamics_account_id: "",
   vendor: "",
   solution_types: [],
   actual_go_live_date: "",
-  ae_user_id: "",
-  sa_user_id: "",
-  csm_user_id: "",
   next_review_date: "",
   notes: "",
-  project_id: "",
 };
 
 export default function OptimizePage() {
@@ -55,15 +47,12 @@ export default function OptimizePage() {
   const [showDirectModal, setShowDirectModal] = useState(false);
   const [directForm, setDirectForm] = useState(EMPTY_DIRECT);
   const [directSaving, setDirectSaving] = useState(false);
-  const [users, setUsers] = useState<User[]>([]);
   const [crmQuery, setCrmQuery] = useState("");
   const [crmResults, setCrmResults] = useState<DynamicsAccount[] | null>(null);
   const [crmSearching, setCrmSearching] = useState(false);
   const [selectedCrm, setSelectedCrm] = useState<DynamicsAccount | null>(null);
-  const [crmMode, setCrmMode] = useState<"search" | "manual">("search");
   const [crmTeam, setCrmTeam] = useState<CrmAccountTeam | null>(null);
   const [crmTeamLoading, setCrmTeamLoading] = useState(false);
-  const [projects, setProjects] = useState<Project[]>([]);
   const [search, setSearch] = useState("");
   const [sortAsc, setSortAsc] = useState<boolean | null>(null);
   const { showToast } = useToast();
@@ -72,12 +61,12 @@ export default function OptimizePage() {
   const visibleAccounts = useMemo(() => {
     const q = search.trim().toLowerCase();
     let list = q
-      ? accounts.filter((a) => a.project_name.toLowerCase().includes(q) || (a.customer_name ?? "").toLowerCase().includes(q))
+      ? accounts.filter((a) => a.customer_name.toLowerCase().includes(q))
       : accounts;
     if (sortAsc !== null) {
       list = [...list].sort((a, b) => {
-        const an = (a.customer_name ?? a.project_name).toLowerCase();
-        const bn = (b.customer_name ?? b.project_name).toLowerCase();
+        const an = a.customer_name.toLowerCase();
+        const bn = b.customer_name.toLowerCase();
         return sortAsc ? an.localeCompare(bn) : bn.localeCompare(an);
       });
     }
@@ -86,11 +75,6 @@ export default function OptimizePage() {
 
   useEffect(() => {
     load();
-    api.users().then(setUsers).catch(() => {});
-    // scope:"all" — this list resolves project names for every optimize account
-    // and drives the graduation pickers, so it must not narrow to the caller's
-    // own work (/api/projects defaults to scope=mine for admins and SAs).
-    api.projects({ scope: "all" }).then(setProjects).catch(() => {});
   }, []);
 
   async function load() {
@@ -112,7 +96,6 @@ export default function OptimizePage() {
     setCrmQuery("");
     setCrmResults(null);
     setSelectedCrm(null);
-    setCrmMode("search");
     setCrmTeam(null);
   }
 
@@ -137,42 +120,30 @@ export default function OptimizePage() {
     setCrmTeam(null);
     setCrmTeamLoading(true);
     api.optimizeCrmAccountTeam(account.accountid)
-      .then((team) => {
-        setCrmTeam(team);
-        setDirectForm((f) => ({
-          ...f,
-          ae_user_id: team.ae_user_id ?? "",
-          sa_user_id: team.sa_user_id ?? "",
-          csm_user_id: team.csm_user_id ?? "",
-        }));
-      })
+      .then((team) => setCrmTeam(team))
       .catch(() => setCrmTeam(null))
       .finally(() => setCrmTeamLoading(false));
   }
 
   function clearCrmSelection() {
     setSelectedCrm(null);
-    setDirectForm((f) => ({ ...f, customer_name: "", dynamics_account_id: "", ae_user_id: "", sa_user_id: "", csm_user_id: "" }));
+    setDirectForm((f) => ({ ...f, customer_name: "", dynamics_account_id: "" }));
     setCrmTeam(null);
   }
 
   async function handleDirectEnroll(e: React.FormEvent) {
     e.preventDefault();
-    if (!directForm.customer_name.trim()) return;
+    if (!directForm.dynamics_account_id) return;
     setDirectSaving(true);
     try {
-      const created = await api.optimizeDirectEnroll({
+      const created = await api.optimizeCreateAccount({
+        dynamics_account_id: directForm.dynamics_account_id,
         customer_name: directForm.customer_name.trim(),
         vendor: directForm.vendor.trim() || null,
         solution_types: directForm.solution_types,
         actual_go_live_date: directForm.actual_go_live_date || null,
-        ae_user_id: directForm.ae_user_id || null,
-        sa_user_id: directForm.sa_user_id || null,
-        csm_user_id: directForm.csm_user_id || null,
         next_review_date: directForm.next_review_date || null,
         notes: directForm.notes.trim() || null,
-        dynamics_account_id: directForm.dynamics_account_id || null,
-        project_id: directForm.project_id || null,
       });
       setAccounts((prev) => [created, ...prev]);
       resetDirectModal();
@@ -188,11 +159,11 @@ export default function OptimizePage() {
     setGraduating(projectId);
     try {
       await api.optimizeGraduate(projectId);
-      showToast("Project marked complete and moved to Optimize.", "success");
+      showToast("Project completed and linked to the customer's Optimize account.", "success");
       await load();
       setShowGraduateModal(false);
-    } catch {
-      showToast("Failed to complete project", "error");
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Failed to complete project", "error");
     } finally {
       setGraduating(null);
     }
@@ -277,12 +248,9 @@ export default function OptimizePage() {
             </thead>
             <tbody>
               {visibleAccounts.map((a) => (
-                <tr key={a.id} style={{ cursor: "pointer" }} onClick={() => navigate(`/optimize/${a.project_id}`)}>
+                <tr key={a.id} style={{ cursor: "pointer" }} onClick={() => navigate(`/optimize/${a.id}`)}>
                   <td>
-                    <div style={{ fontWeight: 600, color: "#1e293b" }}>{a.project_name}</div>
-                    {a.customer_name && (
-                      <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 2 }}>{a.customer_name}</div>
-                    )}
+                    <div style={{ fontWeight: 600, color: "#1e293b" }}>{a.customer_name}</div>
                   </td>
                   <td style={{ color: "#475569", fontSize: 13 }}>{a.vendor ? vendorLabel(a.vendor) : "—"}</td>
                   <td style={{ color: "#64748b", fontSize: 12 }}>
@@ -312,7 +280,7 @@ export default function OptimizePage() {
                   <td>
                     <button
                       className="ms-btn-ghost"
-                      onClick={(e) => { e.stopPropagation(); navigate(`/optimize/${a.project_id}`); }}
+                      onClick={(e) => { e.stopPropagation(); navigate(`/optimize/${a.id}`); }}
                     >
                       Open →
                     </button>
@@ -332,7 +300,7 @@ export default function OptimizePage() {
           <div className="ms-modal" style={{ maxWidth: 560 }}>
             <h2>New Optimize Account</h2>
             <p style={{ color: "#64748b", fontSize: 13, margin: "6px 0 16px" }}>
-              Enroll a customer directly into Optimize without an existing implementation project.
+              Add a customer to Optimize. Pick their CRM account; the account team comes from CRM.
             </p>
             <form onSubmit={handleDirectEnroll} style={{ display: "grid", gap: 14 }}>
 
@@ -341,7 +309,7 @@ export default function OptimizePage() {
                 <span>Customer *</span>
 
                 {/* CRM search mode — no account selected yet */}
-                {crmMode === "search" && !selectedCrm && (
+                {!selectedCrm && (
                   <>
                     <div style={{ display: "flex", gap: 8 }}>
                       <input
@@ -384,15 +352,11 @@ export default function OptimizePage() {
                         )}
                       </div>
                     )}
-
-                    <button type="button" onClick={() => { setCrmMode("manual"); setCrmResults(null); }} style={{ marginTop: 6, fontSize: 12, color: "#94a3b8", background: "none", border: "none", cursor: "pointer", padding: 0, textAlign: "left" }}>
-                      Can't find it? Enter manually →
-                    </button>
                   </>
                 )}
 
                 {/* CRM account selected */}
-                {crmMode === "search" && selectedCrm && (
+                {selectedCrm && (
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", background: "rgba(99,193,234,0.06)", border: "1px solid rgba(99,193,234,0.2)", borderRadius: 6 }}>
                     <div>
                       <div style={{ fontWeight: 600, fontSize: 13, color: "#1e293b" }}>{selectedCrm.name}</div>
@@ -408,22 +372,6 @@ export default function OptimizePage() {
                   </div>
                 )}
 
-                {/* Manual mode */}
-                {crmMode === "manual" && (
-                  <>
-                    <input
-                      autoFocus
-                      required
-                      className="ms-input"
-                      value={directForm.customer_name}
-                      onChange={(e) => setDirectForm({ ...directForm, customer_name: e.target.value })}
-                      placeholder="Acme Corp"
-                    />
-                    <button type="button" onClick={() => { setCrmMode("search"); setDirectForm((f) => ({ ...f, customer_name: "", dynamics_account_id: "" })); }} style={{ marginTop: 6, fontSize: 12, color: "#94a3b8", background: "none", border: "none", cursor: "pointer", padding: 0, textAlign: "left" }}>
-                      ← Search CRM instead
-                    </button>
-                  </>
-                )}
               </div>
 
               {/* CRM team suggestion */}
@@ -481,51 +429,7 @@ export default function OptimizePage() {
                   <input type="date" min={PLAN_DATE_MIN} max={PLAN_DATE_MAX} className="ms-input" value={directForm.next_review_date}
                     onChange={(e) => setDirectForm({ ...directForm, next_review_date: e.target.value })} />
                 </label>
-                {!crmTeam && (
-                  <label className="ms-label">
-                    <span>Account Executive</span>
-                    <select className="ms-input" value={directForm.ae_user_id} onChange={(e) => setDirectForm({ ...directForm, ae_user_id: e.target.value })}>
-                      <option value="">— None —</option>
-                      {users.filter((u) => u.role !== "client").map((u) => <option key={u.id} value={u.id}>{u.name ?? u.email}</option>)}
-                    </select>
-                  </label>
-                )}
-                {!crmTeam && (
-                  <label className="ms-label">
-                    <span>Solution Architect</span>
-                    <select className="ms-input" value={directForm.sa_user_id} onChange={(e) => setDirectForm({ ...directForm, sa_user_id: e.target.value })}>
-                      <option value="">— None —</option>
-                      {users.filter((u) => u.role !== "client").map((u) => <option key={u.id} value={u.id}>{u.name ?? u.email}</option>)}
-                    </select>
-                  </label>
-                )}
-                {!crmTeam && (
-                  <label className="ms-label">
-                    <span>Customer Success Manager</span>
-                    <select className="ms-input" value={directForm.csm_user_id} onChange={(e) => setDirectForm({ ...directForm, csm_user_id: e.target.value })}>
-                      <option value="">— None —</option>
-                      {users.filter((u) => u.role !== "client").map((u) => <option key={u.id} value={u.id}>{u.name ?? u.email}</option>)}
-                    </select>
-                  </label>
-                )}
               </div>
-              {projects.length > 0 && (
-                <label className="ms-label">
-                  <span>Link to Project (optional)</span>
-                  <select
-                    className="ms-input"
-                    value={directForm.project_id}
-                    onChange={(e) => setDirectForm({ ...directForm, project_id: e.target.value })}
-                  >
-                    <option value="">— None —</option>
-                    {projects.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name}{p.customer_name ? ` — ${p.customer_name}` : ""}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              )}
               <label className="ms-label">
                 <span>Notes</span>
                 <textarea className="ms-input" rows={3} value={directForm.notes}
@@ -533,7 +437,7 @@ export default function OptimizePage() {
                   placeholder="Optional context about this account…" style={{ resize: "vertical" }} />
               </label>
               <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
-                <button type="submit" className="ms-btn-primary" disabled={directSaving || !directForm.customer_name.trim()}>
+                <button type="submit" className="ms-btn-primary" disabled={directSaving || !directForm.dynamics_account_id}>
                   {directSaving ? "Creating…" : "Create Account"}
                 </button>
                 <button type="button" className="ms-btn-secondary" onClick={resetDirectModal}>
@@ -551,7 +455,7 @@ export default function OptimizePage() {
           <div className="ms-modal" style={{ maxWidth: 520 }}>
             <h2>Complete Project</h2>
             <p style={{ color: "#475569", fontSize: 13, margin: "8px 0 16px" }}>
-              These projects have all implementation stages completed. Marking them complete moves them into the Optimize lifecycle for ongoing review and roadmap planning.
+              These projects have gone live. Completing one links it to its customer's Optimize account (created if the customer doesn't have one yet) for ongoing review and roadmap planning.
             </p>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {eligible.map((p) => (

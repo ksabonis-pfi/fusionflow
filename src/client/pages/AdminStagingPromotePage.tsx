@@ -15,7 +15,7 @@ type Project = {
   already_on_prod: boolean;
 };
 type OptimizeAccount = {
-  id: string; project_id: string; project_name: string; customer_name: string | null;
+  id: string; customer_name: string | null; linked_project_count: number;
   graduated_at: string;
   impact_assessment_count: number; tech_stack_count: number; roadmap_count: number; utilization_count: number;
   already_on_prod: boolean;
@@ -58,7 +58,7 @@ export default function AdminStagingPromotePage() {
 
   const filteredSols = useMemo(() => filterRows(solutions, query, (s) => [s.name, s.customer_name, s.vendor]), [solutions, query]);
   const filteredProjs = useMemo(() => filterRows(projects, query, (p) => [p.name, p.customer_name, p.vendor]), [projects, query]);
-  const filteredOpts = useMemo(() => filterRows(optimizeAccounts, query, (o) => [o.project_name, o.customer_name]), [optimizeAccounts, query]);
+  const filteredOpts = useMemo(() => filterRows(optimizeAccounts, query, (o) => [o.customer_name]), [optimizeAccounts, query]);
 
   const totalSelected = selSols.size + selProjs.size + selOpts.size;
 
@@ -334,8 +334,8 @@ function OptimizeTable({ rows, selected, setSelected }: { rows: OptimizeAccount[
               onChange={(v) => setSelected(v ? new Set(eligible.map((r) => r.id)) : new Set())}
             />
           </Th>
-          <Th>Project</Th>
           <Th>Customer</Th>
+          <Th>Linked projects</Th>
           <Th>Graduated</Th>
           <Th>Counts</Th>
           <Th>State</Th>
@@ -351,8 +351,8 @@ function OptimizeTable({ rows, selected, setSelected }: { rows: OptimizeAccount[
                 onChange={(v) => setSelected(toggleSet(selected, r.id, v))}
               />
             </Td>
-            <Td>{r.project_name}</Td>
             <Td>{r.customer_name ?? "—"}</Td>
+            <Td>{r.linked_project_count}</Td>
             <Td>{fmtDate(r.graduated_at)}</Td>
             <Td style={{ fontSize: 11, color: "#64748b" }}>
               IA:{r.impact_assessment_count} · TechStack:{r.tech_stack_count} · Roadmap:{r.roadmap_count} · Util:{r.utilization_count}

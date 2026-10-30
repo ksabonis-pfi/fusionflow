@@ -126,15 +126,6 @@ app.post("/migrate", async (c) => {
   `).run();
   linked += rp.meta.changes ?? 0;
 
-  // Link optimize_accounts via their project's customer_id
-  const ro = await db.prepare(`
-    UPDATE optimize_accounts
-    SET customer_id = (SELECT customer_id FROM projects WHERE projects.id = optimize_accounts.project_id LIMIT 1)
-    WHERE customer_id IS NULL
-      AND EXISTS (SELECT 1 FROM projects WHERE projects.id = optimize_accounts.project_id AND projects.customer_id IS NOT NULL)
-  `).run();
-  linked += ro.meta.changes ?? 0;
-
   return c.json({ created, linked });
 });
 
@@ -495,7 +486,7 @@ app.get("/:id/projects", async (c) => {
       SELECT p.id, p.name, p.vendor, p.solution_types, p.status, p.health,
              p.kickoff_date, p.target_go_live_date, p.actual_go_live_date,
              p.pm_user_id, p.created_at, p.updated_at,
-             CASE WHEN EXISTS(SELECT 1 FROM optimize_accounts oa WHERE oa.project_id = p.id) THEN 1 ELSE 0 END AS has_optimization
+             CASE WHEN EXISTS(SELECT 1 FROM optimize_account_projects oa WHERE oa.project_id = p.id) THEN 1 ELSE 0 END AS has_optimization
       FROM projects p
       WHERE p.customer_id = ? AND (p.archived = 0 OR p.archived IS NULL)${vendorClause}
       ORDER BY p.updated_at DESC
@@ -510,22 +501,17 @@ app.get("/:id/optimizations", async (c) => {
   if (!canViewCustomers(auth.role)) throw new HTTPException(403, { message: "Forbidden" });
 
   const demoVendor = await getDemoVendor(c.env.DB);
-  const vendorClause = demoVendor ? " AND LOWER(p.vendor) = ?" : "";
+  const vendorClause = demoVendor ? " AND LOWER(oa.vendor) = ?" : "";
   const vendorBinding = demoVendor ? [demoVendor] : [];
 
+  // One Optimize account per customer (migration 0158); still returned as a
+  // list so the tab renders the same way.
   const rows = await c.env.DB
     .prepare(`
-      SELECT oa.id, oa.project_id, oa.optimize_status, oa.graduated_at, oa.next_review_date,
-             p.name AS project_name, p.vendor, p.solution_types, p.actual_go_live_date
+      SELECT oa.id, oa.optimize_status, oa.graduated_at, oa.next_review_date,
+             oa.vendor, oa.solution_types, oa.go_live_date AS actual_go_live_date
       FROM optimize_accounts oa
-      JOIN projects p ON p.id = oa.project_id
-      -- COALESCE, not oa.customer_id alone: that column is DENORMALIZED and no
-      -- graduation path has ever written it (see routes/optimize.ts INSERTs),
-      -- so it was NULL on every row and this tab was empty for every customer.
-      -- The authoritative link is the project's — optimize accounts hang off a
-      -- project 1:1, and projects carry customer_id. Same pattern already used
-      -- by routes/optimize.ts:140, which hit this first.
-      WHERE COALESCE(oa.customer_id, p.customer_id) = ?${vendorClause}
+      WHERE oa.customer_id = ?${vendorClause}
       ORDER BY oa.graduated_at DESC
     `)
     .bind(c.req.param("id"), ...vendorBinding)

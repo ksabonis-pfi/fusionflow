@@ -4,7 +4,7 @@ import surveyDef from "../../assets/client_impact_assessment_unified_v1.json";
 import { todayLocalIso } from "../../lib/dates";
 
 interface Props {
-  projectId: string;
+  accountId: string;
   accountName: string;
   onComplete: (assessment: ImpactAssessment) => void;
   onCancel: () => void;
@@ -47,7 +47,7 @@ function sectionHasApplicableFields(section: SurveySection, solutionTypes: strin
   return section.fields.some((f) => fieldApplies(f, solutionTypes));
 }
 
-export default function ImpactAssessmentWizard({ projectId, accountName, onComplete, onCancel }: Props) {
+export default function ImpactAssessmentWizard({ accountId, accountName, onComplete, onCancel }: Props) {
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<Record<string, unknown>>({});
   const [saving, setSaving] = useState(false);
@@ -121,7 +121,7 @@ export default function ImpactAssessmentWizard({ projectId, accountName, onCompl
     setSaving(true);
     try {
       const result = await api.optimizeCreateAssessment({
-        project_id: projectId,
+        account_id: accountId,
         conducted_date: todayLocalIso(),
         solution_types: solutionTypes,
         answers,

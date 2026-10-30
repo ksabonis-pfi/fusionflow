@@ -9,10 +9,10 @@ import type { LeadershipSummaryData } from "./emailTemplates";
 // none of the window/capacity data.
 export async function buildLeadershipSummaryData(env: Bindings): Promise<LeadershipSummaryData> {
   const db = env.DB;
-  // Excludes Optimize-graduated projects and projects a PM has deliberately
+  // Excludes projects that graduated into Optimize and projects a PM has deliberately
   // closed out (closed_at, POST /:id/close) — neither should read as
   // active/at-risk/blocked; a closed project is just Closed.
-  const NOT_OPTIMIZE = "id NOT IN (SELECT project_id FROM optimize_accounts) AND closed_at IS NULL";
+  const NOT_OPTIMIZE = "id NOT IN (SELECT project_id FROM optimize_account_projects) AND closed_at IS NULL";
 
   // Time can be logged against a task, a stage, or the project as a whole
   // (e.g. general project-admin work) — each lands in its own table. See the

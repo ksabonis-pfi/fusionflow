@@ -1345,21 +1345,27 @@ export type SolutionStaffMember = {
 
 // ── Optimize types ───────────────────────────────────────────────────────────
 
+// An Optimize account belongs to a customer — there's no project behind it.
+// linked_projects are the implementation projects that graduated into it
+// (history only; returned by the single-account endpoint). creds_key is the
+// id its Zoom / RingCentral credentials are stored under.
 export type OptimizeAccount = {
   id: string;
-  project_id: string;
-  project_name: string;
-  customer_name: string | null;
+  customer_name: string;
+  creds_key: string;
+  solution_types: string[];
+  actual_go_live_date: string | null;
+  linked_projects?: Array<{ id: string; name: string; status: string | null; actual_go_live_date: string | null; linked_at: string | null }>;
   graduated_at: string;
   graduation_method: "auto" | "manual" | "direct";
   optimize_status: "active" | "paused" | "churned";
   next_review_date: string | null;
   notes: string | null;
-  customer_id: string | null;
-  // Team comes from the linked customer — joined in via cust.pf_*_user_id
-  // in GET /api/optimize/accounts/:projectId. The customer_pf_* keys further
-  // below are kept on the type for legacy callers but are not returned by
-  // the optimize endpoints; new readers should use ae_name/ae_email etc.
+  customer_id: string;
+  // Team comes from the customer — joined in via cust.pf_*_user_id. The
+  // customer_pf_* keys further below are kept on the type for legacy callers
+  // but are not returned by the optimize endpoints; new readers should use
+  // ae_name/ae_email etc.
   ae_user_id: string | null;
   ae_name: string | null;
   ae_email: string | null;
@@ -1392,7 +1398,7 @@ export type OptimizeEligible = {
 
 export type ImpactAssessment = {
   id: string;
-  project_id: string;
+  optimize_account_id: string;
   survey_id: string;
   conducted_date: string;
   conducted_by_user_id: string | null;
@@ -1411,7 +1417,7 @@ export type ImpactAssessment = {
 
 export type TechStackItem = {
   id: string;
-  project_id: string;
+  optimize_account_id: string;
   tech_area: "ai" | "uc" | "security" | "network" | "datacenter" | "backup_dr" | "tem" | "other";
   tech_area_label: string | null;
   current_vendor: string | null;
@@ -1429,7 +1435,7 @@ export type TechStackItem = {
 
 export type RoadmapItem = {
   id: string;
-  project_id: string;
+  optimize_account_id: string;
   tech_stack_id: string | null;
   title: string;
   description: string | null;
@@ -2793,7 +2799,7 @@ export const api = {
     request<{
       solutions: Array<{ id: string; name: string; customer_name: string | null; vendor: string | null; status: string | null; created_at: string; needs_assessment_count: number; labor_estimate_count: number; contact_count: number; already_on_prod: boolean }>;
       projects: Array<{ id: string; name: string; customer_name: string | null; vendor: string | null; status: string | null; created_at: string; stage_count: number; task_count: number; risk_count: number; document_count: number; already_on_prod: boolean }>;
-      optimize_accounts: Array<{ id: string; project_id: string; project_name: string; customer_name: string | null; graduated_at: string; impact_assessment_count: number; tech_stack_count: number; roadmap_count: number; utilization_count: number; already_on_prod: boolean }>;
+      optimize_accounts: Array<{ id: string; customer_name: string | null; graduated_at: string; linked_project_count: number; impact_assessment_count: number; tech_stack_count: number; roadmap_count: number; utilization_count: number; already_on_prod: boolean }>;
     }>("/admin/staging/inventory"),
 
   adminStagingPromote: (payload: { solution_ids: string[]; project_ids: string[]; optimize_account_ids: string[] }) =>
@@ -3054,79 +3060,68 @@ export const api = {
     request<CrmAccountTeam>(`/optimize/crm/accounts/${accountId}/team`),
   optimizeAccounts: () => request<OptimizeAccount[]>("/optimize/accounts"),
   optimizeEligible: () => request<OptimizeEligible[]>("/optimize/eligible"),
-  optimizeAccount: (projectId: string) => request<OptimizeAccount>(`/optimize/accounts/${projectId}`),
+  optimizeAccount: (accountId: string) => request<OptimizeAccount>(`/optimize/accounts/${accountId}`),
+  // Graduate a finished implementation project: links it to its customer's
+  // Optimize account (creating the account if the customer has none yet).
   optimizeGraduate: (projectId: string) =>
-    request<OptimizeAccount>(`/optimize/accounts/${projectId}/graduate`, { method: "POST" }),
-  optimizeDirectEnroll: (payload: {
-    customer_name: string;
+    request<OptimizeAccount>(`/optimize/projects/${projectId}/graduate`, { method: "POST" }),
+  // New Optimize account for a customer — no project involved. Pass the CRM
+  // account (dynamics_account_id + customer_name) or an existing customer_id.
+  optimizeCreateAccount: (payload: {
+    dynamics_account_id?: string | null;
+    customer_id?: string | null;
+    customer_name?: string | null;
     vendor?: string | null;
     solution_types?: string[];
     actual_go_live_date?: string | null;
-    ae_user_id?: string | null;
-    sa_user_id?: string | null;
-    csm_user_id?: string | null;
     next_review_date?: string | null;
     notes?: string | null;
-    dynamics_account_id?: string | null;
-    project_id?: string | null;
   }) =>
-    request<OptimizeAccount>("/optimize/accounts/direct", {
+    request<OptimizeAccount>("/optimize/accounts", {
       method: "POST",
       body: JSON.stringify(payload),
     }),
+  optimizeUnlinkProject: (accountId: string, projectId: string) =>
+    request<{ success: boolean }>(`/optimize/accounts/${accountId}/projects/${projectId}`, { method: "DELETE" }),
 
-  optimizeLinkedSolution: (projectId: string) =>
-    request<Pick<Solution, "id" | "name" | "customer_name" | "status" | "solution_types" | "vendor"> | null>(
-      `/optimize/accounts/${projectId}/linked-solution`
-    ),
-  optimizeUpdateAccount: (projectId: string, payload: {
-    ae_user_id?: string | null;
-    sa_user_id?: string | null;
-    csm_user_id?: string | null;
+  optimizeUpdateAccount: (accountId: string, payload: {
     optimize_status?: "active" | "paused" | "churned";
     next_review_date?: string | null;
     notes?: string | null;
+    vendor?: string | null;
+    solution_types?: string[];
+    actual_go_live_date?: string | null;
   }) =>
-    request<OptimizeAccount>(`/optimize/accounts/${projectId}`, {
+    request<OptimizeAccount>(`/optimize/accounts/${accountId}`, {
       method: "PATCH",
       body: JSON.stringify(payload),
     }),
-  optimizeCrmSync: (projectId: string) =>
+  optimizeCrmSync: (accountId: string) =>
     request<{ account: OptimizeAccount; crm: { ae_name: string | null; sa_name: string | null; csm_name: string | null } }>(
-      `/optimize/accounts/${projectId}/crm-sync`, { method: "POST" }
+      `/optimize/accounts/${accountId}/crm-sync`, { method: "POST" }
     ),
 
-  // Move an Optimize account's project_id to point at a different (existing)
-  // project. Moves impact_assessments / tech_stack / roadmap / utilization
-  // snapshots / KV creds with it. Deletes the shell project if it had no
-  // attached work. Returns the new project_id (URL changes after relink).
-  optimizeRelink: (projectId: string, targetProjectId: string) =>
-    request<{ project_id: string; previous_project_id: string; shell_deleted: boolean; credentials_moved: ("zoom" | "ringcentral")[] }>(
-      `/optimize/accounts/${projectId}/relink`,
-      { method: "POST", body: JSON.stringify({ target_project_id: targetProjectId }) }
-    ),
+  optimizeDeleteAccount: (accountId: string) =>
+    request<{ success: boolean }>(`/optimize/accounts/${accountId}`, { method: "DELETE" }),
 
-  optimizeDeleteAccount: (projectId: string) =>
-    request<{ success: boolean }>(`/optimize/accounts/${projectId}`, { method: "DELETE" }),
-
-  optimizeAssessments: (projectId: string) => request<ImpactAssessment[]>(`/optimize/accounts/${projectId}/assessments`),
+  optimizeAssessments: (accountId: string) => request<ImpactAssessment[]>(`/optimize/accounts/${accountId}/assessments`),
   optimizeCreateAssessment: (payload: {
-    project_id: string;
+    account_id: string;
     conducted_date: string;
     conducted_by_user_id?: string | null;
     solution_types: string[];
     answers: Record<string, unknown>;
   }) =>
-    request<ImpactAssessment>(`/optimize/accounts/${payload.project_id}/assessments`, {
+    request<ImpactAssessment>(`/optimize/accounts/${payload.account_id}/assessments`, {
       method: "POST",
       body: JSON.stringify(payload),
     }),
-  optimizeDeleteAssessment: (projectId: string, assessmentId: string) =>
-    request<{ success: boolean }>(`/optimize/accounts/${projectId}/assessments/${assessmentId}`, { method: "DELETE" }),
+  optimizeDeleteAssessment: (accountId: string, assessmentId: string) =>
+    request<{ success: boolean }>(`/optimize/accounts/${accountId}/assessments/${assessmentId}`, { method: "DELETE" }),
 
-  optimizeTechStack: (projectId: string) => request<TechStackItem[]>(`/optimize/accounts/${projectId}/tech-stack`),
+  optimizeTechStack: (accountId: string) => request<TechStackItem[]>(`/optimize/accounts/${accountId}/tech-stack`),
   optimizeCreateTechStack: (payload: {
-    project_id: string;
+    account_id: string;
     tech_area: string;
     tech_area_label?: string | null;
     current_vendor?: string | null;
@@ -3138,11 +3133,11 @@ export const api = {
     time_rating?: string | null;
     notes?: string | null;
   }) =>
-    request<TechStackItem>(`/optimize/accounts/${payload.project_id}/tech-stack`, {
+    request<TechStackItem>(`/optimize/accounts/${payload.account_id}/tech-stack`, {
       method: "POST",
       body: JSON.stringify(payload),
     }),
-  optimizeUpdateTechStack: (projectId: string, areaId: string, payload: Partial<{
+  optimizeUpdateTechStack: (accountId: string, areaId: string, payload: Partial<{
     tech_area: string;
     tech_area_label: string | null;
     current_vendor: string | null;
@@ -3154,16 +3149,16 @@ export const api = {
     time_rating: string | null;
     notes: string | null;
   }>) =>
-    request<TechStackItem>(`/optimize/accounts/${projectId}/tech-stack/${areaId}`, {
+    request<TechStackItem>(`/optimize/accounts/${accountId}/tech-stack/${areaId}`, {
       method: "PATCH",
       body: JSON.stringify(payload),
     }),
-  optimizeDeleteTechStack: (projectId: string, areaId: string) =>
-    request<{ success: boolean }>(`/optimize/accounts/${projectId}/tech-stack/${areaId}`, { method: "DELETE" }),
+  optimizeDeleteTechStack: (accountId: string, areaId: string) =>
+    request<{ success: boolean }>(`/optimize/accounts/${accountId}/tech-stack/${areaId}`, { method: "DELETE" }),
 
-  optimizeRoadmap: (projectId: string) => request<RoadmapItem[]>(`/optimize/accounts/${projectId}/roadmap`),
+  optimizeRoadmap: (accountId: string) => request<RoadmapItem[]>(`/optimize/accounts/${accountId}/roadmap`),
   optimizeCreateRoadmapItem: (payload: {
-    project_id: string;
+    account_id: string;
     title: string;
     description?: string | null;
     category?: string;
@@ -3173,11 +3168,11 @@ export const api = {
     target_date?: string | null;
     tech_stack_id?: string | null;
   }) =>
-    request<RoadmapItem>(`/optimize/accounts/${payload.project_id}/roadmap`, {
+    request<RoadmapItem>(`/optimize/accounts/${payload.account_id}/roadmap`, {
       method: "POST",
       body: JSON.stringify(payload),
     }),
-  optimizeUpdateRoadmapItem: (projectId: string, itemId: string, payload: Partial<{
+  optimizeUpdateRoadmapItem: (accountId: string, itemId: string, payload: Partial<{
     title: string;
     description: string | null;
     category: string;
@@ -3186,18 +3181,18 @@ export const api = {
     status: string;
     target_date: string | null;
   }>) =>
-    request<RoadmapItem>(`/optimize/accounts/${projectId}/roadmap/${itemId}`, {
+    request<RoadmapItem>(`/optimize/accounts/${accountId}/roadmap/${itemId}`, {
       method: "PATCH",
       body: JSON.stringify(payload),
     }),
-  optimizeDeleteRoadmapItem: (projectId: string, itemId: string) =>
-    request<{ success: boolean }>(`/optimize/accounts/${projectId}/roadmap/${itemId}`, { method: "DELETE" }),
+  optimizeDeleteRoadmapItem: (accountId: string, itemId: string) =>
+    request<{ success: boolean }>(`/optimize/accounts/${accountId}/roadmap/${itemId}`, { method: "DELETE" }),
 
-  optimizeUtilization: (projectId: string) =>
-    request<UtilizationSnapshot[]>(`/optimize/accounts/${projectId}/utilization`),
+  optimizeUtilization: (accountId: string) =>
+    request<UtilizationSnapshot[]>(`/optimize/accounts/${accountId}/utilization`),
 
-  optimizeUtilizationSync: (projectId: string) =>
-    request<UtilizationSnapshot>(`/optimize/accounts/${projectId}/utilization/sync`, { method: "POST" }),
+  optimizeUtilizationSync: (accountId: string) =>
+    request<UtilizationSnapshot>(`/optimize/accounts/${accountId}/utilization/sync`, { method: "POST" }),
 
   // ── Zoom Recordings ──────────────────────────────────────────────────────────
 
@@ -3391,7 +3386,7 @@ export const api = {
   customerProjects: (id: string) =>
     request<Pick<Project, "id" | "name" | "vendor" | "solution_types" | "status" | "health" | "kickoff_date" | "target_go_live_date" | "actual_go_live_date" | "pm_user_id" | "created_at" | "updated_at"> & { has_optimization: number | null }>(`/customers/${id}/projects`),
   customerOptimizations: (id: string) =>
-    request<{ id: string; project_id: string; optimize_status: string; graduated_at: string | null; next_review_date: string | null; project_name: string; vendor: string | null; solution_types: string[]; actual_go_live_date: string | null }[]>(`/customers/${id}/optimizations`),
+    request<{ id: string; optimize_status: string; graduated_at: string | null; next_review_date: string | null; vendor: string | null; solution_types: string[]; actual_go_live_date: string | null }[]>(`/customers/${id}/optimizations`),
 
   customerLastVendor: (id: string) =>
     request<{ vendor: string | null; vendorId?: string | null; techType?: string | null; soldOn?: string | null }>(`/customers/${id}/last-vendor`),
