@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { api, type OptimizeAccount, type User } from "../lib/api";
+import { api, type OptimizeAccount } from "../lib/api";
 import { humanize } from "../lib/format";
 import { useToast } from "../components/ui/ToastProvider";
 import { PLAN_DATE_MAX, PLAN_DATE_MIN } from "../../shared/planDates";
@@ -31,20 +31,18 @@ function getHealthBand(score: number): string {
   return "at_risk";
 }
 
+// SA / CSM aren't edited here: they come from the customer's CRM account team.
 type EditForm = {
   optimize_status: "active" | "paused" | "churned";
-  sa_user_id: string;
-  csm_user_id: string;
   next_review_date: string;
   notes: string;
 };
 
 export default function AdminOptimizePage() {
   const [accounts, setAccounts] = useState<OptimizeAccount[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingAccount, setEditingAccount] = useState<OptimizeAccount | null>(null);
-  const [editForm, setEditForm] = useState<EditForm>({ optimize_status: "active", sa_user_id: "", csm_user_id: "", next_review_date: "", notes: "" });
+  const [editForm, setEditForm] = useState<EditForm>({ optimize_status: "active", next_review_date: "", notes: "" });
   const [saving, setSaving] = useState(false);
   const { showToast } = useToast();
   const navigate = useNavigate();
@@ -54,9 +52,7 @@ export default function AdminOptimizePage() {
   async function loadData() {
     try {
       setLoading(true);
-      const [accs, usrs] = await Promise.all([api.optimizeAccounts(), api.users()]);
-      setAccounts(accs);
-      setUsers(usrs.filter((u) => ["admin", "pm", "pf_sa", "pf_csm"].includes(u.role)));
+      setAccounts(await api.optimizeAccounts());
     } catch {
       showToast("Failed to load optimize accounts", "error");
     } finally {
@@ -68,8 +64,6 @@ export default function AdminOptimizePage() {
     setEditingAccount(account);
     setEditForm({
       optimize_status: account.optimize_status,
-      sa_user_id: account.sa_user_id ?? "",
-      csm_user_id: account.csm_user_id ?? "",
       next_review_date: account.next_review_date ?? "",
       notes: account.notes ?? "",
     });
@@ -80,10 +74,8 @@ export default function AdminOptimizePage() {
     if (!editingAccount) return;
     setSaving(true);
     try {
-      await api.optimizeUpdateAccount(editingAccount.project_id, {
+      await api.optimizeUpdateAccount(editingAccount.id, {
         optimize_status: editForm.optimize_status,
-        sa_user_id: editForm.sa_user_id || null,
-        csm_user_id: editForm.csm_user_id || null,
         next_review_date: editForm.next_review_date || null,
         notes: editForm.notes || null,
       });
@@ -98,10 +90,10 @@ export default function AdminOptimizePage() {
   }
 
   async function handleRemove(account: OptimizeAccount) {
-    if (!window.confirm(`Remove "${account.project_name}" from Optimize? This stops Optimize tracking but leaves the project intact.`)) return;
+    if (!window.confirm(`Remove "${account.customer_name}" from Optimize? This deletes its assessments, tech stack, roadmap and utilization history. Projects and the customer are not affected.`)) return;
     try {
-      await api.optimizeDeleteAccount(account.project_id);
-      setAccounts((prev) => prev.filter((a) => a.project_id !== account.project_id));
+      await api.optimizeDeleteAccount(account.id);
+      setAccounts((prev) => prev.filter((a) => a.id !== account.id));
       showToast("Account removed from Optimize.", "success");
     } catch {
       showToast("Failed to remove account", "error");
@@ -124,10 +116,9 @@ export default function AdminOptimizePage() {
 
       <AccountTable
         accounts={active}
-        users={users}
         onEdit={openEdit}
         onRemove={handleRemove}
-        onNavigate={(pid) => navigate(`/optimize/${pid}`)}
+        onNavigate={(id) => navigate(`/optimize/${id}`)}
       />
 
       {churned.length > 0 && (
@@ -137,10 +128,9 @@ export default function AdminOptimizePage() {
           </div>
           <AccountTable
             accounts={churned}
-            users={users}
             onEdit={openEdit}
             onRemove={handleRemove}
-            onNavigate={(pid) => navigate(`/optimize/${pid}`)}
+            onNavigate={(id) => navigate(`/optimize/${id}`)}
             dimmed
           />
         </>
@@ -150,10 +140,7 @@ export default function AdminOptimizePage() {
       {editingAccount && (
         <div className="ms-modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setEditingAccount(null); }}>
           <div className="ms-modal" style={{ maxWidth: 520 }}>
-            <h2 style={{ marginBottom: 4 }}>{editingAccount.project_name}</h2>
-            {editingAccount.customer_name && (
-              <div style={{ fontSize: 13, color: "#64748b", marginBottom: 20 }}>{editingAccount.customer_name}</div>
-            )}
+            <h2 style={{ marginBottom: 20 }}>{editingAccount.customer_name}</h2>
             <form onSubmit={handleSaveEdit} style={{ display: "grid", gap: 14 }}>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
                 <label className="ms-label">
@@ -167,20 +154,6 @@ export default function AdminOptimizePage() {
                 <label className="ms-label">
                   <span>Next Review</span>
                   <input type="date" min={PLAN_DATE_MIN} max={PLAN_DATE_MAX} className="ms-input" value={editForm.next_review_date} onChange={(e) => setEditForm({ ...editForm, next_review_date: e.target.value })} />
-                </label>
-                <label className="ms-label">
-                  <span>SA</span>
-                  <select className="ms-input" value={editForm.sa_user_id} onChange={(e) => setEditForm({ ...editForm, sa_user_id: e.target.value })}>
-                    <option value="">— None —</option>
-                    {users.map((u) => <option key={u.id} value={u.id}>{u.name ?? u.email}</option>)}
-                  </select>
-                </label>
-                <label className="ms-label">
-                  <span>CSM</span>
-                  <select className="ms-input" value={editForm.csm_user_id} onChange={(e) => setEditForm({ ...editForm, csm_user_id: e.target.value })}>
-                    <option value="">— None —</option>
-                    {users.map((u) => <option key={u.id} value={u.id}>{u.name ?? u.email}</option>)}
-                  </select>
                 </label>
               </div>
               <label className="ms-label">
@@ -207,10 +180,9 @@ function AccountTable({
   dimmed,
 }: {
   accounts: OptimizeAccount[];
-  users: User[];
   onEdit: (a: OptimizeAccount) => void;
   onRemove: (a: OptimizeAccount) => void;
-  onNavigate: (projectId: string) => void;
+  onNavigate: (accountId: string) => void;
   dimmed?: boolean;
 }) {
   return (
@@ -218,7 +190,6 @@ function AccountTable({
       <table className="ms-table">
         <thead>
           <tr>
-            <th>Account</th>
             <th>Customer</th>
             <th>Status</th>
             <th>SA</th>
@@ -233,7 +204,7 @@ function AccountTable({
         <tbody>
           {accounts.length === 0 ? (
             <tr>
-              <td colSpan={10} style={{ textAlign: "center", color: "#64748b", padding: "28px 16px" }}>No accounts.</td>
+              <td colSpan={9} style={{ textAlign: "center", color: "#64748b", padding: "28px 16px" }}>No accounts.</td>
             </tr>
           ) : (
             accounts.map((a) => {
@@ -241,16 +212,15 @@ function AccountTable({
                 ? HEALTH_COLORS[getHealthBand(a.last_assessment_score)]
                 : "#94a3b8";
               return (
-                <tr key={a.project_id}>
+                <tr key={a.id}>
                   <td>
                     <button
-                      onClick={() => onNavigate(a.project_id)}
+                      onClick={() => onNavigate(a.id)}
                       style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "#0b9aad", fontWeight: 600, fontSize: 13, textAlign: "left" }}
                     >
-                      {a.project_name}
+                      {a.customer_name}
                     </button>
                   </td>
-                  <td style={{ color: "#64748b" }}>{a.customer_name ?? "—"}</td>
                   <td>
                     <span className="ms-badge" style={{ background: `${STATUS_COLORS[a.optimize_status]}1a`, color: STATUS_COLORS[a.optimize_status], border: `1px solid ${STATUS_COLORS[a.optimize_status]}40`, textTransform: "none" }}>
                       {humanize(a.optimize_status)}

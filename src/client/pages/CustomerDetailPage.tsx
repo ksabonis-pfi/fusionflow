@@ -23,7 +23,7 @@ type Tab = "overview" | "solutions" | "implementations" | "optimizations" | "doc
 
 type CustomerSolution = Pick<Solution, "id" | "name" | "vendor" | "solution_types" | "other_technologies" | "status" | "created_at" | "updated_at" | "linked_project_id" | "dynamics_account_id">;
 type CustomerProject = Pick<Project, "id" | "name" | "vendor" | "solution_types" | "status" | "health" | "kickoff_date" | "target_go_live_date" | "actual_go_live_date" | "created_at" | "updated_at"> & { has_optimization: number | null };
-type CustomerOptimization = { id: string; project_id: string; optimize_status: string; graduated_at: string | null; next_review_date: string | null; project_name: string; vendor: string | null; solution_types: string[]; actual_go_live_date: string | null };
+type CustomerOptimization = { id: string; optimize_status: string; graduated_at: string | null; next_review_date: string | null; vendor: string | null; solution_types: string[]; actual_go_live_date: string | null };
 
 const JOURNEY_LABELS: Record<string, string> = {
   zoom_ucaas: "UCaaS", zoom_ccaas: "CCaaS", zoom_rooms: "Zoom Rooms",
@@ -675,7 +675,7 @@ export default function CustomerDetailPage() {
           <table className="ms-table">
             <thead>
               <tr>
-                <th>Project</th>
+                <th>Account</th>
                 <th>Technology</th>
                 <th>Status</th>
                 <th>Go-Live</th>
@@ -686,8 +686,8 @@ export default function CustomerDetailPage() {
               {optimizations.length === 0 ? (
                 <tr><td colSpan={5} style={{ textAlign: "center", color: "#94a3b8", padding: "28px 16px" }}>No optimizations linked to this customer.</td></tr>
               ) : optimizations.map((o) => (
-                <tr key={o.id} style={{ cursor: "pointer" }} onClick={() => navigate(`/optimize/${o.project_id}`)}>
-                  <td style={{ fontWeight: 600, color: "#1e293b" }}>{o.project_name}</td>
+                <tr key={o.id} style={{ cursor: "pointer" }} onClick={() => navigate(`/optimize/${o.id}`)}>
+                  <td style={{ fontWeight: 600, color: "#1e293b" }}>{customer.name}</td>
                   <td style={{ color: "#64748b", fontSize: 13 }}>
                     <SolutionTypePills types={o.solution_types} />
                   </td>

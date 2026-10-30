@@ -5,6 +5,7 @@ import { zPlanDate, zPlanDateOrBlank } from "../lib/dateSchemas";
 import type { Bindings, Variables } from "../types";
 import { findOrCreatePfUser } from "../lib/crmUsers";
 import { refreshAccountTeamIfStale, syncAccountTeamToCustomer } from "../lib/accountTeamSync";
+import { linkProjectToOptimize } from "../lib/teamUtils";
 import { fetchZoomUtilizationSnapshot } from "../services/zoomService";
 import { fetchRCUtilizationSnapshot } from "../services/ringCentralService";
 import { searchAccounts, getAccountTeam } from "../services/dynamicsService";
@@ -14,6 +15,10 @@ import { deriveTimeRating } from "../../shared/timeFramework";
 import { getDemoVendor } from "../lib/appSettings";
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
+
+// An Optimize account belongs to a customer (one per customer) and stands on
+// its own — no project row behind it (migration 0158). Implementation projects
+// that graduated are linked through optimize_account_projects for history only.
 
 // Only internal PF roles can access Optimize
 function assertOptimizeAccess(role: string) {
@@ -27,39 +32,74 @@ function assertOptimizeEdit(role: string) {
   }
 }
 
+// Columns shared by the list, single-account and create responses. creds_key is
+// the id the account's Zoom / RingCentral credentials live under in KV.
+const ACCOUNT_COLUMNS = `
+  oa.id, oa.customer_id, oa.graduated_at, oa.graduation_method,
+  oa.optimize_status, oa.next_review_date, oa.notes, oa.updated_at,
+  oa.vendor, oa.solution_types, oa.go_live_date AS actual_go_live_date,
+  COALESCE(oa.creds_key, oa.id) AS creds_key,
+  cust.name AS customer_name, cust.crm_account_id AS dynamics_account_id,
+  cust.sharepoint_url AS customer_sharepoint_url,
+  cust.pf_ae_user_id AS ae_user_id, ae.name AS ae_name, ae.email AS ae_email,
+  cust.pf_sa_user_id AS sa_user_id, sa.name AS sa_name, sa.email AS sa_email,
+  cust.pf_csm_user_id AS csm_user_id, csm.name AS csm_name, csm.email AS csm_email`;
+
+const ACCOUNT_FROM = `
+  FROM optimize_accounts oa
+  JOIN customers cust ON cust.id = oa.customer_id
+  LEFT JOIN users ae  ON ae.id  = cust.pf_ae_user_id
+  LEFT JOIN users sa  ON sa.id  = cust.pf_sa_user_id
+  LEFT JOIN users csm ON csm.id = cust.pf_csm_user_id`;
+
+async function loadAccount(db: D1Database, accountId: string) {
+  const row = await db
+    .prepare(`SELECT ${ACCOUNT_COLUMNS} ${ACCOUNT_FROM} WHERE oa.id = ? LIMIT 1`)
+    .bind(accountId)
+    .first<Record<string, unknown>>();
+  if (!row) return null;
+  const linked = await db
+    .prepare(
+      `SELECT p.id, p.name, p.status, p.actual_go_live_date, l.linked_at
+       FROM optimize_account_projects l JOIN projects p ON p.id = l.project_id
+       WHERE l.optimize_account_id = ?
+       ORDER BY l.linked_at DESC`,
+    )
+    .bind(accountId)
+    .all();
+  return { ...normalizeSolutionTypesField(row), linked_projects: linked.results ?? [] };
+}
+
+async function requireAccount(db: D1Database, accountId: string) {
+  const row = await db
+    .prepare("SELECT id, vendor, COALESCE(creds_key, id) AS creds_key FROM optimize_accounts WHERE id = ? LIMIT 1")
+    .bind(accountId)
+    .first<{ id: string; vendor: string | null; creds_key: string }>();
+  if (!row) throw new HTTPException(404, { message: "Optimize account not found" });
+  return row;
+}
+
 // ── Account list ───────────────────────────────────────────────────────────────
 
 app.get("/accounts", async (c) => {
   assertOptimizeAccess(c.get("auth").role);
   const demoVendor = await getDemoVendor(c.env.DB);
-  const vendorClause = demoVendor ? "WHERE LOWER(p.vendor) = ?" : "";
+  const vendorClause = demoVendor ? "WHERE LOWER(oa.vendor) = ?" : "";
   const vendorBinding = demoVendor ? [demoVendor] : [];
   const rows = await c.env.DB.prepare(`
-    SELECT
-      oa.id, oa.project_id, oa.graduated_at, oa.graduation_method,
-      oa.optimize_status, oa.next_review_date, COALESCE(oa.customer_id, p.customer_id) AS customer_id,
-      p.name AS project_name, p.customer_name, p.vendor, p.solution_types,
-      p.actual_go_live_date, p.pm_user_id, p.dynamics_account_id,
-      cust.pf_ae_user_id AS ae_user_id, ae.name AS ae_name,
-      cust.pf_sa_user_id AS sa_user_id, sa.name AS sa_name,
-      cust.pf_csm_user_id AS csm_user_id, csm.name AS csm_name,
-      (SELECT conducted_date FROM impact_assessments WHERE project_id = oa.project_id
+    SELECT ${ACCOUNT_COLUMNS},
+      (SELECT conducted_date FROM impact_assessments WHERE optimize_account_id = oa.id
        ORDER BY conducted_date DESC LIMIT 1) AS last_assessment_date,
-      (SELECT overall_score FROM impact_assessments WHERE project_id = oa.project_id
+      (SELECT overall_score FROM impact_assessments WHERE optimize_account_id = oa.id
        ORDER BY conducted_date DESC LIMIT 1) AS last_assessment_score
-    FROM optimize_accounts oa
-    JOIN projects p ON p.id = oa.project_id
-    LEFT JOIN customers cust ON cust.id = COALESCE(oa.customer_id, p.customer_id)
-    LEFT JOIN users ae  ON ae.id  = cust.pf_ae_user_id
-    LEFT JOIN users sa  ON sa.id  = cust.pf_sa_user_id
-    LEFT JOIN users csm ON csm.id = cust.pf_csm_user_id
+    ${ACCOUNT_FROM}
     ${vendorClause}
     ORDER BY oa.graduated_at DESC
   `).bind(...vendorBinding).all();
   return c.json((rows.results ?? []).map(normalizeSolutionTypesField));
 });
 
-// ── Eligible projects (all stages complete, not yet graduated) ─────────────────
+// ── Eligible projects (went live, not yet linked to an Optimize account) ───────
 
 app.get("/eligible", async (c) => {
   assertOptimizeAccess(c.get("auth").role);
@@ -68,7 +108,7 @@ app.get("/eligible", async (c) => {
            p.actual_go_live_date, p.pm_user_id
     FROM projects p
     WHERE (p.archived = 0 OR p.archived IS NULL)
-      AND p.id NOT IN (SELECT project_id FROM optimize_accounts)
+      AND p.id NOT IN (SELECT project_id FROM optimize_account_projects)
       AND p.actual_go_live_date IS NOT NULL
     ORDER BY p.actual_go_live_date DESC
   `).all();
@@ -77,33 +117,22 @@ app.get("/eligible", async (c) => {
 
 // ── Single account ─────────────────────────────────────────────────────────────
 
-app.get("/accounts/:projectId", async (c) => {
+app.get("/accounts/:accountId", async (c) => {
   assertOptimizeAccess(c.get("auth").role);
-  const projectId = c.req.param("projectId");
-  const row = await c.env.DB.prepare(`
-    SELECT
-      oa.id, oa.project_id, oa.graduated_at, oa.graduation_method,
-      oa.optimize_status, oa.next_review_date, oa.notes,
-      COALESCE(oa.customer_id, p.customer_id) AS customer_id, oa.updated_at,
-      p.name AS project_name, p.customer_name, p.vendor, p.solution_types,
-      p.actual_go_live_date, p.kickoff_date, p.pm_user_id, p.dynamics_account_id,
-      cust.pf_ae_user_id AS ae_user_id, ae.name  AS ae_name,  ae.email  AS ae_email,
-      cust.pf_sa_user_id AS sa_user_id, sa.name  AS sa_name,  sa.email  AS sa_email,
-      cust.pf_csm_user_id AS csm_user_id, csm.name AS csm_name, csm.email AS csm_email,
-      cust.sharepoint_url AS customer_sharepoint_url
-    FROM optimize_accounts oa
-    JOIN projects p ON p.id = oa.project_id
-    LEFT JOIN customers cust ON cust.id = COALESCE(oa.customer_id, p.customer_id)
-    LEFT JOIN users ae  ON ae.id  = cust.pf_ae_user_id
-    LEFT JOIN users sa  ON sa.id  = cust.pf_sa_user_id
-    LEFT JOIN users csm ON csm.id = cust.pf_csm_user_id
-    WHERE oa.project_id = ? LIMIT 1
-  `).bind(projectId).first();
-  if (!row) throw new HTTPException(404, { message: "Optimize account not found" });
+  const id = c.req.param("accountId");
+  // Links from before migration 0158 carry the old project id, which lives on
+  // as creds_key; resolve those so bookmarks keep working (the page then
+  // redirects to the account id).
+  const legacy = await c.env.DB
+    .prepare("SELECT id FROM optimize_accounts WHERE id = ? OR creds_key = ? ORDER BY id = ? DESC LIMIT 1")
+    .bind(id, id, id)
+    .first<{ id: string }>();
+  const account = legacy ? await loadAccount(c.env.DB, legacy.id) : null;
+  if (!account) throw new HTTPException(404, { message: "Optimize account not found" });
   // Background-refresh the account team from CRM when stale (never blocks read).
-  const orow = row as { dynamics_account_id?: string | null; customer_id?: string | null };
-  refreshAccountTeamIfStale(c.env, c.executionCtx, orow.dynamics_account_id, orow.customer_id);
-  return c.json(normalizeSolutionTypesField(row));
+  const a = account as { dynamics_account_id?: string | null; customer_id?: string | null };
+  refreshAccountTeamIfStale(c.env, c.executionCtx, a.dynamics_account_id, a.customer_id);
+  return c.json(account);
 });
 
 // ── CRM account search ─────────────────────────────────────────────────────────
@@ -131,195 +160,149 @@ app.get("/crm/accounts/:accountId/team", async (c) => {
 
 // ── CRM sync: refresh AE/SA/CSM from CRM account team ─────────────────────────
 
-app.post("/accounts/:projectId/crm-sync", async (c) => {
+app.post("/accounts/:accountId/crm-sync", async (c) => {
   assertOptimizeEdit(c.get("auth").role);
   const db = c.env.DB;
-  const projectId = c.req.param("projectId");
+  const accountId = c.req.param("accountId");
 
   const row = await db
-    .prepare("SELECT p.dynamics_account_id, COALESCE(oa.customer_id, p.customer_id) AS customer_id FROM optimize_accounts oa JOIN projects p ON p.id = oa.project_id WHERE oa.project_id = ? LIMIT 1")
-    .bind(projectId)
-    .first<{ dynamics_account_id: string | null; customer_id: string | null }>();
-
-  if (!row?.dynamics_account_id) {
-    throw new HTTPException(400, { message: "No CRM account linked to this project" });
-  }
+    .prepare(
+      `SELECT cust.crm_account_id, oa.customer_id
+       FROM optimize_accounts oa JOIN customers cust ON cust.id = oa.customer_id
+       WHERE oa.id = ? LIMIT 1`,
+    )
+    .bind(accountId)
+    .first<{ crm_account_id: string | null; customer_id: string }>();
+  if (!row) throw new HTTPException(404, { message: "Optimize account not found" });
+  if (!row.crm_account_id) throw new HTTPException(400, { message: "No CRM account linked to this customer" });
 
   // Manual force-refresh: pull the team from CRM and write it onto the customer.
   // Same code path the read-time SWR refresh and daily cron use.
-  const team = await syncAccountTeamToCustomer(c.env, row.dynamics_account_id, row.customer_id);
+  const team = await syncAccountTeamToCustomer(c.env, row.crm_account_id, row.customer_id);
 
-  // Return the full updated account
-  const updated = await db.prepare(`
-    SELECT
-      oa.id, oa.project_id, oa.graduated_at, oa.graduation_method,
-      oa.optimize_status, oa.next_review_date, oa.notes, COALESCE(oa.customer_id, p.customer_id) AS customer_id, oa.updated_at,
-      p.name AS project_name, p.customer_name, p.vendor, p.solution_types,
-      p.actual_go_live_date, p.kickoff_date, p.pm_user_id, p.dynamics_account_id,
-      cust.pf_ae_user_id AS ae_user_id, ae.name AS ae_name, ae.email AS ae_email,
-      cust.pf_sa_user_id AS sa_user_id, sa.name AS sa_name, sa.email AS sa_email,
-      cust.pf_csm_user_id AS csm_user_id, csm.name AS csm_name, csm.email AS csm_email
-    FROM optimize_accounts oa
-    JOIN projects p ON p.id = oa.project_id
-    LEFT JOIN customers cust ON cust.id = COALESCE(oa.customer_id, p.customer_id)
-    LEFT JOIN users ae  ON ae.id  = cust.pf_ae_user_id
-    LEFT JOIN users sa  ON sa.id  = cust.pf_sa_user_id
-    LEFT JOIN users csm ON csm.id = cust.pf_csm_user_id
-    WHERE oa.project_id = ? LIMIT 1
-  `).bind(projectId).first();
-
-  return c.json({ account: updated ? normalizeSolutionTypesField(updated) : null, crm: { ae_name: team.ae_name, sa_name: team.sa_name, csm_name: team.csm_name } });
+  return c.json({ account: await loadAccount(db, accountId), crm: { ae_name: team.ae_name, sa_name: team.sa_name, csm_name: team.csm_name } });
 });
 
-// ── Direct enrollment (no prior project/solution) ──────────────────────────────
+// ── New account (from a CRM account or an existing customer) ──────────────────
 
-const directEnrollSchema = z.object({
-  customer_name: z.string().min(1).max(500),
+const createAccountSchema = z.object({
+  dynamics_account_id: z.string().min(1).nullable().optional(),
+  customer_id: z.string().min(1).nullable().optional(),
+  customer_name: z.string().min(1).max(500).nullable().optional(),
   vendor: z.string().max(100).nullable().optional(),
   solution_types: z.array(z.enum(SOLUTION_TYPES)).default([]),
   actual_go_live_date: zPlanDateOrBlank.nullable().optional(),
   next_review_date: zPlanDateOrBlank.nullable().optional(),
   notes: z.string().nullable().optional(),
-  dynamics_account_id: z.string().nullable().optional(),
-  project_id: z.string().nullable().optional(),
 });
 
-app.post("/accounts/direct", async (c) => {
+app.post("/accounts", async (c) => {
   assertOptimizeEdit(c.get("auth").role);
   const db = c.env.DB;
   const auth = c.get("auth");
 
-  const parsed = directEnrollSchema.safeParse(await c.req.json().catch(() => ({})));
+  const parsed = createAccountSchema.safeParse(await c.req.json().catch(() => ({})));
   if (!parsed.success) throw new HTTPException(400, { message: "Invalid request body" });
   const d = parsed.data;
 
-  let projectId: string;
-
-  // Find or create customer when a CRM account is provided
+  // Resolve the customer: an existing CloudConnect customer, or the customer
+  // for a CRM account (created, with its account team, if it's new to us).
   let customerId: string | null = null;
-  if (d.dynamics_account_id) {
-    const existingCustomer = await db
+  if (d.customer_id) {
+    const existing = await db.prepare("SELECT id FROM customers WHERE id = ? LIMIT 1").bind(d.customer_id).first<{ id: string }>();
+    if (!existing) throw new HTTPException(404, { message: "Customer not found" });
+    customerId = existing.id;
+  } else if (d.dynamics_account_id) {
+    const existing = await db
       .prepare("SELECT id FROM customers WHERE crm_account_id = ? LIMIT 1")
       .bind(d.dynamics_account_id)
       .first<{ id: string }>();
-    if (existingCustomer) {
-      customerId = existingCustomer.id;
+    if (existing) {
+      customerId = existing.id;
     } else {
-      const newCustomerId = crypto.randomUUID();
+      if (!d.customer_name) throw new HTTPException(400, { message: "customer_name is required for a new CRM account" });
+      customerId = crypto.randomUUID();
       await db
         .prepare("INSERT INTO customers (id, name, crm_account_id) VALUES (?, ?, ?)")
-        .bind(newCustomerId, d.customer_name, d.dynamics_account_id)
+        .bind(customerId, d.customer_name, d.dynamics_account_id)
         .run();
-      customerId = newCustomerId;
       try {
-        const team = await getAccountTeam(c.env, d.dynamics_account_id);
-        const [aeId, saId, csmId] = await Promise.all([
-          findOrCreatePfUser(db, team.ae_email, team.ae_name, "pf_ae"),
-          findOrCreatePfUser(db, team.sa_email, team.sa_name, "pf_sa"),
-          findOrCreatePfUser(db, team.csm_email, team.csm_name, "pf_csm"),
-        ]);
-        if (aeId || saId || csmId) {
-          await db
-            .prepare("UPDATE customers SET pf_ae_user_id = ?, pf_sa_user_id = ?, pf_csm_user_id = ? WHERE id = ?")
-            .bind(aeId ?? null, saId ?? null, csmId ?? null, newCustomerId)
-            .run();
-        }
+        await syncAccountTeamToCustomer(c.env, d.dynamics_account_id, customerId);
       } catch { /* sync is best-effort */ }
     }
-  }
-
-  if (d.project_id) {
-    // Use an existing project rather than creating a shell
-    const existing = await db.prepare("SELECT id FROM projects WHERE id = ? LIMIT 1").bind(d.project_id).first();
-    if (!existing) throw new HTTPException(404, { message: "Project not found" });
-    const alreadyInOptimize = await db.prepare("SELECT id FROM optimize_accounts WHERE project_id = ? LIMIT 1").bind(d.project_id).first();
-    if (alreadyInOptimize) throw new HTTPException(409, { message: "Project is already in Optimize" });
-    projectId = d.project_id;
-    // Link the customer to the existing project if we resolved one
-    if (customerId) {
-      await db.prepare("UPDATE projects SET customer_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND customer_id IS NULL")
-        .bind(customerId, projectId).run();
-    }
   } else {
-    // Create a minimal project shell
-    projectId = crypto.randomUUID();
-    await db.prepare(`
-      INSERT INTO projects (id, name, customer_name, customer_id, vendor, solution_types, actual_go_live_date,
-        status, health, dynamics_account_id, archived)
-      VALUES (?, ?, ?, ?, ?, ?, ?, 'not_started', 'on_track', ?, 0)
-    `).bind(
-      projectId, d.customer_name, d.customer_name, customerId,
-      d.vendor ?? null, serializeSolutionTypes(d.solution_types),
-      d.actual_go_live_date ?? null, d.dynamics_account_id ?? null
-    ).run();
+    throw new HTTPException(400, { message: "Choose the customer's CRM account" });
   }
 
-  // Create the optimize account
-  const accountId = crypto.randomUUID();
-  // customer_id is denormalized off the project. Every graduation path used to
-  // omit it, leaving it NULL on every row — which made the customer record's
-  // Optimizations tab permanently empty, since it filtered on this column.
-  // Reads still COALESCE through the project, but writing it keeps the column
-  // honest for anything that queries it directly.
-  await db.prepare(`
-    INSERT INTO optimize_accounts (id, project_id, customer_id, graduated_by, graduation_method, next_review_date, notes)
-    VALUES (?, ?, (SELECT customer_id FROM projects WHERE id = ?), ?, 'direct', ?, ?)
-  `).bind(accountId, projectId, projectId, auth.user.id, d.next_review_date ?? null, d.notes ?? null).run();
+  const already = await db
+    .prepare("SELECT id FROM optimize_accounts WHERE customer_id = ? LIMIT 1")
+    .bind(customerId)
+    .first<{ id: string }>();
+  if (already) {
+    throw new HTTPException(409, { message: "This customer already has an Optimize account" });
+  }
 
-  // Return in list-query shape
-  const created = await db.prepare(`
-    SELECT
-      oa.id, oa.project_id, oa.graduated_at, oa.graduation_method,
-      oa.optimize_status, oa.next_review_date, COALESCE(oa.customer_id, p.customer_id) AS customer_id,
-      p.name AS project_name, p.customer_name, p.vendor, p.solution_types,
-      p.actual_go_live_date, p.pm_user_id, p.dynamics_account_id,
-      cust.pf_ae_user_id AS ae_user_id, ae.name AS ae_name,
-      cust.pf_sa_user_id AS sa_user_id, sa.name AS sa_name,
-      cust.pf_csm_user_id AS csm_user_id, csm.name AS csm_name,
-      NULL AS last_assessment_date, NULL AS last_assessment_score
-    FROM optimize_accounts oa
-    JOIN projects p ON p.id = oa.project_id
-    LEFT JOIN customers cust ON cust.id = COALESCE(oa.customer_id, p.customer_id)
-    LEFT JOIN users ae  ON ae.id  = cust.pf_ae_user_id
-    LEFT JOIN users sa  ON sa.id  = cust.pf_sa_user_id
-    LEFT JOIN users csm ON csm.id = cust.pf_csm_user_id
-    WHERE oa.id = ? LIMIT 1
-  `).bind(accountId).first();
-  return c.json(created ? normalizeSolutionTypesField(created) : null, 201);
+  const accountId = crypto.randomUUID();
+  await db.prepare(`
+    INSERT INTO optimize_accounts
+      (id, customer_id, vendor, solution_types, go_live_date, creds_key,
+       graduated_by, graduation_method, next_review_date, notes)
+    VALUES (?, ?, ?, ?, ?, ?, ?, 'direct', ?, ?)
+  `).bind(
+    accountId, customerId, d.vendor ?? null, serializeSolutionTypes(d.solution_types),
+    d.actual_go_live_date || null, accountId, auth.user.id,
+    d.next_review_date || null, d.notes ?? null,
+  ).run();
+
+  return c.json(await loadAccount(db, accountId), 201);
 });
 
-// ── Graduate a project ─────────────────────────────────────────────────────────
+// ── Graduate a project: link it to its customer's Optimize account ─────────────
 
 const graduateSchema = z.object({
   next_review_date: zPlanDateOrBlank.nullable().optional(),
   notes: z.string().nullable().optional(),
 });
 
-app.post("/accounts/:projectId/graduate", async (c) => {
+app.post("/projects/:projectId/graduate", async (c) => {
   assertOptimizeEdit(c.get("auth").role);
   const db = c.env.DB;
   const projectId = c.req.param("projectId");
   const auth = c.get("auth");
 
-  const project = await db.prepare("SELECT id FROM projects WHERE id = ? LIMIT 1").bind(projectId).first();
-  if (!project) throw new HTTPException(404, { message: "Project not found" });
-
-  const existing = await db.prepare("SELECT id FROM optimize_accounts WHERE project_id = ? LIMIT 1").bind(projectId).first();
-  if (existing) throw new HTTPException(409, { message: "Project already in Optimize" });
-
   const body = await c.req.json().catch(() => ({}));
   const parsed = graduateSchema.safeParse(body);
   const data = parsed.success ? parsed.data : {};
 
-  const id = crypto.randomUUID();
-  // See the 'direct' path above — customer_id comes from the project.
-  await db.prepare(`
-    INSERT INTO optimize_accounts (id, project_id, customer_id, graduated_by, graduation_method, next_review_date, notes)
-    VALUES (?, ?, (SELECT customer_id FROM projects WHERE id = ?), ?, 'manual', ?, ?)
-  `).bind(id, projectId, projectId, auth.user.id, data.next_review_date ?? null, data.notes ?? null).run();
+  const result = await linkProjectToOptimize(db, projectId, auth.user.id, "manual");
+  if (result.status === "no_project") throw new HTTPException(404, { message: "Project not found" });
+  if (result.status === "no_customer") {
+    throw new HTTPException(400, { message: "Link this project to a customer before moving it to Optimize" });
+  }
+  if (result.status === "already_linked") throw new HTTPException(409, { message: "Project already in Optimize" });
 
-  const created = await db.prepare("SELECT * FROM optimize_accounts WHERE id = ? LIMIT 1").bind(id).first();
-  return c.json(created, 201);
+  // Review date / notes only seed a brand-new account; an existing one keeps its own.
+  if (result.created && (data.next_review_date || data.notes)) {
+    await db
+      .prepare("UPDATE optimize_accounts SET next_review_date = ?, notes = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+      .bind(data.next_review_date || null, data.notes ?? null, result.accountId)
+      .run();
+  }
+
+  return c.json(await loadAccount(db, result.accountId), 201);
+});
+
+// ── Unlink a graduated project (the account and its data stay) ─────────────────
+
+app.delete("/accounts/:accountId/projects/:projectId", async (c) => {
+  assertOptimizeEdit(c.get("auth").role);
+  const { accountId, projectId } = c.req.param();
+  const res = await c.env.DB
+    .prepare("DELETE FROM optimize_account_projects WHERE optimize_account_id = ? AND project_id = ?")
+    .bind(accountId, projectId)
+    .run();
+  if (!res.meta.changes) throw new HTTPException(404, { message: "Project is not linked to this account" });
+  return c.json({ success: true });
 });
 
 // ── Update account ─────────────────────────────────────────────────────────────
@@ -328,56 +311,62 @@ const updateAccountSchema = z.object({
   optimize_status: z.enum(["active", "paused", "churned"]).optional(),
   next_review_date: zPlanDateOrBlank.nullable().optional(),
   notes: z.string().nullable().optional(),
+  vendor: z.string().max(100).nullable().optional(),
+  solution_types: z.array(z.enum(SOLUTION_TYPES)).optional(),
+  actual_go_live_date: zPlanDateOrBlank.nullable().optional(),
 });
 
-app.patch("/accounts/:projectId", async (c) => {
+app.patch("/accounts/:accountId", async (c) => {
   assertOptimizeEdit(c.get("auth").role);
   const db = c.env.DB;
-  const projectId = c.req.param("projectId");
-
-  const account = await db.prepare("SELECT id FROM optimize_accounts WHERE project_id = ? LIMIT 1").bind(projectId).first();
-  if (!account) throw new HTTPException(404, { message: "Optimize account not found" });
+  const accountId = c.req.param("accountId");
+  await requireAccount(db, accountId);
 
   const parsed = updateAccountSchema.safeParse(await c.req.json());
   if (!parsed.success) throw new HTTPException(400, { message: "Invalid request body" });
 
   const fields: string[] = [], values: unknown[] = [];
   for (const [k, v] of Object.entries(parsed.data)) {
-    if (v !== undefined) { fields.push(`${k} = ?`); values.push(v); }
+    if (v === undefined) continue;
+    if (k === "solution_types") { fields.push("solution_types = ?"); values.push(serializeSolutionTypes(v as (typeof SOLUTION_TYPES)[number][])); }
+    else if (k === "actual_go_live_date") { fields.push("go_live_date = ?"); values.push(v || null); }
+    else { fields.push(`${k} = ?`); values.push(v); }
   }
   if (!fields.length) throw new HTTPException(400, { message: "No fields to update" });
   fields.push("updated_at = CURRENT_TIMESTAMP");
 
-  await db.prepare(`UPDATE optimize_accounts SET ${fields.join(", ")} WHERE project_id = ?`)
-    .bind(...values, projectId).run();
+  await db.prepare(`UPDATE optimize_accounts SET ${fields.join(", ")} WHERE id = ?`)
+    .bind(...values, accountId).run();
 
-  return c.json(await db.prepare("SELECT * FROM optimize_accounts WHERE project_id = ? LIMIT 1").bind(projectId).first());
+  return c.json(await loadAccount(db, accountId));
 });
 
-// ── Delete account (de-graduate) ──────────────────────────────────────────────
+// ── Delete account ─────────────────────────────────────────────────────────────
+// Removes the account and (via ON DELETE CASCADE) its assessments, tech stack,
+// roadmap, utilization history and project links. Linked projects themselves
+// are untouched.
 
-app.delete("/accounts/:projectId", async (c) => {
+app.delete("/accounts/:accountId", async (c) => {
   assertOptimizeEdit(c.get("auth").role);
   const db = c.env.DB;
-  const projectId = c.req.param("projectId");
-  const account = await db.prepare("SELECT id FROM optimize_accounts WHERE project_id = ? LIMIT 1").bind(projectId).first();
-  if (!account) throw new HTTPException(404, { message: "Optimize account not found" });
-  await db.prepare("DELETE FROM optimize_accounts WHERE project_id = ?").bind(projectId).run();
+  const accountId = c.req.param("accountId");
+  await requireAccount(db, accountId);
+  await db.prepare("DELETE FROM optimize_accounts WHERE id = ?").bind(accountId).run();
   return c.json({ success: true });
 });
 
 // ── Impact Assessments ─────────────────────────────────────────────────────────
 
-app.get("/accounts/:projectId/assessments", async (c) => {
+app.get("/accounts/:accountId/assessments", async (c) => {
   assertOptimizeAccess(c.get("auth").role);
-  const projectId = c.req.param("projectId");
+  const accountId = c.req.param("accountId");
   const rows = await c.env.DB.prepare(`
     SELECT ia.*, u.name AS conducted_by_name
     FROM impact_assessments ia
     LEFT JOIN users u ON u.id = ia.conducted_by_user_id
-    WHERE ia.project_id = ?
+    WHERE ia.optimize_account_id = ?
     ORDER BY ia.conducted_date DESC
-  `).bind(projectId).all();
+  `).bind(accountId).all();
 
   const results = (rows.results ?? []).map((r: Record<string, unknown>) => ({
     ...r,
@@ -399,10 +388,11 @@ const impactAssessmentSchema = z.object({
   answers: z.record(z.string(), z.unknown()),
 });
 
-app.post("/accounts/:projectId/assessments", async (c) => {
+app.post("/accounts/:accountId/assessments", async (c) => {
   assertOptimizeEdit(c.get("auth").role);
   const db = c.env.DB;
-  const projectId = c.req.param("projectId");
+  const accountId = c.req.param("accountId");
+  await requireAccount(db, accountId);
 
   const parsed = impactAssessmentSchema.safeParse(await c.req.json());
   if (!parsed.success) throw new HTTPException(400, { message: "Invalid request body" });
@@ -413,12 +403,12 @@ app.post("/accounts/:projectId/assessments", async (c) => {
   const id = crypto.randomUUID();
   await db.prepare(`
     INSERT INTO impact_assessments
-      (id, project_id, survey_id, conducted_date, conducted_by_user_id,
+      (id, optimize_account_id, survey_id, conducted_date, conducted_by_user_id,
        solution_types, answers, section_scores, solution_scores,
        overall_score, confidence_score, health_band, recommended_actions, insights)
     VALUES (?, ?, 'client_impact_assessment_unified_v1', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(
-    id, projectId,
+    id, accountId,
     d.conducted_date, d.conducted_by_user_id ?? null,
     JSON.stringify(d.solution_types),
     JSON.stringify(d.answers),
@@ -451,11 +441,11 @@ app.post("/accounts/:projectId/assessments", async (c) => {
   }, 201);
 });
 
-app.delete("/accounts/:projectId/assessments/:assessmentId", async (c) => {
+app.delete("/accounts/:accountId/assessments/:assessmentId", async (c) => {
   assertOptimizeEdit(c.get("auth").role);
-  const { projectId, assessmentId } = c.req.param();
-  const existing = await c.env.DB.prepare("SELECT id FROM impact_assessments WHERE id = ? AND project_id = ? LIMIT 1")
-    .bind(assessmentId, projectId).first();
+  const { accountId, assessmentId } = c.req.param();
+  const existing = await c.env.DB.prepare("SELECT id FROM impact_assessments WHERE id = ? AND optimize_account_id = ? LIMIT 1")
+    .bind(assessmentId, accountId).first();
   if (!existing) throw new HTTPException(404, { message: "Assessment not found" });
   await c.env.DB.prepare("DELETE FROM impact_assessments WHERE id = ?").bind(assessmentId).run();
   return c.json({ success: true });
@@ -468,11 +458,11 @@ function tryParseJSON<T>(val: string | null | undefined, fallback: T): T {
 
 // ── Tech Stack ─────────────────────────────────────────────────────────────────
 
-app.get("/accounts/:projectId/tech-stack", async (c) => {
+app.get("/accounts/:accountId/tech-stack", async (c) => {
   assertOptimizeAccess(c.get("auth").role);
   const rows = await c.env.DB.prepare(
-    "SELECT * FROM account_tech_stack WHERE project_id = ? ORDER BY tech_area ASC"
-  ).bind(c.req.param("projectId")).all();
+    "SELECT * FROM account_tech_stack WHERE optimize_account_id = ? ORDER BY tech_area ASC"
+  ).bind(c.req.param("accountId")).all();
   return c.json(rows.results ?? []);
 });
 
@@ -494,11 +484,12 @@ const techStackSchema = z.object({
   last_reviewed: z.string().nullable().optional(),
 });
 
-app.post("/accounts/:projectId/tech-stack", async (c) => {
+app.post("/accounts/:accountId/tech-stack", async (c) => {
   assertOptimizeEdit(c.get("auth").role);
   const db = c.env.DB;
-  const projectId = c.req.param("projectId");
+  const accountId = c.req.param("accountId");
   const auth = c.get("auth");
+  await requireAccount(db, accountId);
 
   const parsed = techStackSchema.safeParse(await c.req.json());
   if (!parsed.success) throw new HTTPException(400, { message: "Invalid request body" });
@@ -510,11 +501,11 @@ app.post("/accounts/:projectId/tech-stack", async (c) => {
   const timeRating = d.time_rating ?? deriveTimeRating(d.functional_fit, d.technical_fit);
   await db.prepare(`
     INSERT INTO account_tech_stack
-      (id, project_id, tech_area, tech_area_label, current_vendor, current_solution,
+      (id, optimize_account_id, tech_area, tech_area_label, current_vendor, current_solution,
        functional_fit, technical_fit, contract_expiration, initiative_start,
        time_rating, notes, last_reviewed, reviewed_by_user_id)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).bind(id, projectId, d.tech_area, d.tech_area_label ?? null, d.current_vendor ?? null,
+  `).bind(id, accountId, d.tech_area, d.tech_area_label ?? null, d.current_vendor ?? null,
     d.current_solution ?? null, d.functional_fit ?? null, d.technical_fit ?? null,
     d.contract_expiration ?? null, d.initiative_start ?? null, timeRating ?? null,
     d.notes ?? null, d.last_reviewed ?? null, auth.user.id).run();
@@ -522,15 +513,15 @@ app.post("/accounts/:projectId/tech-stack", async (c) => {
   return c.json(await db.prepare("SELECT * FROM account_tech_stack WHERE id = ? LIMIT 1").bind(id).first(), 201);
 });
 
-app.patch("/accounts/:projectId/tech-stack/:areaId", async (c) => {
+app.patch("/accounts/:accountId/tech-stack/:areaId", async (c) => {
   assertOptimizeEdit(c.get("auth").role);
   const db = c.env.DB;
-  const { projectId, areaId } = c.req.param();
+  const { accountId, areaId } = c.req.param();
   const auth = c.get("auth");
 
   const existing = await db.prepare(
-    "SELECT functional_fit, technical_fit FROM account_tech_stack WHERE id = ? AND project_id = ? LIMIT 1"
-  ).bind(areaId, projectId).first<{ functional_fit: number | null; technical_fit: number | null }>();
+    "SELECT functional_fit, technical_fit FROM account_tech_stack WHERE id = ? AND optimize_account_id = ? LIMIT 1"
+  ).bind(areaId, accountId).first<{ functional_fit: number | null; technical_fit: number | null }>();
   if (!existing) throw new HTTPException(404, { message: "Tech stack area not found" });
 
   const parsed = techStackSchema.partial().safeParse(await c.req.json());
@@ -560,12 +551,12 @@ app.patch("/accounts/:projectId/tech-stack/:areaId", async (c) => {
   return c.json(await db.prepare("SELECT * FROM account_tech_stack WHERE id = ? LIMIT 1").bind(areaId).first());
 });
 
-app.delete("/accounts/:projectId/tech-stack/:areaId", async (c) => {
+app.delete("/accounts/:accountId/tech-stack/:areaId", async (c) => {
   assertOptimizeEdit(c.get("auth").role);
   const db = c.env.DB;
-  const { projectId, areaId } = c.req.param();
-  const existing = await db.prepare("SELECT id FROM account_tech_stack WHERE id = ? AND project_id = ? LIMIT 1")
-    .bind(areaId, projectId).first();
+  const { accountId, areaId } = c.req.param();
+  const existing = await db.prepare("SELECT id FROM account_tech_stack WHERE id = ? AND optimize_account_id = ? LIMIT 1")
+    .bind(areaId, accountId).first();
   if (!existing) throw new HTTPException(404, { message: "Tech stack area not found" });
   await db.prepare("DELETE FROM account_tech_stack WHERE id = ?").bind(areaId).run();
   return c.json({ success: true });
@@ -573,7 +564,7 @@ app.delete("/accounts/:projectId/tech-stack/:areaId", async (c) => {
 
 // ── Roadmap ────────────────────────────────────────────────────────────────────
 
-app.get("/accounts/:projectId/roadmap", async (c) => {
+app.get("/accounts/:accountId/roadmap", async (c) => {
   assertOptimizeAccess(c.get("auth").role);
   const rows = await c.env.DB.prepare(`
     SELECT r.*, u.name AS created_by_name,
@@ -581,11 +572,11 @@ app.get("/accounts/:projectId/roadmap", async (c) => {
     FROM roadmap_items r
     LEFT JOIN users u ON u.id = r.created_by
     LEFT JOIN account_tech_stack ts ON ts.id = r.tech_stack_id
-    WHERE r.project_id = ?
+    WHERE r.optimize_account_id = ?
     ORDER BY
       CASE r.priority WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END,
       r.created_at DESC
-  `).bind(c.req.param("projectId")).all();
+  `).bind(c.req.param("accountId")).all();
   return c.json(rows.results ?? []);
 });
 
@@ -600,11 +591,12 @@ const roadmapSchema = z.object({
   target_date: zPlanDateOrBlank.nullable().optional(),
 });
 
-app.post("/accounts/:projectId/roadmap", async (c) => {
+app.post("/accounts/:accountId/roadmap", async (c) => {
   assertOptimizeEdit(c.get("auth").role);
   const db = c.env.DB;
-  const projectId = c.req.param("projectId");
+  const accountId = c.req.param("accountId");
   const auth = c.get("auth");
+  await requireAccount(db, accountId);
 
   const parsed = roadmapSchema.safeParse(await c.req.json());
   if (!parsed.success) throw new HTTPException(400, { message: "Invalid request body" });
@@ -613,10 +605,10 @@ app.post("/accounts/:projectId/roadmap", async (c) => {
   const id = crypto.randomUUID();
   await db.prepare(`
     INSERT INTO roadmap_items
-      (id, project_id, tech_stack_id, title, description, category, priority,
+      (id, optimize_account_id, tech_stack_id, title, description, category, priority,
        time_rating, status, target_date, created_by)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).bind(id, projectId, d.tech_stack_id ?? null, d.title, d.description ?? null,
+  `).bind(id, accountId, d.tech_stack_id ?? null, d.title, d.description ?? null,
     d.category, d.priority, d.time_rating ?? null, d.status, d.target_date ?? null, auth.user.id).run();
 
   return c.json(await db.prepare(`
@@ -625,13 +617,13 @@ app.post("/accounts/:projectId/roadmap", async (c) => {
   `).bind(id).first(), 201);
 });
 
-app.patch("/accounts/:projectId/roadmap/:itemId", async (c) => {
+app.patch("/accounts/:accountId/roadmap/:itemId", async (c) => {
   assertOptimizeEdit(c.get("auth").role);
   const db = c.env.DB;
-  const { projectId, itemId } = c.req.param();
+  const { accountId, itemId } = c.req.param();
 
-  const existing = await db.prepare("SELECT id FROM roadmap_items WHERE id = ? AND project_id = ? LIMIT 1")
-    .bind(itemId, projectId).first();
+  const existing = await db.prepare("SELECT id FROM roadmap_items WHERE id = ? AND optimize_account_id = ? LIMIT 1")
+    .bind(itemId, accountId).first();
   if (!existing) throw new HTTPException(404, { message: "Roadmap item not found" });
 
   const parsed = roadmapSchema.partial().safeParse(await c.req.json());
@@ -653,12 +645,12 @@ app.patch("/accounts/:projectId/roadmap/:itemId", async (c) => {
   `).bind(itemId).first());
 });
 
-app.delete("/accounts/:projectId/roadmap/:itemId", async (c) => {
+app.delete("/accounts/:accountId/roadmap/:itemId", async (c) => {
   assertOptimizeEdit(c.get("auth").role);
   const db = c.env.DB;
-  const { projectId, itemId } = c.req.param();
-  const existing = await db.prepare("SELECT id FROM roadmap_items WHERE id = ? AND project_id = ? LIMIT 1")
-    .bind(itemId, projectId).first();
+  const { accountId, itemId } = c.req.param();
+  const existing = await db.prepare("SELECT id FROM roadmap_items WHERE id = ? AND optimize_account_id = ? LIMIT 1")
+    .bind(itemId, accountId).first();
   if (!existing) throw new HTTPException(404, { message: "Roadmap item not found" });
   await db.prepare("DELETE FROM roadmap_items WHERE id = ?").bind(itemId).run();
   return c.json({ success: true });
@@ -666,30 +658,25 @@ app.delete("/accounts/:projectId/roadmap/:itemId", async (c) => {
 
 // ── Utilization snapshots ──────────────────────────────────────────────────────
 
-app.get("/accounts/:projectId/utilization", async (c) => {
+app.get("/accounts/:accountId/utilization", async (c) => {
   assertOptimizeAccess(c.get("auth").role);
   const rows = await c.env.DB.prepare(
-    "SELECT * FROM utilization_snapshots WHERE project_id = ? ORDER BY snapshot_date DESC"
-  ).bind(c.req.param("projectId")).all();
+    "SELECT * FROM utilization_snapshots WHERE optimize_account_id = ? ORDER BY snapshot_date DESC"
+  ).bind(c.req.param("accountId")).all();
   return c.json(rows.results ?? []);
 });
 
-app.post("/accounts/:projectId/utilization/sync", async (c) => {
+app.post("/accounts/:accountId/utilization/sync", async (c) => {
   assertOptimizeAccess(c.get("auth").role);
-  const projectId = c.req.param("projectId");
+  const accountId = c.req.param("accountId");
   const db = c.env.DB;
 
-  // Dispatch by the project's vendor so RC projects pull from RingCentral
-  // and Zoom projects pull from Zoom. Both write into utilization_snapshots
+  // Dispatch by the account's vendor so RC accounts pull from RingCentral
+  // and Zoom accounts pull from Zoom. Both write into utilization_snapshots
   // with the appropriate platform value; the table already supports both
   // via the platform column + total_call_minutes (RC-specific) field.
-  const project = await db
-    .prepare("SELECT vendor FROM projects WHERE id = ? LIMIT 1")
-    .bind(projectId)
-    .first<{ vendor: string | null }>();
-  if (!project) throw new HTTPException(404, { message: "Project not found" });
-
-  const vendor = (project.vendor ?? "").toLowerCase();
+  const account = await requireAccount(db, accountId);
+  const vendor = (account.vendor ?? "").toLowerCase();
   const platform: "zoom" | "ringcentral" = vendor === "ringcentral" ? "ringcentral" : "zoom";
 
   let licenses_purchased: number | null;
@@ -702,7 +689,7 @@ app.post("/accounts/:projectId/utilization/sync", async (c) => {
 
   try {
     if (platform === "ringcentral") {
-      const d = await fetchRCUtilizationSnapshot(c.env.KV, projectId);
+      const d = await fetchRCUtilizationSnapshot(c.env.KV, account.creds_key);
       licenses_purchased = d.licenses_purchased;
       licenses_assigned  = d.licenses_assigned;
       active_users_30d   = d.active_users_30d;
@@ -711,7 +698,7 @@ app.post("/accounts/:projectId/utilization/sync", async (c) => {
       total_call_minutes = d.total_call_minutes;
       raw_data           = d.raw_data;
     } else {
-      const d = await fetchZoomUtilizationSnapshot(c.env.KV, projectId);
+      const d = await fetchZoomUtilizationSnapshot(c.env.KV, account.creds_key);
       licenses_purchased = d.licenses_purchased;
       licenses_assigned  = d.licenses_assigned;
       active_users_30d   = d.active_users_30d;
@@ -730,11 +717,11 @@ app.post("/accounts/:projectId/utilization/sync", async (c) => {
 
   await db.prepare(`
     INSERT INTO utilization_snapshots
-      (id, project_id, platform, snapshot_date, licenses_purchased, licenses_assigned,
+      (id, optimize_account_id, platform, snapshot_date, licenses_purchased, licenses_assigned,
        active_users_30d, active_users_90d, total_meetings, total_call_minutes, raw_data)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(
-    id, projectId, platform, snapshot_date,
+    id, accountId, platform, snapshot_date,
     licenses_purchased, licenses_assigned,
     active_users_30d, active_users_90d,
     total_meetings, total_call_minutes,
@@ -743,118 +730,6 @@ app.post("/accounts/:projectId/utilization/sync", async (c) => {
 
   const created = await db.prepare("SELECT * FROM utilization_snapshots WHERE id = ? LIMIT 1").bind(id).first();
   return c.json(created, 201);
-});
-
-// ── Relink Optimize account to a different project ─────────────────────────────
-//
-// Direct-enrolled Optimize accounts get a shell project row at creation. If a
-// CSM later discovers a real implementation project exists for the same
-// customer, they can retroactively point the Optimize account at it. All
-// optimize-side data (impact assessments, tech stack, roadmap items,
-// utilization snapshots) and any KV credentials (zoom / ringcentral, unless
-// the target already has its own) follow the link. If the abandoned shell
-// project has no real work attached, it's deleted in the same transaction;
-// otherwise it's left intact.
-
-const relinkSchema = z.object({
-  target_project_id: z.string().min(1),
-});
-
-app.post("/accounts/:projectId/relink", async (c) => {
-  assertOptimizeEdit(c.get("auth").role);
-  const db = c.env.DB;
-  const kv = c.env.KV;
-  const oldProjectId = c.req.param("projectId");
-
-  const parsed = relinkSchema.safeParse(await c.req.json().catch(() => ({})));
-  if (!parsed.success) throw new HTTPException(400, { message: "target_project_id is required" });
-  const newProjectId = parsed.data.target_project_id;
-
-  if (oldProjectId === newProjectId) {
-    throw new HTTPException(400, { message: "Target project is the same as the current one" });
-  }
-
-  // Verify the Optimize account exists at the old project_id
-  const account = await db
-    .prepare("SELECT id FROM optimize_accounts WHERE project_id = ? LIMIT 1")
-    .bind(oldProjectId)
-    .first<{ id: string }>();
-  if (!account) throw new HTTPException(404, { message: "Optimize account not found" });
-
-  // Verify the target project exists
-  const target = await db
-    .prepare("SELECT id FROM projects WHERE id = ? LIMIT 1")
-    .bind(newProjectId)
-    .first<{ id: string }>();
-  if (!target) throw new HTTPException(404, { message: "Target project not found" });
-
-  // Verify the target doesn't already have an Optimize account (UNIQUE)
-  const targetAlready = await db
-    .prepare("SELECT id FROM optimize_accounts WHERE project_id = ? LIMIT 1")
-    .bind(newProjectId)
-    .first<{ id: string }>();
-  if (targetAlready) {
-    throw new HTTPException(409, { message: "The target project is already linked to another Optimize account" });
-  }
-
-  // Determine whether the old (shell) project is safe to delete after the
-  // relink. "Safe" = no tasks, stages, risks, notes, or documents tied to it.
-  // We check before the batch so the DELETE only fires when the shell is
-  // truly empty.
-  const counts = await db.batch([
-    db.prepare("SELECT COUNT(*) AS n FROM tasks      WHERE project_id = ?").bind(oldProjectId),
-    db.prepare("SELECT COUNT(*) AS n FROM stages     WHERE project_id = ?").bind(oldProjectId),
-    db.prepare("SELECT COUNT(*) AS n FROM risks      WHERE project_id = ?").bind(oldProjectId),
-    db.prepare("SELECT COUNT(*) AS n FROM notes      WHERE project_id = ?").bind(oldProjectId),
-    db.prepare("SELECT COUNT(*) AS n FROM documents  WHERE project_id = ?").bind(oldProjectId),
-  ]);
-  const totalRelatedRows = counts.reduce((sum, r) => {
-    const row = (r.results?.[0] as { n: number } | undefined);
-    return sum + (row?.n ?? 0);
-  }, 0);
-  const willDeleteShell = totalRelatedRows === 0;
-
-  // Single atomic batch: move every optimize-side rows, optionally delete shell.
-  const stmts = [
-    db.prepare("UPDATE optimize_accounts    SET project_id = ?, updated_at = CURRENT_TIMESTAMP WHERE project_id = ?").bind(newProjectId, oldProjectId),
-    db.prepare("UPDATE impact_assessments   SET project_id = ?, updated_at = CURRENT_TIMESTAMP WHERE project_id = ?").bind(newProjectId, oldProjectId),
-    db.prepare("UPDATE account_tech_stack   SET project_id = ?, updated_at = CURRENT_TIMESTAMP WHERE project_id = ?").bind(newProjectId, oldProjectId),
-    db.prepare("UPDATE roadmap_items        SET project_id = ?, updated_at = CURRENT_TIMESTAMP WHERE project_id = ?").bind(newProjectId, oldProjectId),
-    db.prepare("UPDATE utilization_snapshots SET project_id = ? WHERE project_id = ?").bind(newProjectId, oldProjectId),
-  ];
-  if (willDeleteShell) {
-    stmts.push(db.prepare("DELETE FROM projects WHERE id = ?").bind(oldProjectId));
-  }
-  await db.batch(stmts);
-
-  // KV credential migration. The KV store sits outside the D1 transaction,
-  // so we run it after the batch succeeds. Only move when the target doesn't
-  // already have its own credentials for that platform — the target's
-  // creds always win to avoid overwriting an active set with shell data.
-  type Vendor = "zoom" | "ringcentral";
-  const credsKey = (v: Vendor, pid: string) => v === "zoom" ? `zoom:creds:${pid}`   : `rc:creds:${pid}`;
-  const tokenKey = (v: Vendor, pid: string) => v === "zoom" ? `zoom:token:${pid}`   : `rc:token:${pid}`;
-  const moved: Vendor[] = [];
-  for (const vendor of ["zoom", "ringcentral"] as const) {
-    const fromKey = credsKey(vendor, oldProjectId);
-    const toKey   = credsKey(vendor, newProjectId);
-    const [src, dstExists] = await Promise.all([kv.get(fromKey), kv.get(toKey)]);
-    if (!src) continue;
-    if (dstExists === null) {
-      await kv.put(toKey, src);
-      moved.push(vendor);
-    }
-    // Clean up shell's credentials + cached token either way (shell creds are
-    // unreachable post-relink; cached tokens are scoped to old project_id).
-    await Promise.all([kv.delete(fromKey), kv.delete(tokenKey(vendor, oldProjectId))]);
-  }
-
-  return c.json({
-    project_id: newProjectId,
-    previous_project_id: oldProjectId,
-    shell_deleted: willDeleteShell,
-    credentials_moved: moved,
-  });
 });
 
 export default app;

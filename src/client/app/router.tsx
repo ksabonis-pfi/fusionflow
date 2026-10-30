@@ -79,7 +79,7 @@ export default function Router() {
           <Route path="/solutions/cloudsupport/:id" element={<CloudSupportWorkspacePage />} />
           <Route path="/solutions/:id" element={<SolutionDetailPage />} />
           <Route path="/optimize" element={<OptimizePage />} />
-          <Route path="/optimize/:projectId" element={<OptimizeAccountPage />} />
+          <Route path="/optimize/:accountId" element={<OptimizeAccountPage />} />
           <Route path="/customers" element={<CustomersPage />} />
           <Route path="/customers/:id" element={<CustomerDetailPage />} />
           <Route path="/prospecting" element={<ProspectingPage />} />

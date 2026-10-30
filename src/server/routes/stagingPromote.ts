@@ -89,15 +89,16 @@ app.get("/inventory", async (c) => {
        WHERE (p.archived = 0 OR p.archived IS NULL)
        ORDER BY p.created_at DESC`
     ),
-    all<{ id: string; project_id: string; project_name: string; customer_name: string | null; graduated_at: string; impact_assessment_count: number; tech_stack_count: number; roadmap_count: number; utilization_count: number }>(
+    all<{ id: string; customer_name: string | null; graduated_at: string; linked_project_count: number; impact_assessment_count: number; tech_stack_count: number; roadmap_count: number; utilization_count: number }>(
       staging,
-      `SELECT oa.id, oa.project_id, p.name AS project_name, p.customer_name, oa.graduated_at,
-              (SELECT COUNT(*) FROM impact_assessments    ia WHERE ia.project_id = oa.project_id) AS impact_assessment_count,
-              (SELECT COUNT(*) FROM account_tech_stack    ts WHERE ts.project_id = oa.project_id) AS tech_stack_count,
-              (SELECT COUNT(*) FROM roadmap_items         ri WHERE ri.project_id = oa.project_id) AS roadmap_count,
-              (SELECT COUNT(*) FROM utilization_snapshots us WHERE us.project_id = oa.project_id) AS utilization_count
+      `SELECT oa.id, cu.name AS customer_name, oa.graduated_at,
+              (SELECT COUNT(*) FROM optimize_account_projects l WHERE l.optimize_account_id = oa.id) AS linked_project_count,
+              (SELECT COUNT(*) FROM impact_assessments    ia WHERE ia.optimize_account_id = oa.id) AS impact_assessment_count,
+              (SELECT COUNT(*) FROM account_tech_stack    ts WHERE ts.optimize_account_id = oa.id) AS tech_stack_count,
+              (SELECT COUNT(*) FROM roadmap_items         ri WHERE ri.optimize_account_id = oa.id) AS roadmap_count,
+              (SELECT COUNT(*) FROM utilization_snapshots us WHERE us.optimize_account_id = oa.id) AS utilization_count
        FROM optimize_accounts oa
-       JOIN projects p ON p.id = oa.project_id
+       JOIN customers cu ON cu.id = oa.customer_id
        ORDER BY oa.graduated_at DESC`
     ),
     all<{ id: string }>(prod, "SELECT id FROM solutions"),
@@ -213,16 +214,18 @@ app.post("/promote", async (c) => {
     noteProject(p as { id: string; customer_id?: string | null; pm_user_id?: string | null });
   }
 
-  // Optimize accounts pull in their underlying project too.
+  // Optimize accounts belong to a customer; their graduated projects (history
+  // links) come along too.
   const optAccs = optimize_account_ids.length > 0
     ? await all<Row>(staging, `SELECT * FROM optimize_accounts WHERE id IN (${qs(optimize_account_ids)})`, ...optimize_account_ids)
     : [];
-  // Optimize accounts carry their own customer_id (separate from the project's)
-  // — capture it so 3b inserts that customer and the ref resolves.
   for (const oa of optAccs) {
     if (oa.customer_id) touchedCustomerIds.add(oa.customer_id as string);
   }
-  const optProjectIds = optAccs.map((o) => o.project_id as string);
+  const optLinks = optimize_account_ids.length > 0
+    ? await all<Row>(staging, `SELECT * FROM optimize_account_projects WHERE optimize_account_id IN (${qs(optimize_account_ids)})`, ...optimize_account_ids)
+    : [];
+  const optProjectIds = optLinks.map((l) => l.project_id as string);
   const optProjects = optProjectIds.length > 0
     ? await all<Row>(staging, `SELECT * FROM projects WHERE id IN (${qs(optProjectIds)})`, ...optProjectIds)
     : [];
@@ -454,12 +457,12 @@ app.post("/promote", async (c) => {
     const remapped = remapFks(oa, maps);
     if (await insertOrIgnore(prod, "optimize_accounts", remapped)) summary.optimize_accounts_inserted++;
 
-    const projectId = oa.project_id as string;
+    const accountId = oa.id as string;
     const [impacts, tech, roadmap, util] = await Promise.all([
-      all<Row>(staging, "SELECT * FROM impact_assessments     WHERE project_id = ?", projectId),
-      all<Row>(staging, "SELECT * FROM account_tech_stack     WHERE project_id = ?", projectId),
-      all<Row>(staging, "SELECT * FROM roadmap_items          WHERE project_id = ?", projectId),
-      all<Row>(staging, "SELECT * FROM utilization_snapshots  WHERE project_id = ?", projectId),
+      all<Row>(staging, "SELECT * FROM impact_assessments     WHERE optimize_account_id = ?", accountId),
+      all<Row>(staging, "SELECT * FROM account_tech_stack     WHERE optimize_account_id = ?", accountId),
+      all<Row>(staging, "SELECT * FROM roadmap_items          WHERE optimize_account_id = ?", accountId),
+      all<Row>(staging, "SELECT * FROM utilization_snapshots  WHERE optimize_account_id = ?", accountId),
     ]);
     for (const row of impacts) {
       if (await insertOrIgnore(prod, "impact_assessments", remapFks(row, maps))) summary.impact_assessments_inserted++;
@@ -474,13 +477,17 @@ app.post("/promote", async (c) => {
       if (await insertOrIgnore(prod, "utilization_snapshots", remapFks(row, maps))) summary.utilization_inserted++;
     }
   }
+  for (const row of optLinks) {
+    await insertOrIgnore(prod, "optimize_account_projects", remapFks(row, maps));
+  }
 
-  // ── Stage 4: KV credentials (per project_id) ────────────────────────
-  // For every project touched (selected projects + projects underlying selected
-  // optimize accounts), move zoom + RC creds from staging KV to prod KV.
-  // Target's existing creds always win — see PR #203's relink for the same
-  // policy.
-  for (const projectId of touchedProjectIds) {
+  // ── Stage 4: KV credentials ─────────────────────────────────────────
+  // Credentials live under a project id (implementation projects) or an
+  // Optimize account's creds_key. Move zoom + RC creds for every one touched
+  // from staging KV to prod KV. Target's existing creds always win.
+  const credsOwnerIds = new Set<string>(touchedProjectIds);
+  for (const oa of optAccs) credsOwnerIds.add((oa.creds_key as string | null) ?? (oa.id as string));
+  for (const projectId of credsOwnerIds) {
     for (const vendor of ["zoom", "ringcentral"] as const) {
       const stagingKey = vendor === "zoom" ? `zoom:creds:${projectId}` : `rc:creds:${projectId}`;
       const src = await kvStaging.get(stagingKey);

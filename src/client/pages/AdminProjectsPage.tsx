@@ -46,14 +46,10 @@ export default function AdminProjectsPage() {
   }
 
   async function handleDelete(project: Project) {
-    if (project.in_optimize) {
-      showToast(
-        `"${project.name}" is in Optimize. Remove it from Optimize first (Admin → Optimize Accounts → Remove), then delete the project.`,
-        "error"
-      );
-      return;
-    }
-    if (!window.confirm(`Permanently delete "${project.name}"? This cannot be undone.`)) return;
+    // A graduated project can be deleted: the customer's Optimize account
+    // stands on its own and only loses the history link.
+    const optimizeNote = project.in_optimize ? " The customer's Optimize account is not affected." : "";
+    if (!window.confirm(`Permanently delete "${project.name}"? This cannot be undone.${optimizeNote}`)) return;
     try {
       await api.adminDeleteProject(project.id);
       setProjects((prev) => prev.filter((p) => p.id !== project.id));
@@ -142,7 +138,7 @@ function ProjectTable({
                       <span>{p.name}</span>
                       {inOptimize && (
                         <span
-                          title="This project is marked complete and tracked in Optimize"
+                          title="This project graduated into its customer's Optimize account"
                           style={{
                             fontSize: 10,
                             fontWeight: 600,

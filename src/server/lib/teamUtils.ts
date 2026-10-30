@@ -128,11 +128,74 @@ export async function syncStageStatus(db: D1Database, stageId: string | null): P
   return derived;
 }
 
+export type LinkToOptimizeResult =
+  | { status: "linked"; accountId: string; created: boolean }
+  | { status: "already_linked"; accountId: string }
+  | { status: "no_project" }
+  | { status: "no_customer" };
+
+/**
+ * Graduate a project into Optimize: link it to its customer's Optimize
+ * account, creating that account (seeded from the project's vendor, solution
+ * types and go-live date) if the customer doesn't have one yet. The account
+ * belongs to the customer; the link is history only (migration 0158).
+ * Idempotent.
+ */
+export async function linkProjectToOptimize(
+  db: D1Database,
+  projectId: string,
+  userId: string,
+  method: "auto" | "manual",
+): Promise<LinkToOptimizeResult> {
+  const project = await db
+    .prepare("SELECT id, customer_id, vendor, solution_types, actual_go_live_date FROM projects WHERE id = ? LIMIT 1")
+    .bind(projectId)
+    .first<{ id: string; customer_id: string | null; vendor: string | null; solution_types: string | null; actual_go_live_date: string | null }>();
+  if (!project) return { status: "no_project" };
+
+  const link = await db
+    .prepare("SELECT optimize_account_id FROM optimize_account_projects WHERE project_id = ? LIMIT 1")
+    .bind(projectId)
+    .first<{ optimize_account_id: string }>();
+  if (link) return { status: "already_linked", accountId: link.optimize_account_id };
+
+  if (!project.customer_id) return { status: "no_customer" };
+
+  const existing = await db
+    .prepare("SELECT id FROM optimize_accounts WHERE customer_id = ? LIMIT 1")
+    .bind(project.customer_id)
+    .first<{ id: string }>();
+
+  let accountId = existing?.id;
+  const stmts: D1PreparedStatement[] = [];
+  if (!accountId) {
+    accountId = crypto.randomUUID();
+    // The project's Zoom / RingCentral credentials are stored under its id in
+    // KV, so the new account reads them from there (creds_key).
+    stmts.push(
+      db.prepare(
+        `INSERT INTO optimize_accounts
+           (id, customer_id, vendor, solution_types, go_live_date, creds_key, graduated_by, graduation_method)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      ).bind(
+        accountId, project.customer_id, project.vendor, project.solution_types || "[]",
+        project.actual_go_live_date, projectId, userId, method,
+      ),
+    );
+  }
+  stmts.push(
+    db.prepare("INSERT INTO optimize_account_projects (project_id, optimize_account_id, linked_by) VALUES (?, ?, ?)")
+      .bind(projectId, accountId, userId),
+  );
+  await db.batch(stmts);
+  return { status: "linked", accountId, created: !existing };
+}
+
 /**
  * If every stage on a project is now completed (and the project has stages),
- * ensure an optimize_accounts row exists. Idempotent — safe to call after
- * any task or stage update. Was previously inlined in routes/stages.ts when
- * stage status was manually set; moved here now that status is derived.
+ * graduate it into Optimize. Idempotent — safe to call after any task or stage
+ * update. Was previously inlined in routes/stages.ts when stage status was
+ * manually set; moved here now that status is derived.
  */
 export async function maybeGraduateProject(db: D1Database, projectId: string, graduatedByUserId: string): Promise<void> {
   const incomplete = await db
@@ -147,22 +210,7 @@ export async function maybeGraduateProject(db: D1Database, projectId: string, gr
     .first();
   if (!anyStage) return;
 
-  const existing = await db
-    .prepare("SELECT id FROM optimize_accounts WHERE project_id = ? LIMIT 1")
-    .bind(projectId)
-    .first();
-  if (existing) return;
-
-  await db
-    .prepare(
-      // customer_id is denormalized off the project — see routes/optimize.ts.
-      // Omitting it left every auto-graduated account NULL, which emptied the
-      // customer record's Optimizations tab.
-      `INSERT INTO optimize_accounts (id, project_id, customer_id, graduated_by, graduation_method)
-       VALUES (?, ?, (SELECT customer_id FROM projects WHERE id = ?), ?, 'auto')`
-    )
-    .bind(crypto.randomUUID(), projectId, projectId, graduatedByUserId)
-    .run();
+  await linkProjectToOptimize(db, projectId, graduatedByUserId, "auto");
 }
 
 /**

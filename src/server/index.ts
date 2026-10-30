@@ -226,24 +226,25 @@ async function runHealthScoring(env: Bindings): Promise<void> {
 }
 
 async function runUtilizationSnapshots(env: Bindings): Promise<void> {
-  // Find all projects that have actual_go_live_date set (i.e. live accounts in Optimize)
+  // Every active Optimize account; creds_key is where its Zoom credentials
+  // live in KV (accounts without credentials throw and are skipped).
   const rows = await env.DB
-    .prepare("SELECT id FROM projects WHERE actual_go_live_date IS NOT NULL AND (archived = 0 OR archived IS NULL)")
-    .all<{ id: string }>();
+    .prepare("SELECT id, COALESCE(creds_key, id) AS creds_key FROM optimize_accounts WHERE optimize_status = 'active'")
+    .all<{ id: string; creds_key: string }>();
 
   const today = new Date().toISOString().slice(0, 10);
 
-  for (const { id: projectId } of rows.results ?? []) {
+  for (const { id: accountId, creds_key } of rows.results ?? []) {
     try {
-      const data = await fetchZoomUtilizationSnapshot(env.KV, projectId);
+      const data = await fetchZoomUtilizationSnapshot(env.KV, creds_key);
       const snapshotId = crypto.randomUUID();
       await env.DB.prepare(`
         INSERT INTO utilization_snapshots
-          (id, project_id, platform, snapshot_date, licenses_purchased, licenses_assigned,
+          (id, optimize_account_id, platform, snapshot_date, licenses_purchased, licenses_assigned,
            active_users_30d, active_users_90d, total_meetings, raw_data)
         VALUES (?, ?, 'zoom', ?, ?, ?, ?, ?, ?, ?)
       `).bind(
-        snapshotId, projectId, today,
+        snapshotId, accountId, today,
         data.licenses_purchased, data.licenses_assigned,
         data.active_users_30d, data.active_users_90d,
         data.total_meetings,

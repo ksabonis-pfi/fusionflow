@@ -54,8 +54,8 @@ export default function OptimizeCredentialsSetup({ account, zoomConfigured, rcCo
 
   // ── State 2: vendor known, creds missing ──────────────────────────────
   return platform === "zoom"
-    ? <ZoomCredsForm projectId={account.project_id} onUpdated={onUpdated} showToast={showToast} />
-    : <RingCentralCredsForm projectId={account.project_id} onUpdated={onUpdated} showToast={showToast} />;
+    ? <ZoomCredsForm projectId={account.creds_key} onUpdated={onUpdated} showToast={showToast} />
+    : <RingCentralCredsForm projectId={account.creds_key} onUpdated={onUpdated} showToast={showToast} />;
 }
 
 // ── Vendor picker ──────────────────────────────────────────────────────────
@@ -72,7 +72,7 @@ function VendorPicker({
   async function pick(vendor: "zoom" | "ringcentral") {
     setSaving(vendor);
     try {
-      await api.updateProject(account.project_id, { vendor });
+      await api.optimizeUpdateAccount(account.id, { vendor });
       await onUpdated();
       showToast(`Platform set to ${vendor === "zoom" ? "Zoom" : "RingCentral"}.`, "success");
     } catch (err) {

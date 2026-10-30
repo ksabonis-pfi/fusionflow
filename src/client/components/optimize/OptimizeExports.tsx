@@ -311,7 +311,7 @@ function logoAbsoluteUrl(): string {
 }
 
 function customerName(account: OptimizeAccount): string {
-  return account.customer_name ?? account.project_name ?? "Customer";
+  return account.customer_name || "Customer";
 }
 
 // ── Document builders ──────────────────────────────────────────────────────
