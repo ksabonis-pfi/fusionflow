@@ -19,7 +19,13 @@ export function attainment(v: number | null, target: number | null, dir: Directi
 
 export function kpiStatus(v: number | null, target: number, dir: Direction): KpiStatus {
   if (v == null) return "—";
-  if (dir === "higher") return v >= target ? "On Target" : "Below Target";
+  if (dir === "higher") {
+    // A 0 target on a higher-is-better KPI (hours saved, cost avoided, revenue)
+    // means "any is good": match attainment(), which scores 0 as 0%. Without
+    // this, 0 showed "On Target" while dragging the layer score down.
+    if (target <= 0) return v > 0 ? "On Target" : "Below Target";
+    return v >= target ? "On Target" : "Below Target";
+  }
   return v <= target ? "On Target" : "Off Target";
 }
 
@@ -35,12 +41,18 @@ export function severity(att: number | null): Severity {
   return "Green";
 }
 
-/** Whether a detected/entered config state satisfies the recommended one. */
+const NEGATED_STATE = /\b(not|no|none|off|disabled|partial|missing)\b/;
+const POSITIVE_STATE = /\b(enabled|enforced|configured|connected|on)\b/;
+
+/** Whether a detected/entered config state satisfies the recommended one.
+ *  Negated states ("Not configured", "Not connected", "Partial") are gaps: the
+ *  original substring test matched "configured" inside "Not configured". */
 export function sameState(current: unknown, recommended: string): boolean {
-  const c = String(current).toLowerCase();
-  const r = recommended.toLowerCase();
+  const c = String(current).trim().toLowerCase();
+  const r = recommended.trim().toLowerCase();
   if (c === r) return true;
-  return /(enabled|enforced|configured|connected|on)/.test(c) && /(enabled|enforced|configured|connected)/.test(r);
+  if (NEGATED_STATE.test(c)) return false;
+  return POSITIVE_STATE.test(c) && /(enabled|enforced|configured|connected)/.test(r);
 }
 
 export function meanDefined(arr: (number | null | undefined)[]): number | null {

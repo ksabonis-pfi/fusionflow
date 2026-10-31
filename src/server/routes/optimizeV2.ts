@@ -27,7 +27,10 @@ function assertEdit(role: string) {
   }
 }
 
+// Preview until cutover: the API only exists where OPTIMIZE_V2_ENABLED is set
+// (staging and local dev). Hiding the nav link alone left it callable on prod.
 app.use("*", async (c, next) => {
+  if (c.env.OPTIMIZE_V2_ENABLED !== "true") return c.json({ error: "Not found" }, 404);
   assertAccess(c.get("auth").role);
   await next();
 });

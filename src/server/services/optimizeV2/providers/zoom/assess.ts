@@ -42,7 +42,8 @@ export async function runZoomAssessment(input: ZoomAssessmentInput): Promise<Zoo
   const from = input.fromDate || new Date(Date.parse(to) - (Number(input.windowDays) || 30) * 86_400_000).toISOString().slice(0, 10);
 
   const token = await getToken({ accountId, clientId, clientSecret });
-  const client = makeClient(token.accessToken, { budget });
+  // Use the API host Zoom assigned this tenant (regional deployments differ).
+  const client = makeClient(token.accessToken, { base: token.apiUrl, budget });
   const ctx = makeContext(client, { accountId, from, to });
   await collectAll(ctx);
   const scorecard = buildScorecard(ctx, assumptions, inputs);

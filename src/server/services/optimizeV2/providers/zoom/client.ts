@@ -36,9 +36,17 @@ export async function getToken({ accountId, clientId, clientSecret }: ZoomCreden
   return {
     accessToken: String(json.access_token),
     scopes: String(json.scope || "").split(/\s+/).filter(Boolean),
-    apiUrl: String(json.api_url || API_BASE),
+    apiUrl: apiBaseFrom(json.api_url),
     expiresIn: Number(json.expires_in),
   };
+}
+
+/** Zoom returns the tenant's API host without the version (e.g. "https://api.zoom.us");
+ *  the client's base needs the "/v2" path. */
+export function apiBaseFrom(apiUrl: unknown): string {
+  if (!apiUrl) return API_BASE;
+  const host = String(apiUrl).replace(/\/+$/, "");
+  return /\/v2$/.test(host) ? host : `${host}/v2`;
 }
 
 type Query = Record<string, string | number | boolean | null | undefined>;

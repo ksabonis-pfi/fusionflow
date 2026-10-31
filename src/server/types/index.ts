@@ -91,6 +91,8 @@ export type Bindings = {
   FEDEX_API_BASE?: string;
   // Optimizations V2: AES-GCM key (base64, 32 bytes) for customer Zoom/RingCentral credentials
   OPTIMIZE_ENC_KEY?: string;
+  // "true" where the Optimizations V2 preview is enabled (staging, local dev) until cutover
+  OPTIMIZE_V2_ENABLED?: string;
   // ScanSource partner API (APIM, Azure AD client credentials + Ocp-Apim-Subscription-Key)
   SCANSOURCE_CLIENT_ID?: string;
   SCANSOURCE_CLIENT_SECRET?: string;

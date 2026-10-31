@@ -100,13 +100,17 @@ export function buildFindings(sc: Scorecard): Findings {
         continue;
       }
       const gapDir = k.dir === "higher" ? "below" : "above";
+      // 0-target "any is good" KPIs (see kpiStatus): "below the 0 target" reads oddly.
+      const zeroTarget = k.dir === "higher" && (k.target ?? 0) <= 0;
       findings.push({
         id: ++id,
         layer: k.layer,
         area: k.product,
         kpi: k.label,
         severity: severity(k.attainment),
-        observation: `${k.label} is ${fmt(k.value, k.unit)}, ${gapDir} the ${fmt(k.target, k.unit)} target (${k.attainment}% attainment).`,
+        observation: zeroTarget
+          ? `${k.label} is ${fmt(k.value, k.unit)}: none recorded in this window.`
+          : `${k.label} is ${fmt(k.value, k.unit)}, ${gapDir} the ${fmt(k.target, k.unit)} target (${k.attainment}% attainment).`,
         value: k.value, unit: k.unit, target: k.target, attainment: k.attainment,
         businessImpact: ROI_LEVER[k.key] || "Value realization",
         recommendation: RECO[k.key] || "Review against target and remediate.",
