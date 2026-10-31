@@ -1,26 +1,20 @@
 // Stylesheet for the readouts, scoped under .o2r and rendered with the report.
-// Print rules make the browser's "Print / Save as PDF" the PDF path: toolbar and
-// app chrome hidden, cards kept whole across page breaks, colors preserved.
+// On screen the readout sits in the app shell's content area as a white
+// document card. Print rules make the browser's "Print / Save as PDF" the PDF
+// path: shell chrome and the readout nav hidden, the shell's scroll container
+// un-clipped, cards kept whole across page breaks, colors preserved.
 export const REPORT_CSS = `
-.o2r-page { min-height: 100vh; background: #e9eef3; padding: 0 0 48px; }
-.o2r-toolbar { position: sticky; top: 0; z-index: 20; display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
-  padding: 10px 20px; background: #021e34; color: #fff; }
-.o2r-toolbar a.o2r-back { color: #cbd5e1; text-decoration: none; font-size: 13px; margin-right: 6px; }
-.o2r-toolbar a.o2r-back:hover { color: #fff; }
-.o2r-seg { display: inline-flex; border: 1px solid rgba(255,255,255,.25); border-radius: 8px; overflow: hidden; }
-.o2r-seg button { background: none; border: none; color: #cbd5e1; padding: 6px 12px; font-size: 13px; cursor: pointer; }
-.o2r-seg button + button { border-left: 1px solid rgba(255,255,255,.18); }
-.o2r-seg button.on { background: #0b9aad; color: #fff; font-weight: 700; }
-.o2r-seg button:disabled { opacity: .4; cursor: not-allowed; }
-.o2r-toolbar .o2r-spacer { flex: 1; }
-.o2r-toolbar .o2r-hint { font-size: 12px; color: #94a3b8; }
-.o2r-print { background: #17C662; color: #04263d; border: none; border-radius: 8px; padding: 7px 14px; font-weight: 700; font-size: 13px; cursor: pointer; }
-.o2r-note { max-width: 960px; margin: 14px auto 0; padding: 0 16px; font-size: 12px; color: #475569; }
+.o2r-page { max-width: 1100px; margin: 0 auto; }
+.o2r-seg { display: inline-flex; border: 1px solid rgba(3,57,95,0.25); border-radius: 6px; overflow: hidden; background: #fff; }
+.o2r-seg button { background: none; border: none; color: #475569; padding: 6px 12px; font-size: 13px; font-weight: 600; cursor: pointer; }
+.o2r-seg button + button { border-left: 1px solid rgba(3,57,95,0.18); }
+.o2r-seg button.on { background: #03395f; color: #fff; }
+.o2r-hint { font-size: 12px; color: #64748b; margin: -8px 0 12px; }
 
 .o2r { --o2r-navy: #03395F; --o2r-navy2: #066AAB; --o2r-green: #17C662; --o2r-good: #0F9E4E; --o2r-warning: #E0900A;
   --o2r-serious: #E07A06; --o2r-critical: #D0473A; --o2r-muted: #6B7A86; --o2r-ink: #2B2B2B; --o2r-line: #E7EDF1;
   --o2r-panel: #F3F6F8; --o2r-s1: #066AAB; --o2r-s2: #0F9E4E; --o2r-s3: #E0900A; --o2r-s4: #7A4FD0; --o2r-s5: #D0473A;
-  max-width: 960px; margin: 20px auto 0; background: #fff; color: var(--o2r-ink); border-radius: 10px;
+  max-width: 960px; margin: 0 auto; background: #fff; color: var(--o2r-ink); border-radius: 10px;
   box-shadow: 0 1px 3px rgba(15,23,42,.08); padding: 36px 40px; font-size: 14px; line-height: 1.55; }
 .o2r * { box-sizing: border-box; }
 .o2r h1, .o2r h2, .o2r h3, .o2r h4 { color: var(--o2r-navy); margin: 0; line-height: 1.25; }
@@ -177,7 +171,7 @@ export const REPORT_CSS = `
 .o2r-foot { margin-top: 36px; padding-top: 12px; border-top: 1px solid var(--o2r-line); font-size: 11px; color: var(--o2r-muted); display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 
 @media (max-width: 720px) {
-  .o2r { padding: 22px 16px; border-radius: 0; }
+  .o2r { padding: 22px 16px; }
   .o2r-layer-body, .o2r-wg, .o2r-cfg-row { grid-template-columns: 1fr; }
   .o2r-standbar { grid-template-columns: 120px 1fr 30px; }
   .o2r-interp-k { flex-basis: 100px; }
@@ -185,9 +179,20 @@ export const REPORT_CSS = `
 
 @media print {
   @page { size: letter; margin: 0.5in; }
-  html, body { background: #fff !important; }
-  .o2r-toolbar, .o2r-note, .staging-banner { display: none !important; }
-  .o2r-page { background: #fff; padding: 0; min-height: 0; }
+  /* Scoped by html.o2r-readout (set while the readout page is mounted). The shell
+     is a 100vh flex row whose body column is overflow:hidden and whose <main> is
+     the overflow-y:auto scroller, so printing as-is would clip to one screenful.
+     Flatten it to plain block flow so the document is as tall as the readout. */
+  html.o2r-readout, html.o2r-readout body, html.o2r-readout #root {
+    height: auto !important; min-height: 0 !important; overflow: visible !important; background: #fff !important; }
+  html.o2r-readout .staging-banner, html.o2r-readout .app-shell-sidebar, html.o2r-readout .app-shell-drawer,
+  html.o2r-readout .app-shell-header, html.o2r-readout .app-shell-impersonation, html.o2r-readout .o2r-chrome {
+    display: none !important; }
+  html.o2r-readout .staging-offset { padding: 0 !important; }
+  html.o2r-readout .app-shell, html.o2r-readout .app-shell-body, html.o2r-readout .app-shell-main {
+    display: block !important; height: auto !important; min-height: 0 !important; overflow: visible !important;
+    position: static !important; flex: none !important; padding: 0 !important; background: #fff !important; }
+  .o2r-page { max-width: none; margin: 0; }
   .o2r { max-width: none; margin: 0; padding: 0; box-shadow: none; border-radius: 0; font-size: 12px; }
   .o2r, .o2r * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .o2r details summary { display: none; }

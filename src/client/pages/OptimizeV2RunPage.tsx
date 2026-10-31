@@ -1,15 +1,19 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { optimizeV2Api, type LayerScore, type RunResult, type RunSummary } from "../lib/optimizeV2Api";
 import { PLATFORM_LABEL, SEVERITY_COLOR, fmtDate, fmtValue } from "../components/optimizeV2/format";
 import LicensesSection from "../components/optimizeV2/LicensesSection";
+import RunNav from "../components/optimizeV2/RunNav";
+import { readoutTrack } from "../components/optimizeV2/reports/track";
+import type { ReportResult, ReportRun } from "../components/optimizeV2/reports/types";
 import { GradePill, Pill } from "../components/optimizeV2/ui";
 
 type Tab = "scorecard" | "plan" | "findings" | "config" | "coverage";
 
 export default function OptimizeV2RunPage() {
   const { runId = "" } = useParams<{ runId: string }>();
-  const [data, setData] = useState<{ run: RunSummary & { optimize_account_id?: string }; result: RunResult | null } | null>(null);
+  const [search] = useSearchParams();
+  const [data, setData] = useState<{ run: ReportRun; result: RunResult | null } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("scorecard");
 
@@ -31,9 +35,24 @@ export default function OptimizeV2RunPage() {
     { id: "config", label: `Configuration (${sc.configAudit.aligned}/${sc.configAudit.assessed})` },
     { id: "coverage", label: "Data coverage" },
   ];
+  // Same track rule as the readouts, so the Outcomes tab only shows when that readout exists.
+  const trackParam = search.get("track");
+  const { outcomesHidden } = readoutTrack(run.platform, data.result as ReportResult, trackParam);
 
   return (
-    <Wrap accountId={run.optimize_account_id}>
+    <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+      <RunNav
+        run={run}
+        active="assessment"
+        outcomesHidden={outcomesHidden}
+        query={trackParam ? `?track=${encodeURIComponent(trackParam)}` : ""}
+        actions={
+          // Plain link: the server names the file via Content-Disposition.
+          <a href={`/api/optimize-v2/runs/${encodeURIComponent(run.id)}/workbook.xlsx`} className="ms-btn-ghost" style={{ padding: "6px 12px", fontSize: 13 }}>
+            Download workbook (.xlsx)
+          </a>
+        }
+      />
       <div className="ms-card" style={{ display: "flex", gap: 24, flexWrap: "wrap", alignItems: "center", marginBottom: 16 }}>
         <div>
           <div style={{ fontSize: 12, color: "#64748b", marginBottom: 6 }}>Overall score</div>
@@ -43,15 +62,6 @@ export default function OptimizeV2RunPage() {
         <Stat label="Findings" value={`${f.summary.red} red · ${f.summary.amber} amber`} sub={`${f.summary.strengths} strengths`} />
         <Stat label="KPIs measured" value={`${sc.coverage.populated} / ${sc.coverage.total}`} sub={`${sc.coverage.apiPopulated} from the API`} />
         <Stat label="Window" value={`${fmtDate(run.from_date)} – ${fmtDate(run.to_date)}`} sub={`${PLATFORM_LABEL[run.platform]} · run ${fmtDate(run.created_at)}`} />
-        <ReadoutLinks runId={run.id} />
-        {/* Plain link: the server names the file via Content-Disposition. */}
-        <a
-          href={`/api/optimize-v2/runs/${encodeURIComponent(run.id)}/workbook.xlsx`}
-          className="ms-btn-ghost"
-          style={{ marginLeft: "auto", padding: "6px 12px", fontSize: 13, whiteSpace: "nowrap" }}
-        >
-          Download workbook (.xlsx)
-        </a>
       </div>
 
       {data.result.warnings && data.result.warnings.length > 0 && (
@@ -84,7 +94,7 @@ export default function OptimizeV2RunPage() {
       {tab === "findings" && <FindingsTab result={data.result} />}
       {tab === "config" && <ConfigTab result={data.result} />}
       {tab === "coverage" && <CoverageTab result={data.result} platform={run.platform} />}
-    </Wrap>
+    </div>
   );
 }
 
@@ -95,21 +105,6 @@ function Wrap({ children, accountId }: { children: React.ReactNode; accountId?: 
         ← {accountId ? "Account" : "All accounts"}
       </Link>
       {children}
-    </div>
-  );
-}
-
-/** Customer-facing readouts (full page, printable): see OptimizeV2ReportPage. */
-function ReadoutLinks({ runId }: { runId: string }) {
-  const kinds = [["executive", "Executive"], ["outcomes", "Outcomes"], ["growth", "Growth plan"]] as const;
-  return (
-    <div style={{ marginLeft: "auto" }}>
-      <div style={{ fontSize: 12, color: "#64748b", marginBottom: 4 }}>Readouts</div>
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-        {kinds.map(([k, label]) => (
-          <Link key={k} to={`/optimize-v2/runs/${runId}/report/${k}`} className="ms-btn-ghost" style={{ padding: "4px 10px", fontSize: 13 }}>{label}</Link>
-        ))}
-      </div>
     </div>
   );
 }
