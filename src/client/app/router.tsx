@@ -87,6 +87,7 @@ export default function Router() {
           <Route path="/inbox" element={<InboxPage />} />
           <Route path="/roadmap" element={<RoadmapPage />} />
           <Route path="/sales-tools" element={<SalesToolsPage />} />
+          <Route path="/sales-tools/:appId" element={<SalesToolsPage />} />
           <Route path="/my-time" element={<MyTimePage />} />
           <Route path="/sales-ops" element={<SalesOpsPage />} />
           <Route path="/profile" element={<ProfilePage />} />
