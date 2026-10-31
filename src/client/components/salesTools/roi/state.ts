@@ -38,11 +38,13 @@ export function roiReducer(s: RoiState, a: RoiAction): RoiState {
   }
 }
 
-// ── localStorage (stopgap until scenarios move to D1) ───────────────────────
+// ── localStorage: per-user draft autosave (saved scenarios live in D1) ──────
 
 const KEY = "pf-roi-builder-v1";
 const draftKey = (userId: string) => `${KEY}:draft:${userId}`;
+/** Pre-D1 saved scenarios; only read now, to offer a one-time import. */
 const savedKey = (userId: string) => `${KEY}:saved:${userId}`;
+const loadedKey = (userId: string) => `${KEY}:loaded:${userId}`;
 
 const STEP_IDS = new Set([...ROI_STEPS.map((s) => s.id), RESULTS]);
 
@@ -95,6 +97,7 @@ export function persistDraft(userId: string, s: RoiState): void {
 
 export type SavedScenarios = Record<string, RoiInputs>;
 
+/** Scenarios saved in this browser before they moved to D1. */
 export function readSaved(userId: string): SavedScenarios {
   try {
     const raw = JSON.parse(localStorage.getItem(savedKey(userId)) || "{}");
@@ -104,12 +107,47 @@ export function readSaved(userId: string): SavedScenarios {
   }
 }
 
-/** Saves under `name`, overwriting an existing scenario with the same name (original behaviour). */
-export function writeSaved(userId: string, name: string, P: RoiInputs): SavedScenarios {
-  // Computed key in a literal always defines an own property (even "__proto__").
-  const s: SavedScenarios = { ...readSaved(userId), [name]: cloneInputs(P) };
-  localStorage.setItem(savedKey(userId), JSON.stringify(s));
-  return s;
+/** Replaces the legacy browser list (after an import); an empty list removes it. */
+export function writeLegacySaved(userId: string, s: SavedScenarios): void {
+  try {
+    if (Object.keys(s).length) localStorage.setItem(savedKey(userId), JSON.stringify(s));
+    else localStorage.removeItem(savedKey(userId));
+  } catch {
+    /* blocked storage: nothing to clean up */
+  }
+}
+
+/**
+ * The shared scenario the draft was opened from (or last saved as), so Save
+ * can update it in place after a refresh. Null once the user starts over.
+ */
+export type LoadedScenario = {
+  id: string;
+  name: string;
+  owner_name: string | null;
+  can_edit: boolean;
+  updated_at: string;
+  model_version: string;
+};
+
+export function readLoaded(userId: string): LoadedScenario | null {
+  try {
+    const v = JSON.parse(localStorage.getItem(loadedKey(userId)) || "null");
+    return v && typeof v.id === "string" && typeof v.updated_at === "string" && typeof v.name === "string"
+      ? { ...v, can_edit: v.can_edit === true, model_version: String(v.model_version ?? "") }
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+export function writeLoaded(userId: string, v: LoadedScenario | null): void {
+  try {
+    if (v) localStorage.setItem(loadedKey(userId), JSON.stringify(v));
+    else localStorage.removeItem(loadedKey(userId));
+  } catch {
+    /* blocked storage: Save just creates a new scenario after a refresh */
+  }
 }
 
 export { BLANK_INPUTS, EXAMPLE_INPUTS };
