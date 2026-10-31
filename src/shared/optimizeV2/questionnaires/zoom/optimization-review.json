@@ -1,0 +1,494 @@
+{
+ "platform": "zoom",
+ "key": "optimization-review",
+ "order": 3,
+ "cadence": "3–6 months, then recurring",
+ "role": "Solutions Architect + Customer Success Manager",
+ "title": "Optimization Review & KPI Re-Baseline Questionnaire",
+ "lede": "The recurring instrument fielded after the customer is live — first at 3–6 months, then on the tier's cadence. Its job is neither scope nor readiness: it is *movement*. Every answer either re-measures a baseline number, records a change that was made on the account, or reads the renewal signal. A review that produces no delta against the last one is a review that was not worth fielding.",
+ "meta": {
+  "Instrument": "Guided review (SA + CSM, with the customer's ops owner)",
+  "Fielded": "3–6 months post-go-live, then quarterly / monthly by tier",
+  "Length": "38 questions · 15–20 min",
+  "Output": "KPI delta register · remediation log · renewal signal"
+ },
+ "count": 38,
+ "parts": [],
+ "caps": [],
+ "groups": [
+  {
+   "id": "O0",
+   "title": "Review context",
+   "questions": [
+    {
+     "id": "O0.1",
+     "type": "short",
+     "required": true,
+     "text": "Customer / account name"
+    },
+    {
+     "id": "O0.2",
+     "type": "short",
+     "required": true,
+     "text": "Review period covered (from / to)"
+    },
+    {
+     "id": "O0.3",
+     "type": "single",
+     "required": true,
+     "text": "Which review is this?",
+     "options": [
+      "First optimization review (3–6 months)",
+      "Quarterly (Optimize tier)",
+      "Monthly summary (Transform tier)",
+      "Pre-renewal review",
+      "Ad-hoc"
+     ],
+     "logic": "Sets which sections are required. A pre-renewal review makes O7 required regardless of tier."
+    },
+    {
+     "id": "O0.4",
+     "type": "multiple",
+     "required": true,
+     "text": "Who contributed to this review?",
+     "options": [
+      "Solutions Architect",
+      "Customer Success Manager",
+      "Customer ops leader",
+      "Customer IT / telecom owner",
+      "Customer exec sponsor"
+     ],
+     "logic": "A review missing the SA has no remediation evidence; a review missing the CSM has no renewal signal. Both roles are the point of the instrument."
+    },
+    {
+     "id": "O0.5",
+     "type": "single",
+     "required": false,
+     "text": "Time since go-live:",
+     "options": [
+      "Under 3 months",
+      "3–6 months",
+      "6–12 months",
+      "Over 12 months"
+     ]
+    }
+   ],
+   "part": "O"
+  },
+  {
+   "id": "O1",
+   "title": "Adoption & rollout progress",
+   "questions": [
+    {
+     "id": "O1.1",
+     "type": "rating",
+     "required": true,
+     "text": "Rollout is complete across all sites, departments and channels that were in scope.",
+     "logic": "A score below 4 means part of the estate is not yet generating the data the rest of this review depends on. Note which part in O1.4."
+    },
+    {
+     "id": "O1.2",
+     "type": "fill",
+     "required": true,
+     "text": "Licensed seats: ____  ·  Active in the last 30 days: ____  ·  Dormant (0 use in 30 days): ____",
+     "logic": "The dormant count is the license-reclamation lever. It maps directly to the L1 utilization output and the renewal right-sizing conversation.",
+     "blanks": [
+      "Licensed seats",
+      "Active in the last 30 days",
+      "Dormant (0 use in 30 days)"
+     ]
+    },
+    {
+     "id": "O1.3",
+     "type": "matching",
+     "required": false,
+     "text": "Which capabilities are now in production?",
+     "prompts": [
+      "Voice",
+      "Video",
+      "Web chat",
+      "Email",
+      "SMS",
+      "Social",
+      "Outbound dialer",
+      "Agentless dialer",
+      "SMS campaigns",
+      "Virtual agent",
+      "Quality Management",
+      "Workforce Management",
+      "AI assist",
+      "Reporting / dashboards"
+     ],
+     "matchTo": [
+      "Live and adopted",
+      "Live, low adoption",
+      "Configured, not launched",
+      "Not started"
+     ],
+     "logic": "\"Live, low adoption\" is an adoption-campaign target for the CSM, not a technical gap. \"Configured, not launched\" is the opposite. The instrument has to separate them because the owner and the fix differ."
+    },
+    {
+     "id": "O1.4",
+     "type": "long",
+     "required": false,
+     "text": "What is not yet live that was expected to be by now, and why?"
+    }
+   ],
+   "part": "O"
+  },
+  {
+   "id": "O2",
+   "title": "KPI movement vs. baseline",
+   "questions": [
+    {
+     "id": "O2.1",
+     "type": "fill",
+     "required": true,
+     "text": "Service level — Baseline: ____  ·  Current: ____  ·  Threshold used (e.g. 80/20): ____",
+     "logic": "Re-measures post-SOW B2. If the threshold differs from the baseline's, this is a definition change, not a movement — flag it in O2.7.",
+     "blanks": [
+      "Service level — Baseline",
+      "Current",
+      "Threshold used (e.g. 80/20)"
+     ]
+    },
+    {
+     "id": "O2.2",
+     "type": "fill",
+     "required": true,
+     "text": "Average speed of answer (ASA) — Baseline: ____  ·  Current: ____",
+     "blanks": [
+      "Average speed of answer (ASA) — Baseline",
+      "Current"
+     ]
+    },
+    {
+     "id": "O2.3",
+     "type": "fill",
+     "required": true,
+     "text": "Abandonment rate — Baseline: ____  ·  Current: ____  ·  Short-abandon exclusion (seconds): ____",
+     "blanks": [
+      "Abandonment rate — Baseline",
+      "Current",
+      "Short-abandon exclusion (seconds)"
+     ]
+    },
+    {
+     "id": "O2.4",
+     "type": "fill",
+     "required": false,
+     "text": "Average handle time (AHT) — Baseline: ____  ·  Current: ____",
+     "blanks": [
+      "Average handle time (AHT) — Baseline",
+      "Current"
+     ]
+    },
+    {
+     "id": "O2.5",
+     "type": "fill",
+     "required": false,
+     "text": "First contact resolution (FCR) — Baseline: ____  ·  Current: ____  ·  How measured: ____",
+     "blanks": [
+      "First contact resolution (FCR) — Baseline",
+      "Current",
+      "How measured"
+     ]
+    },
+    {
+     "id": "O2.6",
+     "type": "fill",
+     "required": false,
+     "text": "Self-service containment (virtual agent) — Baseline: ____  ·  Current: ____",
+     "blanks": [
+      "Self-service containment (virtual agent) — Baseline",
+      "Current"
+     ]
+    },
+    {
+     "id": "O2.7",
+     "type": "single",
+     "required": true,
+     "text": "Where did the current figures come from?",
+     "options": [
+      "Zoom-native reporting",
+      "Blended Zoom + prior platform",
+      "Customer spreadsheet",
+      "Estimated",
+      "Unknown"
+     ],
+     "logic": "Anything below \"Zoom-native\" carries the same provenance caveat as the post-SOW baseline. A current figure measured less rigorously than the baseline cannot be claimed as an improvement."
+    },
+    {
+     "id": "O2.8",
+     "type": "long",
+     "required": false,
+     "text": "For any metric that moved materially, what change caused it? (Links to O3.)"
+    }
+   ],
+   "part": "O"
+  },
+  {
+   "id": "O3",
+   "title": "Scorecard findings & remediation",
+   "questions": [
+    {
+     "id": "O3.1",
+     "type": "fill",
+     "required": true,
+     "text": "Since the last review — Findings raised: ____  ·  Actioned: ____  ·  Deferred: ____  ·  Won't-do: ____",
+     "logic": "The actioned-over-raised ratio is the single clearest signal of whether the optimization loop is actually running or just producing reports.",
+     "blanks": [
+      "Since the last review — Findings raised",
+      "Actioned",
+      "Deferred",
+      "Won't-do"
+     ]
+    },
+    {
+     "id": "O3.2",
+     "type": "matching",
+     "required": true,
+     "text": "Status of the highest-priority findings by layer.",
+     "prompts": [
+      "L0 Config & security",
+      "L1 Utilization",
+      "L2 Adoption",
+      "L4 Performance / quality",
+      "L4/L6 Contact Center",
+      "L8 Virtual Agent",
+      "L9/L10 Roadmap"
+     ],
+     "matchTo": [
+      "Remediated & verified",
+      "In progress",
+      "Blocked (customer)",
+      "Blocked (us)",
+      "Not started"
+     ],
+     "logic": "\"Blocked (customer)\" is a renewal-risk flag as much as a delivery one — it means value is being withheld by something outside our control, and it belongs in O6."
+    },
+    {
+     "id": "O3.3",
+     "type": "long",
+     "required": false,
+     "text": "What was the single highest-impact change made this period, and what did it move?"
+    },
+    {
+     "id": "O3.4",
+     "type": "single",
+     "required": false,
+     "text": "Overall 11-layer score vs. last review:",
+     "options": [
+      "Up materially",
+      "Up slightly",
+      "Flat",
+      "Down",
+      "No comparable score yet"
+     ]
+    }
+   ],
+   "part": "O"
+  },
+  {
+   "id": "O4",
+   "title": "Value realised",
+   "questions": [
+    {
+     "id": "O4.1",
+     "type": "fill",
+     "required": false,
+     "text": "Dormant licenses reclaimed / reassigned this period: ____  ·  Estimated annual $ recovered: ____",
+     "logic": "The most defensible line in the renewal business case, because it is arithmetic the customer can verify against their own admin console.",
+     "blanks": [
+      "Dormant licenses reclaimed / reassigned this period",
+      "Estimated annual $ recovered"
+     ]
+    },
+    {
+     "id": "O4.2",
+     "type": "fill",
+     "required": false,
+     "text": "Agent capacity reclaimed (from AHT / occupancy gains): ____ FTE-equivalent",
+     "blanks": [
+      "Agent capacity reclaimed (from AHT / occupancy gains)"
+     ]
+    },
+    {
+     "id": "O4.3",
+     "type": "fill",
+     "required": false,
+     "text": "Interactions deflected to self-service this period: ____  ·  Estimated $ avoided: ____",
+     "blanks": [
+      "Interactions deflected to self-service this period",
+      "Estimated $ avoided"
+     ]
+    },
+    {
+     "id": "O4.4",
+     "type": "long",
+     "required": true,
+     "text": "In one paragraph, the value story for this period in the customer's terms.",
+     "logic": "This is what goes on the renewal slide. If it cannot be written from the numbers above, the review did not produce a renewal case and O7 should say so honestly."
+    },
+    {
+     "id": "O4.5",
+     "type": "single",
+     "required": false,
+     "text": "Has the customer acknowledged this value?",
+     "options": [
+      "Yes, in writing",
+      "Yes, verbally",
+      "Not yet raised",
+      "They dispute it"
+     ],
+     "logic": "\"They dispute it\" is the most valuable answer here — a disputed value figure caught at a quarterly review is recoverable; the same dispute at the renewal table is not."
+    }
+   ],
+   "part": "O"
+  },
+  {
+   "id": "O5",
+   "title": "Experience & sentiment",
+   "questions": [
+    {
+     "id": "O5.1",
+     "type": "fill",
+     "required": false,
+     "text": "CSAT — Baseline: ____  ·  Current: ____  ·  Method: ____",
+     "blanks": [
+      "CSAT — Baseline",
+      "Current",
+      "Method"
+     ]
+    },
+    {
+     "id": "O5.2",
+     "type": "fill",
+     "required": false,
+     "text": "Agent experience / eNPS, if measured — Baseline: ____  ·  Current: ____",
+     "blanks": [
+      "Agent experience / eNPS, if measured — Baseline",
+      "Current"
+     ]
+    },
+    {
+     "id": "O5.3",
+     "type": "rating",
+     "required": false,
+     "text": "The customer's ops team is confident operating the platform without us.",
+     "logic": "A rising score is the healthy outcome, but a very high score early can signal a Transform-tier account that no longer sees a reason to pay for hands-on optimization. Read it with O7."
+    },
+    {
+     "id": "O5.4",
+     "type": "long",
+     "required": false,
+     "text": "Any notable quotes, complaints or wins from agents, supervisors or end customers."
+    }
+   ],
+   "part": "O"
+  },
+  {
+   "id": "O6",
+   "title": "Risks, blockers & open items",
+   "questions": [
+    {
+     "id": "O6.1",
+     "type": "multiple",
+     "required": false,
+     "text": "Which risks are live right now?",
+     "options": [
+      "Customer-side resource / turnover",
+      "A key sponsor left or disengaged",
+      "Competing initiative pulling attention",
+      "Adoption stalled",
+      "Value disputed",
+      "Budget pressure",
+      "A blocked finding withholding value",
+      "None material"
+     ]
+    },
+    {
+     "id": "O6.2",
+     "type": "long",
+     "required": true,
+     "text": "For each live risk, the owner, the action and the date."
+    },
+    {
+     "id": "O6.3",
+     "type": "single",
+     "required": true,
+     "text": "Overall account health this period:",
+     "options": [
+      "Green",
+      "Amber",
+      "Red"
+     ],
+     "logic": "This is the CSM's call, informed by the SA's remediation evidence. A green account with a low O3.1 actioned ratio and a disputed O4.5 is not green — the sub-signals override the headline."
+    }
+   ],
+   "part": "O"
+  },
+  {
+   "id": "O7",
+   "title": "Renewal & expansion signal",
+   "questions": [
+    {
+     "id": "O7.1",
+     "type": "short",
+     "required": true,
+     "text": "Renewal date and notice window"
+    },
+    {
+     "id": "O7.2",
+     "type": "single",
+     "required": true,
+     "text": "Renewal trajectory as it stands today:",
+     "options": [
+      "On track to renew",
+      "Likely, needs the value case",
+      "At risk",
+      "Actively at risk",
+      "Too early to tell"
+     ]
+    },
+    {
+     "id": "O7.3",
+     "type": "single",
+     "required": true,
+     "text": "Which tier fits this account for the next term?",
+     "options": [
+      "Assess",
+      "Optimize",
+      "Transform",
+      "Step down a tier",
+      "Unsure"
+     ],
+     "logic": "The tier recommendation must be defensible from this review's data. An account you want to move to Transform needs an O4 value story and an O1.3 with real expansion headroom, or the upsell will not survive procurement."
+    },
+    {
+     "id": "O7.4",
+     "type": "multiple",
+     "required": false,
+     "text": "Expansion / whitespace identified:",
+     "options": [
+      "More seats / sites",
+      "Additional channels",
+      "Virtual agent expansion",
+      "Quality Management",
+      "Workforce Management",
+      "Another workload (Phone, Meetings, Events)",
+      "Analytics / AI add-ons",
+      "None identified"
+     ]
+    },
+    {
+     "id": "O7.5",
+     "type": "long",
+     "required": false,
+     "text": "The single next action that most improves the renewal outcome, its owner, and its date."
+    }
+   ],
+   "part": "O"
+  }
+ ]
+}

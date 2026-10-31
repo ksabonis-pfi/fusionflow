@@ -1,6 +1,7 @@
 // Client for Optimizations V2 (/api/optimize-v2). Types mirror
 // src/server/services/optimizeV2/engine/types.ts and store.ts.
 import { request } from "./api";
+import type { Answers, Instrument } from "../../shared/optimizeV2/questionnaires";
 
 export type Platform = "zoom" | "ringcentral";
 export type Grade = "A" | "B" | "C" | "D" | "F" | "N/A";
@@ -162,6 +163,32 @@ export type Trend = {
 };
 
 export type ZoomCredentialsInput = { accountId: string; clientId: string; clientSecret: string };
+export type QuestionnaireSummary = {
+  platform: Platform;
+  instrument: Instrument;
+  title: string;
+  cadence: string;
+  /** null until the first save. */
+  status: "draft" | "complete" | null;
+  answered: number;
+  total: number;
+  progress: number;
+  updated_at: string | null;
+  updated_by_name: string | null;
+};
+
+export type QuestionnaireProgress = { answered: number; total: number; pct: number };
+
+export type QuestionnaireResponse = {
+  answers: Answers;
+  status: "draft" | "complete";
+  progress: QuestionnaireProgress;
+  updated_at: string | null;
+  updated_by_name: string | null;
+  /** Scope to start from when none is saved, from the pre-SOW capability answers. */
+  suggested_scope: string[] | null;
+};
+
 export type RingCentralCredentialsInput = { clientId: string; clientSecret: string; jwt: string };
 
 export const optimizeV2Api = {
@@ -208,4 +235,16 @@ export const optimizeV2Api = {
 
   run: (runId: string) =>
     request<{ run: RunSummary; result: RunResult | null }>(`/optimize-v2/runs/${encodeURIComponent(runId)}`),
+
+  questionnaires: (accountId: string) =>
+    request<QuestionnaireSummary[]>(`/optimize-v2/accounts/${encodeURIComponent(accountId)}/questionnaires`),
+
+  questionnaire: (accountId: string, platform: Platform, instrument: Instrument) =>
+    request<QuestionnaireResponse>(`/optimize-v2/accounts/${encodeURIComponent(accountId)}/questionnaires/${platform}/${instrument}`),
+
+  saveQuestionnaire: (accountId: string, platform: Platform, instrument: Instrument, body: { answers: Answers; status?: "draft" | "complete" }) =>
+    request<{ status: "draft" | "complete"; progress: QuestionnaireProgress; updated_at: string | null; updated_by_name: string | null }>(
+      `/optimize-v2/accounts/${encodeURIComponent(accountId)}/questionnaires/${platform}/${instrument}`,
+      { method: "PUT", body: JSON.stringify(body) },
+    ),
 };

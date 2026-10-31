@@ -10,6 +10,8 @@ import { summarizeLicenses } from "../services/optimizeV2/licenses";
 import { RunInputError, runConnection } from "../services/optimizeV2/run";
 import { isDue } from "../services/optimizeV2/schedule";
 import { inPlaceholders } from "../lib/teamUtils";
+import { listResponses, responseView, sanitizeAnswers, saveResponse } from "../services/optimizeV2/questionnaires";
+import { INSTRUMENTS, loadQuestionnaire } from "../../shared/optimizeV2/questionnaires";
 import {
   getConnection, getRunResult, recordRunError, saveRun, toView, upsertConnection,
   type ConnectionRow, type RunRow,
@@ -328,6 +330,60 @@ app.get("/connections/:id/trend", async (c) => {
       };
     }),
   });
+});
+
+// ── Questionnaires (phase 3) ─────────────────────────────────────────────────
+
+const instrumentParam = z.enum(INSTRUMENTS);
+/** A full post-SOW response with long answers is well under this. */
+const MAX_QUESTIONNAIRE_BYTES = 256 * 1024;
+
+async function accountExists(c: { env: Bindings }, accountId: string) {
+  return !!(await c.env.DB.prepare("SELECT 1 FROM optimize_accounts WHERE id = ?").bind(accountId).first());
+}
+
+/** Status and progress for each platform × instrument, started or not. */
+app.get("/accounts/:accountId/questionnaires", async (c) => {
+  const accountId = c.req.param("accountId");
+  if (!(await accountExists(c, accountId))) return c.json({ error: "Account not found" }, 404);
+  return c.json(await listResponses(c.env, accountId));
+});
+
+app.get("/accounts/:accountId/questionnaires/:platform/:instrument", async (c) => {
+  const accountId = c.req.param("accountId");
+  const platform = platformParam.safeParse(c.req.param("platform"));
+  const instrument = instrumentParam.safeParse(c.req.param("instrument"));
+  if (!platform.success || !instrument.success) return c.json({ error: "Unknown questionnaire" }, 400);
+  if (!(await accountExists(c, accountId))) return c.json({ error: "Account not found" }, 404);
+  return c.json(await responseView(c.env, accountId, platform.data, instrument.data));
+});
+
+const questionnaireSaveSchema = z.object({
+  answers: z.record(z.string(), z.unknown()),
+  status: z.enum(["draft", "complete"]).optional(),
+});
+
+/** Save the whole response (autosave sends every answer each time). Answers are
+ *  checked against the definition and progress is computed here. */
+app.put("/accounts/:accountId/questionnaires/:platform/:instrument", async (c) => {
+  const auth = c.get("auth");
+  assertEdit(auth.role);
+  const accountId = c.req.param("accountId");
+  const platform = platformParam.safeParse(c.req.param("platform"));
+  const instrument = instrumentParam.safeParse(c.req.param("instrument"));
+  if (!platform.success || !instrument.success) return c.json({ error: "Unknown questionnaire" }, 400);
+
+  const raw = await c.req.text();
+  if (raw.length > MAX_QUESTIONNAIRE_BYTES) return c.json({ error: "Response is too large to save" }, 413);
+  let body: unknown = null;
+  try { body = JSON.parse(raw); } catch { /* handled below */ }
+  const parsed = questionnaireSaveSchema.safeParse(body);
+  if (!parsed.success) return c.json({ error: "Invalid questionnaire response" }, 400);
+  if (!(await accountExists(c, accountId))) return c.json({ error: "Account not found" }, 404);
+
+  const def = await loadQuestionnaire(platform.data, instrument.data);
+  const answers = sanitizeAnswers(def, parsed.data.answers);
+  return c.json(await saveResponse(c.env, accountId, platform.data, instrument.data, answers, parsed.data.status, auth.user.id));
 });
 
 /** One run: headline row plus the full result (scorecard, findings, product reports). */
