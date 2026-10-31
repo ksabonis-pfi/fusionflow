@@ -138,3 +138,26 @@
   .roi-card { padding: 18px 16px; }
   .roi-tools { justify-content: flex-start; margin-top: 0; }
 }
+
+/* Shared saved scenarios (live rail) */
+.roi-current { display: flex; flex-direction: column; gap: 2px; font-size: 13px; padding: 8px 10px; background: var(--roi-surface-2); border-radius: 8px; }
+.roi-vnote { color: var(--roi-warn); }
+.roi-conflict { font-size: 13px; padding: 8px 10px; border-radius: 8px; background: var(--roi-warn-bg); border-left: 3px solid var(--roi-warn); display: flex; flex-direction: column; gap: 6px; }
+.roi-import { font-size: 13px; padding: 8px 10px; border-radius: 8px; border: 1px dashed var(--roi-line); display: flex; flex-direction: column; gap: 6px; }
+.roi-sname { display: flex; flex-direction: column; gap: 3px; font-size: 12px; font-weight: 700; color: var(--roi-muted); }
+.roi-sname input, .roi-sfilter input[type="search"] { padding: 7px 8px; border-radius: 6px; border: 1px solid #c8d5e8; font: inherit; font-size: 13px; color: var(--roi-ink); min-width: 0; }
+.roi-saves .roi-row .ms-btn-primary, .roi-saves .roi-row .ms-btn-secondary { flex: 1; }
+.roi-sfilter { display: flex; gap: 8px; align-items: center; margin-top: 4px; }
+.roi-sfilter input[type="search"] { flex: 1; }
+.roi-sfilter label { display: flex; gap: 4px; align-items: center; font-size: 13px; white-space: nowrap; }
+.roi-slist { list-style: none; margin: 0; padding: 0; max-height: 320px; overflow-y: auto; border: 1px solid var(--roi-line); border-radius: 8px; }
+.roi-slist li + li { border-top: 1px solid var(--roi-line); }
+.roi-slist li.on { background: var(--roi-surface-2); }
+.roi-sitem { display: flex; flex-direction: column; gap: 1px; width: 100%; text-align: left; border: 0; background: transparent; padding: 7px 10px; cursor: pointer; color: var(--roi-ink); font: inherit; }
+.roi-sitem:hover { background: var(--roi-surface-2); }
+.roi-sitem b { font-size: 13px; overflow-wrap: anywhere; }
+.roi-sitem span { font-size: 12px; color: var(--roi-muted); overflow-wrap: anywhere; }
+.roi-sacts { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 10px 8px; }
+.roi-sacts .ms-btn-secondary { padding: 4px 10px; font-size: 12.5px; }
+.roi-danger { color: var(--roi-warn); }
+.roi-link { border: 0; background: none; padding: 0; color: var(--roi-primary); text-decoration: underline; cursor: pointer; font: inherit; }
