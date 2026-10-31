@@ -77,6 +77,7 @@ export default function OptimizeV2ReportPage() {
   let body: React.ReactNode;
   if (error) body = <Message tone="error">{error}</Message>;
   else if (!data) body = <Message>Building the readout…</Message>;
+  else if (!result && data.run.source === "imported") body = <Message>Imported from the standalone app — full detail wasn't stored for this run, so there are no readouts. The Assessment tab shows its headline scores.</Message>;
   else if (!result) body = <Message tone="error">This run's full result is missing. Re-run the assessment to generate the readouts.</Message>;
   else if (unavailable) {
     body = (

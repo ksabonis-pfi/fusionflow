@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import type { Bindings, Variables } from "../types";
+import { optimizeV2Available } from "./optimizeV2";
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
@@ -10,6 +11,11 @@ app.get("/me", (c) => {
     user: auth.user,
     role: auth.role,
     organization: auth.organization,
+    // Server-side feature switches the client needs for navigation. Each is
+    // already resolved for this user's role, so the client only reads booleans.
+    features: {
+      optimize_v2: optimizeV2Available(c.env, auth.role),
+    },
   });
 });
 

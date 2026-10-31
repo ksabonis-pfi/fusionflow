@@ -27,8 +27,17 @@ import {
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
+/** Roles that can open V2 at all. Also decides whether /api/me reports the
+ *  feature as on, so the nav link and the API agree. */
+export const OPTIMIZE_V2_ROLES = ["admin", "pm", "pf_ae", "pf_sa", "pf_csm", "pf_engineer", "executive"];
+
+/** Whether V2 is switched on for this deployment and open to this role. */
+export function optimizeV2Available(env: Pick<Bindings, "OPTIMIZE_V2_ENABLED">, role: string) {
+  return env.OPTIMIZE_V2_ENABLED === "true" && OPTIMIZE_V2_ROLES.includes(role);
+}
+
 function assertAccess(role: string) {
-  if (!["admin", "pm", "pf_ae", "pf_sa", "pf_csm", "pf_engineer", "executive"].includes(role)) {
+  if (!OPTIMIZE_V2_ROLES.includes(role)) {
     throw new HTTPException(403, { message: "Forbidden" });
   }
 }
@@ -60,7 +69,7 @@ app.get("/accounts", async (c) => {
   const conns = await c.env.DB.prepare(
     `SELECT oc.id, oc.optimize_account_id, oc.platform, oc.last_run_at, oc.last_error, oc.schedule_enabled,
             (oc.creds_enc IS NOT NULL) AS has_credentials,
-            r.overall, r.overall_grade, r.created_at AS latest_run_at
+            r.overall, r.overall_grade, r.created_at AS latest_run_at, r.source AS latest_source
        FROM opt2_connections oc
        LEFT JOIN opt2_runs r ON r.id = (
          SELECT id FROM opt2_runs WHERE connection_id = oc.id ORDER BY created_at DESC LIMIT 1)`,
@@ -412,8 +421,43 @@ app.get("/runs/:runId", async (c) => {
       customer_name: ctx?.customer_name ?? null, schedule_enabled: ctx?.schedule_enabled ?? 0,
     },
     result: slim,
+    // No full result (imported headline-only runs, or a lost R2 object): send
+    // what D1 still has so the page can show the per-KPI table.
+    headline: slim ? undefined : await runHeadline(c.env, run),
   });
 });
+
+type HeadlineKpi = {
+  key: string; label: string; layer: number; value: number | null; target: number | null; unit: string | null;
+  dir: string | null; status: string | null; attainment: number | null; mode: string | null; available: number;
+};
+
+/** Per-KPI rows and layer scores for a run, from D1 only. Layer scores are the
+ *  run row's when saved, otherwise derived with the trend chart's rule (mean
+ *  attainment of the layer's scored, non-blocked KPIs). */
+async function runHeadline(env: Bindings, run: RunRow) {
+  const kpis = (await env.DB.prepare(
+    `SELECT key, label, layer, value, target, unit, dir, status, attainment, mode, available
+       FROM opt2_run_kpis WHERE run_id = ? ORDER BY layer, label`,
+  ).bind(run.id).all<HeadlineKpi>()).results ?? [];
+
+  let layers: LayerPoint[] = [];
+  if (run.layer_scores) {
+    try { layers = JSON.parse(run.layer_scores) as LayerPoint[]; } catch { /* derived below */ }
+  }
+  if (!layers.length) {
+    const byLayer = new Map<number, number[]>();
+    for (const k of kpis) {
+      const list = byLayer.get(k.layer) ?? [];
+      if (k.attainment != null && k.mode !== "blocked") list.push(k.attainment);
+      byLayer.set(k.layer, list);
+    }
+    layers = [...byLayer].map(([layer, att]) => ({
+      layer, label: "", score: att.length ? Math.round(att.reduce((a, b) => a + b, 0) / att.length) : null,
+    }));
+  }
+  return { kpis, layers: layers.sort((a, b) => a.layer - b.layer) };
+}
 
 /** The run's scorecard workbook (.xlsx), built from the stored result. */
 app.get("/runs/:runId/workbook.xlsx", async (c) => {

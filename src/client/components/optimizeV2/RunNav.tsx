@@ -6,12 +6,15 @@ import { Link } from "react-router-dom";
 import { PLATFORM_LABEL, fmtDate } from "./format";
 import { DEFAULT_REPORT } from "./reports/catalog";
 import type { ReportRun } from "./reports/types";
+import { ImportedBadge } from "./ui";
 
 export type RunArea = "assessment" | "reports";
 
-export default function RunNav({ run, active, query = "", actions }: {
+export default function RunNav({ run, active, readoutsHidden = false, query = "", actions }: {
   run: ReportRun;
   active: RunArea;
+  /** No stored full result (e.g. an imported headline-only run), so there are no reports to show. */
+  readoutsHidden?: boolean;
   /** Carried across areas (e.g. "?track=advanced") so a chosen Zoom audience sticks. */
   query?: string;
   actions?: ReactNode;
@@ -19,7 +22,7 @@ export default function RunNav({ run, active, query = "", actions }: {
   const base = `/optimize-v2/runs/${encodeURIComponent(run.id)}`;
   const tabs: { id: RunArea; label: string; to: string }[] = [
     { id: "assessment", label: "Assessment", to: `${base}${query}` },
-    { id: "reports", label: "Reports", to: `${base}/report/${DEFAULT_REPORT}${query}` },
+    ...(readoutsHidden ? [] : [{ id: "reports" as const, label: "Reports", to: `${base}/report/${DEFAULT_REPORT}${query}` }]),
   ];
   const customer = run.customer_name || "Customer";
 
@@ -40,6 +43,7 @@ export default function RunNav({ run, active, query = "", actions }: {
           <h1 className="ms-page-title">{customer}</h1>
           <p className="ms-page-subtitle">
             {PLATFORM_LABEL[run.platform]} assessment · {fmtDate(run.from_date)} – {fmtDate(run.to_date)} · run {fmtDate(run.created_at)}
+            {run.source === "imported" && <ImportedBadge />}
           </p>
         </div>
         {actions && <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>{actions}</div>}

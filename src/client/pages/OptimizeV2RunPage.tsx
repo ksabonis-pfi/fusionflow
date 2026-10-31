@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
-import { optimizeV2Api, type LayerScore, type RunResult, type RunSummary } from "../lib/optimizeV2Api";
+import { optimizeV2Api, type LayerScore, type RunHeadline, type RunResult, type RunSummary } from "../lib/optimizeV2Api";
 import { PLATFORM_LABEL, SEVERITY_COLOR, fmtDate, fmtValue } from "../components/optimizeV2/format";
 import LicensesSection from "../components/optimizeV2/LicensesSection";
 import RunNav from "../components/optimizeV2/RunNav";
@@ -12,7 +12,7 @@ type Tab = "scorecard" | "plan" | "findings" | "config" | "coverage";
 export default function OptimizeV2RunPage() {
   const { runId = "" } = useParams<{ runId: string }>();
   const [search] = useSearchParams();
-  const [data, setData] = useState<{ run: ReportRun; result: RunResult | null } | null>(null);
+  const [data, setData] = useState<{ run: ReportRun; result: RunResult | null; headline?: RunHeadline } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("scorecard");
 
@@ -22,7 +22,7 @@ export default function OptimizeV2RunPage() {
 
   if (error) return <Wrap><div style={{ color: "#b91c1c", fontSize: 13 }}>{error}</div></Wrap>;
   if (!data) return <Wrap><div style={{ color: "#64748b", fontSize: 13 }}>Loading…</div></Wrap>;
-  if (!data.result) return <Wrap accountId={data.run.optimize_account_id}><div style={{ color: "#b91c1c", fontSize: 13 }}>This run's full result is missing.</div></Wrap>;
+  if (!data.result) return <HeadlineOnly run={data.run} headline={data.headline} />;
 
   const { run } = data;
   const sc = data.result.scorecard;
@@ -102,6 +102,89 @@ function Wrap({ children, accountId }: { children: React.ReactNode; accountId?: 
         ← {accountId ? "Account" : "All accounts"}
       </Link>
       {children}
+    </div>
+  );
+}
+
+/**
+ * A run with no stored full result. Imported runs from the standalone apps
+ * often have only headline numbers and per-KPI rows; any other run here lost
+ * its R2 object. Either way, show what D1 has. No readouts or workbook: both
+ * need the full result.
+ */
+function HeadlineOnly({ run, headline }: { run: ReportRun; headline?: RunHeadline }) {
+  const imported = run.source === "imported";
+  const kpis = headline?.kpis ?? [];
+  const layers = headline?.layers ?? [];
+  const byLayer = [...new Set(kpis.map((k) => k.layer))].sort((a, b) => a - b);
+
+  return (
+    <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+      <RunNav run={run} active="assessment" readoutsHidden />
+      <div
+        className="ms-card"
+        style={imported
+          ? { background: "#f8fafc", marginBottom: 16, fontSize: 13, color: "#475569" }
+          : { background: "#fef2f2", borderColor: "#fecaca", marginBottom: 16, fontSize: 13, color: "#991b1b" }}
+      >
+        {imported
+          ? "Imported from the standalone app — full detail wasn't stored for this run. The headline scores and per-KPI results below are what was kept; findings, the improvement plan, readouts and the workbook aren't available."
+          : "This run's full result is missing, so only the headline scores and per-KPI results are shown. Re-run the assessment to get findings, readouts and the workbook."}
+      </div>
+
+      <div className="ms-card" style={{ display: "flex", gap: 24, flexWrap: "wrap", alignItems: "center", marginBottom: 16 }}>
+        <div>
+          <div style={{ fontSize: 12, color: "#64748b", marginBottom: 6 }}>Overall score</div>
+          <GradePill score={run.overall} grade={run.overall_grade} size="lg" />
+        </div>
+        <Stat label="Config alignment" value={run.config_alignment != null ? `${run.config_alignment}%` : "—"} />
+        <Stat label="Findings" value={`${run.red_findings ?? "—"} red · ${run.amber_findings ?? "—"} amber`} />
+        <Stat label="KPIs measured" value={`${run.kpis_populated ?? "—"} / ${run.kpis_total ?? "—"}`} />
+        <Stat label="Window" value={`${fmtDate(run.from_date)} – ${fmtDate(run.to_date)}`} sub={`${PLATFORM_LABEL[run.platform]} · run ${fmtDate(run.created_at)}`} />
+      </div>
+
+      {run.indices.length > 0 && (
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
+          {run.indices.map((ix) => (
+            <div key={ix.key} className="ms-card" style={{ flex: "1 1 220px" }} title={ix.note}>
+              <div style={{ fontSize: 12, color: "#64748b" }}>{ix.label}</div>
+              <div style={{ fontSize: 20, fontWeight: 700, color: "#0f172a" }}>{ix.value ?? "—"} <span style={{ fontSize: 12, color: "#64748b", fontWeight: 500 }}>target ≥{ix.target}</span></div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {kpis.length === 0 ? (
+        <div style={{ color: "#64748b", fontSize: 13 }}>No per-KPI results were kept for this run.</div>
+      ) : byLayer.map((n) => {
+        const layer = layers.find((l) => l.layer === n);
+        return (
+          <div key={n} className="ms-card" style={{ padding: 0, overflowX: "auto", marginBottom: 12 }}>
+            <div style={{ padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+              <span style={{ fontWeight: 700, color: "#0f172a" }}>Layer {n}{layer?.label ? `: ${layer.label}` : ""}</span>
+              {layer?.score != null && <span style={{ fontSize: 13, fontWeight: 700, color: "#334155" }}>Score {layer.score}</span>}
+            </div>
+            <table className="ms-table">
+              <thead>
+                <tr><th>KPI</th><th style={{ textAlign: "right" }}>Value</th><th style={{ textAlign: "right" }}>Target</th><th style={{ textAlign: "right" }}>Attainment</th><th>Status</th></tr>
+              </thead>
+              <tbody>
+                {kpis.filter((k) => k.layer === n).map((k) => (
+                  <tr key={k.key}>
+                    <td style={{ fontWeight: 600 }}>{k.label}</td>
+                    <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>{fmtValue(k.value, k.unit ?? undefined)}</td>
+                    <td style={{ textAlign: "right", whiteSpace: "nowrap", color: "#64748b" }}>
+                      {k.target == null ? "—" : `${k.dir === "lower" ? "≤" : k.dir === "higher" ? "≥" : ""} ${fmtValue(k.target, k.unit ?? undefined)}`}
+                    </td>
+                    <td style={{ textAlign: "right" }}>{k.attainment != null ? `${k.attainment}%` : "—"}</td>
+                    <td style={{ fontSize: 12, color: k.available ? "#64748b" : "#92400e" }}>{k.available ? (k.status ?? "—") : "Not collected"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        );
+      })}
     </div>
   );
 }

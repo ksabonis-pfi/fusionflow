@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { optimizeV2Api, type ConnectionSummary, type OptimizeV2Account } from "../lib/optimizeV2Api";
 import { PLATFORM_LABEL, fmtDate } from "../components/optimizeV2/format";
-import { GradePill } from "../components/optimizeV2/ui";
+import { GradePill, ImportedBadge } from "../components/optimizeV2/ui";
 
 /** Optimizations V2: every Optimize account with its platform connections and latest score. */
 export default function OptimizeV2Page() {
@@ -68,7 +68,10 @@ export default function OptimizeV2Page() {
                         ))}
                     </td>
                     <td>{latest ? <GradePill score={latest.overall} grade={latest.overall_grade} /> : <span style={{ color: "#94a3b8" }}>—</span>}</td>
-                    <td style={{ whiteSpace: "nowrap" }}>{latest ? fmtDate(latest.latest_run_at) : "—"}</td>
+                    <td style={{ whiteSpace: "nowrap" }}>
+                      {latest ? fmtDate(latest.latest_run_at) : "—"}
+                      {latest?.latest_source === "imported" && <ImportedBadge />}
+                    </td>
                   </tr>
                 );
               })}
