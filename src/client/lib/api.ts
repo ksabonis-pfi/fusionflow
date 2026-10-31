@@ -1287,6 +1287,11 @@ export type MeResponse = {
   user: User;
   role: string;
   organization: string | null;
+  /** Server feature switches, already resolved for this user's role. */
+  features?: {
+    /** Optimizations V2 is enabled on this deployment and open to this role. */
+    optimize_v2?: boolean;
+  };
 };
 
 export type ComponentStatus =

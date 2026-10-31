@@ -24,6 +24,15 @@ export function GradePill({ score, grade, size = "sm" }: { score: number | null;
   );
 }
 
+/** Marks a run brought over from the standalone Zoom / RingCentral apps. */
+export function ImportedBadge() {
+  return (
+    <span title="Imported from the standalone optimization app" style={{ marginLeft: 6 }}>
+      <Pill bg="#e0f2fe" fg="#075985">Imported</Pill>
+    </span>
+  );
+}
+
 export function Pill({ children, bg, fg }: { children: React.ReactNode; bg: string; fg: string }) {
   return (
     <span style={{ display: "inline-block", fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 999, background: bg, color: fg, whiteSpace: "nowrap" }}>
