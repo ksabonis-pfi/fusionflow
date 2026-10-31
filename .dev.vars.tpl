@@ -12,3 +12,6 @@ SCANSOURCE_CLIENT_ID=op://Clients/ScanSource API Portal/SCANSOURCE_CLIENT_ID
 SCANSOURCE_CLIENT_SECRET=op://Clients/ScanSource API Portal/SCANSOURCE_CLIENT_SECRET
 SCANSOURCE_SUBSCRIPTION_KEY=op://Clients/ScanSource API Portal/PRIMARY_API_KEY
 SCANSOURCE_CUSTOMER_NUMBER=op://Clients/ScanSource API Portal/PARTNER_NUMBER
+
+# Optimizations V2 preview (staging + local only until cutover; not a secret)
+OPTIMIZE_V2_ENABLED=true
