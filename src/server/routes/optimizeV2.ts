@@ -6,6 +6,7 @@ import type { Platform } from "../services/optimizeV2/engine/types";
 import { jwtExpiry, type RingCentralCredentials } from "../services/optimizeV2/providers/ringcentral/assess";
 import { RcClient } from "../services/optimizeV2/providers/ringcentral/rc";
 import { getToken, ZoomError, type ZoomCredentials } from "../services/optimizeV2/providers/zoom/client";
+import { summarizeLicenses } from "../services/optimizeV2/licenses";
 import { RunInputError, runConnection } from "../services/optimizeV2/run";
 import {
   getConnection, getRunResult, recordRunError, saveRun, toView, upsertConnection,
@@ -203,8 +204,9 @@ app.get("/runs/:runId", async (c) => {
   if (!run) return c.json({ error: "Run not found" }, 404);
   const result = await getRunResult(c.env, run);
   // Raw API payloads and the engine-native result stay server-side; the UI
-  // renders from the shared scorecard, findings and warnings.
-  const slim = result ? { ...result, raw: undefined, native: undefined } : null;
+  // renders from the shared scorecard, findings and warnings, plus a seat
+  // summary derived from the raw data here.
+  const slim = result ? { ...result, raw: undefined, native: undefined, licenses: summarizeLicenses(result) } : null;
   return c.json({ run: { ...run, indices: JSON.parse(run.indices || "[]") }, result: slim });
 });
 

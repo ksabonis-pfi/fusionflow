@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { optimizeV2Api, type LayerScore, type RunResult, type RunSummary } from "../lib/optimizeV2Api";
 import { PLATFORM_LABEL, SEVERITY_COLOR, fmtDate, fmtValue } from "../components/optimizeV2/format";
+import LicensesSection from "../components/optimizeV2/LicensesSection";
 import { GradePill, Pill } from "../components/optimizeV2/ui";
 
 type Tab = "scorecard" | "plan" | "findings" | "config" | "coverage";
@@ -114,6 +115,7 @@ function ScorecardTab({ result }: { result: RunResult }) {
           ))}
         </div>
       )}
+      {result.licenses && <LicensesSection summary={result.licenses} />}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 12 }}>
         {sc.layers.map((l) => (
           <button
