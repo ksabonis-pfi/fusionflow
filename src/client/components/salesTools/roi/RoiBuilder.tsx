@@ -7,7 +7,17 @@ import { useToast } from "../../ui/ToastProvider";
 import { LiveRail } from "./LiveRail";
 import { ResultsView } from "./ResultsView";
 import { StepForm, StepRail } from "./StepForm";
-import { BLANK_INPUTS, EXAMPLE_INPUTS, RESULTS, initialState, persistDraft, roiReducer } from "./state";
+import {
+  BLANK_INPUTS,
+  EXAMPLE_INPUTS,
+  RESULTS,
+  initialState,
+  persistDraft,
+  readLoaded,
+  roiReducer,
+  writeLoaded,
+  type LoadedScenario,
+} from "./state";
 import { roiWarnings } from "./validation";
 import "./roi.css";
 
@@ -16,6 +26,7 @@ import "./roi.css";
  * results page. Lazy-loaded from the Sales Tools launcher.
  *
  * The draft autosaves to this browser per user, so a refresh never loses work.
+ * Saved scenarios are shared in D1 (see ScenariosPanel).
  */
 export default function RoiBuilder() {
   const [userId, setUserId] = useState<string | null>(null);
@@ -45,6 +56,13 @@ function Builder({ userId }: { userId: string }) {
     persistDraft(userId, state);
   }, [userId, state]);
 
+  // The shared scenario the draft came from, kept with the draft across refreshes.
+  const [loaded, setLoadedState] = useState<LoadedScenario | null>(() => readLoaded(userId));
+  function setLoaded(v: LoadedScenario | null) {
+    setLoadedState(v);
+    writeLoaded(userId, v);
+  }
+
   // Two-click confirm for actions that replace every answer.
   const [armed, setArmed] = useState<Armed>(null);
   const armTimer = useRef<number | undefined>(undefined);
@@ -68,11 +86,13 @@ function Builder({ userId }: { userId: string }) {
     }
     setArmed(null);
     dispatch({ type: "replace", P: kind === "example" ? EXAMPLE_INPUTS : BLANK_INPUTS });
+    setLoaded(null);
     showToast(kind === "example" ? "Loaded the example" : "Started blank", "success");
   }
 
-  function open(next: RoiInputs) {
+  function open(next: RoiInputs, meta: LoadedScenario) {
     dispatch({ type: "replace", P: next });
+    setLoaded(meta);
   }
 
   const [excelBusy, setExcelBusy] = useState(false);
@@ -129,7 +149,16 @@ function Builder({ userId }: { userId: string }) {
             />
           )}
         </div>
-        {!onResults && <LiveRail key={userId} P={P} o={o} userId={userId} onOpen={open} />}
+        {!onResults && <LiveRail
+            key={userId}
+            P={P}
+            o={o}
+            userId={userId}
+            loaded={loaded}
+            onOpen={open}
+            onSaved={setLoaded}
+            onDetach={() => setLoaded(null)}
+          />}
       </div>
     </div>
   );
