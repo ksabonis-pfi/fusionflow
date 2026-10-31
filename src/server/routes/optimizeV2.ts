@@ -6,13 +6,19 @@ import type { Platform } from "../services/optimizeV2/engine/types";
 import { jwtExpiry, type RingCentralCredentials } from "../services/optimizeV2/providers/ringcentral/assess";
 import { RcClient } from "../services/optimizeV2/providers/ringcentral/rc";
 import { getToken, ZoomError, type ZoomCredentials } from "../services/optimizeV2/providers/zoom/client";
-import { listResponses, responseView, sanitizeAnswers, saveResponse } from "../services/optimizeV2/questionnaires";
+import { summarizeLicenses } from "../services/optimizeV2/licenses";
 import { RunInputError, runConnection } from "../services/optimizeV2/run";
+import { isDue } from "../services/optimizeV2/schedule";
+import { inPlaceholders } from "../lib/teamUtils";
+import { listResponses, responseView, sanitizeAnswers, saveResponse } from "../services/optimizeV2/questionnaires";
 import { INSTRUMENTS, loadQuestionnaire } from "../../shared/optimizeV2/questionnaires";
 import {
   getConnection, getRunResult, recordRunError, saveRun, toView, upsertConnection,
   type ConnectionRow, type RunRow,
 } from "../services/optimizeV2/store";
+import {
+  buildRunWorkbook, workbookFilename, WorkbookUnavailableError, XLSX_CONTENT_TYPE,
+} from "../services/optimizeV2/workbook";
 
 // Optimizations V2 (see docs/optimize-v2/DESIGN.md). Hangs off the V1
 // optimize_accounts row, so these use the same role rules as V1 Optimize.
@@ -25,8 +31,9 @@ function assertAccess(role: string) {
     throw new HTTPException(403, { message: "Forbidden" });
   }
 }
+const EDIT_ROLES = ["admin", "pf_sa", "pf_csm", "pm"];
 function assertEdit(role: string) {
-  if (!["admin", "pf_sa", "pf_csm", "pm"].includes(role)) {
+  if (!EDIT_ROLES.includes(role)) {
     throw new HTTPException(403, { message: "Forbidden" });
   }
 }
@@ -85,6 +92,7 @@ app.get("/accounts/:accountId", async (c) => {
 
   return c.json({
     account,
+    can_edit: EDIT_ROLES.includes(c.get("auth").role),
     connections: (conns.results ?? []).map(toView),
     runs: (runs.results ?? []).map((r) => ({ ...r, indices: JSON.parse(r.indices || "[]") })),
   });
@@ -199,6 +207,131 @@ app.post("/connections/:id/runs", async (c) => {
   }
 });
 
+const scheduleSchema = z.object({
+  enabled: z.boolean(),
+  /** Day of the month; past a short month's end it runs on the last day. */
+  day: z.number().int().min(1).max(31),
+  timezone: z.string().max(64).refine((tz) => {
+    try { new Intl.DateTimeFormat("en-US", { timeZone: tz }); return true; } catch { return false; }
+  }, "Unknown timezone").optional(),
+});
+
+/** Turn the monthly scheduled run on or off and pick its day (judged in the
+ *  connection's timezone). Run by the hourly cron; see services/optimizeV2/schedule.ts. */
+app.put("/connections/:id/schedule", async (c) => {
+  assertEdit(c.get("auth").role);
+  const conn = await getConnection(c.env, c.req.param("id"));
+  if (!conn) return c.json({ error: "Connection not found" }, 404);
+  const parsed = scheduleSchema.safeParse(await c.req.json().catch(() => null));
+  if (!parsed.success) return c.json({ error: "Invalid schedule", details: parsed.error.flatten() }, 400);
+  const { enabled, day, timezone } = parsed.data;
+  await c.env.DB.prepare(
+    "UPDATE opt2_connections SET schedule_enabled = ?, schedule_day = ?, timezone = ?, updated_at = datetime('now') WHERE id = ?",
+  ).bind(enabled ? 1 : 0, day, timezone ?? conn.timezone, conn.id).run();
+  const row = (await getConnection(c.env, conn.id))!;
+  const view = toView(row);
+  // Tell the UI when it'll first run: a past day this month with no run since means "within the hour".
+  const due = enabled ? isDue({ ...view, schedule_attempted_at: row.schedule_attempted_at ?? null }, new Date()) : null;
+  return c.json({ connection: view, due });
+});
+
+type TrendRun = Pick<RunRow, "id" | "source" | "created_at" | "from_date" | "to_date" | "overall" | "overall_grade" | "config_alignment" | "red_findings" | "amber_findings" | "layer_scores">;
+type LayerPoint = { layer: number; label: string; score: number | null };
+type KpiRow = { run_id: string; key: string; label: string; unit: string | null; target: number | null; value: number | null; attainment: number | null; status: string | null };
+
+/**
+ * Score history for one connection, oldest first: overall, per-layer scores and
+ * a few KPI series. Layer scores come from the run row (saved since migration
+ * 0162); older runs fall back to the mean attainment of their scored KPIs in
+ * opt2_run_kpis, which matches Zoom exactly and RingCentral except for its
+ * sample-volume-flagged KPIs (not stored per KPI). No R2 reads.
+ *
+ * ?kpis=key1,key2 picks the KPI series (max 8); by default, the latest run's
+ * five lowest-attainment scored KPIs.
+ */
+app.get("/connections/:id/trend", async (c) => {
+  const conn = await getConnection(c.env, c.req.param("id"));
+  if (!conn) return c.json({ error: "Connection not found" }, 404);
+  const limit = Math.min(Math.max(Number(c.req.query("limit")) || 24, 2), 60);
+
+  const runRows = await c.env.DB.prepare(
+    `SELECT id, source, created_at, from_date, to_date, overall, overall_grade, config_alignment, red_findings, amber_findings, layer_scores
+       FROM opt2_runs WHERE connection_id = ? ORDER BY created_at DESC LIMIT ?`,
+  ).bind(conn.id, limit).all<TrendRun>();
+  const runs = (runRows.results ?? []).reverse();
+  const runIds = runs.map((r) => r.id);
+  const latest = runs[runs.length - 1];
+
+  // Layer scores, stored or derived.
+  const stored = new Map<string, LayerPoint[]>();
+  for (const r of runs) {
+    if (!r.layer_scores) continue;
+    try { stored.set(r.id, JSON.parse(r.layer_scores) as LayerPoint[]); } catch { /* derived below */ }
+  }
+  const missing = runIds.filter((id) => !stored.has(id));
+  const derived = new Map<string, LayerPoint[]>();
+  if (missing.length) {
+    const rows = await c.env.DB.prepare(
+      `SELECT run_id, layer, ROUND(AVG(attainment)) AS score FROM opt2_run_kpis
+        WHERE run_id IN (${inPlaceholders(missing)}) AND attainment IS NOT NULL AND (mode IS NULL OR mode != 'blocked')
+        GROUP BY run_id, layer`,
+    ).bind(...missing).all<{ run_id: string; layer: number; score: number }>();
+    for (const row of rows.results ?? []) {
+      const list = derived.get(row.run_id) ?? [];
+      list.push({ layer: row.layer, label: "", score: row.score });
+      derived.set(row.run_id, list);
+    }
+  }
+  const layerLabel = new Map<number, string>();
+  for (const list of stored.values()) for (const l of list) if (l.label) layerLabel.set(l.layer, l.label);
+
+  // KPI options (from the latest run) and the requested series.
+  const options = latest
+    ? (await c.env.DB.prepare(
+      `SELECT key, label, layer, unit, attainment FROM opt2_run_kpis
+        WHERE run_id = ? AND (dir IS NULL OR dir != 'neutral') ORDER BY layer, label`,
+    ).bind(latest.id).all<{ key: string; label: string; layer: number; unit: string | null; attainment: number | null }>()).results ?? []
+    : [];
+  const requested = (c.req.query("kpis") ?? "").split(",").map((k) => k.trim()).filter(Boolean).slice(0, 8);
+  const kpiKeys = requested.length
+    ? requested
+    : options.filter((o) => o.attainment != null && o.attainment < 100)
+      .sort((a, b) => (a.attainment ?? 0) - (b.attainment ?? 0)).slice(0, 5).map((o) => o.key);
+  const kpiRows = kpiKeys.length && runIds.length
+    ? (await c.env.DB.prepare(
+      `SELECT run_id, key, label, unit, target, value, attainment, status FROM opt2_run_kpis
+        WHERE run_id IN (${inPlaceholders(runIds)}) AND key IN (${inPlaceholders(kpiKeys)})`,
+    ).bind(...runIds, ...kpiKeys).all<KpiRow>()).results ?? []
+    : [];
+
+  return c.json({
+    connection: { id: conn.id, platform: conn.platform, schedule_enabled: conn.schedule_enabled, schedule_day: conn.schedule_day, timezone: conn.timezone },
+    runs: runs.map((r) => ({
+      id: r.id, source: r.source, created_at: r.created_at, from_date: r.from_date, to_date: r.to_date,
+      overall: r.overall, overall_grade: r.overall_grade, config_alignment: r.config_alignment,
+      red_findings: r.red_findings, amber_findings: r.amber_findings,
+      layers_derived: !stored.has(r.id),
+      layers: (stored.get(r.id) ?? derived.get(r.id) ?? [])
+        .map((l) => ({ layer: l.layer, label: l.label || layerLabel.get(l.layer) || `Layer ${l.layer}`, score: l.score }))
+        .sort((a, b) => a.layer - b.layer),
+    })),
+    kpi_options: options.map(({ key, label, layer, unit }) => ({ key, label, layer, unit })),
+    kpis: kpiKeys.map((key) => {
+      const rows = kpiRows.filter((k) => k.key === key);
+      const meta = rows[rows.length - 1] ?? options.find((o) => o.key === key);
+      return {
+        key,
+        label: meta?.label ?? key,
+        unit: meta?.unit ?? null,
+        points: runIds.map((runId) => {
+          const k = rows.find((x) => x.run_id === runId);
+          return { run_id: runId, value: k?.value ?? null, target: k?.target ?? null, attainment: k?.attainment ?? null, status: k?.status ?? null };
+        }),
+      };
+    }),
+  });
+});
+
 // ── Questionnaires (phase 3) ─────────────────────────────────────────────────
 
 const instrumentParam = z.enum(INSTRUMENTS);
@@ -259,9 +392,37 @@ app.get("/runs/:runId", async (c) => {
   if (!run) return c.json({ error: "Run not found" }, 404);
   const result = await getRunResult(c.env, run);
   // Raw API payloads and the engine-native result stay server-side; the UI
-  // renders from the shared scorecard, findings and warnings.
-  const slim = result ? { ...result, raw: undefined, native: undefined } : null;
+  // renders from the shared scorecard, findings and warnings, plus a seat
+  // summary derived from the raw data here.
+  const slim = result ? { ...result, raw: undefined, native: undefined, licenses: summarizeLicenses(result) } : null;
   return c.json({ run: { ...run, indices: JSON.parse(run.indices || "[]") }, result: slim });
+});
+
+/** The run's scorecard workbook (.xlsx), built from the stored result. */
+app.get("/runs/:runId/workbook.xlsx", async (c) => {
+  const run = await c.env.DB.prepare("SELECT * FROM opt2_runs WHERE id = ?").bind(c.req.param("runId")).first<RunRow>();
+  if (!run) return c.json({ error: "Run not found" }, 404);
+  const result = await getRunResult(c.env, run);
+  if (!result) return c.json({ error: "This run's result is no longer stored" }, 404);
+  const customer = await c.env.DB.prepare(
+    "SELECT cu.name FROM optimize_accounts oa JOIN customers cu ON cu.id = oa.customer_id WHERE oa.id = ?",
+  ).bind(run.optimize_account_id).first<{ name: string }>();
+  const customerName = customer?.name ?? "";
+
+  let bytes: Uint8Array;
+  try {
+    bytes = buildRunWorkbook(run, result, customerName);
+  } catch (err) {
+    if (err instanceof WorkbookUnavailableError) return c.json({ error: err.message }, 409);
+    throw err;
+  }
+  return new Response(bytes, {
+    headers: {
+      "Content-Type": XLSX_CONTENT_TYPE,
+      "Content-Disposition": `attachment; filename="${workbookFilename(run, customerName)}"`,
+      "Cache-Control": "no-store",
+    },
+  });
 });
 
 export default app;

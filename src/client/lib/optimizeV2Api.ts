@@ -88,10 +88,37 @@ export type Finding = {
   observation: string; businessImpact: string; recommendation: string; roiLever: string; steps: string[]; source: string;
 };
 
+/** Seat summary derived server-side from the run's raw data (see
+ *  src/server/services/optimizeV2/licenses.ts). utilizationPct uses the same
+ *  formula as the license_utilization KPI; scorecardKpi is that KPI as scored,
+ *  which differs only when a manual input supplied it. */
+type ScorecardLicenseKpi = { value: number | null; target: number | null; supplied: boolean };
+
+export type ZoomLicenseSummary = {
+  platform: "zoom";
+  licensed: number; inUse: number; dormantSeats: number; neverSeats: number; reclaimable: number;
+  countsIncludeBasic: boolean; utilizationPct: number | null; basic: number; totalUsers: number; sampled: boolean;
+  phone: { users: number; numbers: number | null; unassignedNumbers: number | null } | null;
+  rooms: number | null;
+  scorecardKpi: ScorecardLicenseKpi | null;
+};
+
+export type RingCentralLicenseSummary = {
+  platform: "ringcentral";
+  users: { total: number; enabled: number; notActivated: number; disabled: number; other: number } | null;
+  utilizationPct: number | null;
+  licenses: { total: number; assigned: number; unassigned: number; planName: string | null } | null;
+  scorecardKpi: ScorecardLicenseKpi | null;
+};
+
+export type LicenseSummary = ZoomLicenseSummary | RingCentralLicenseSummary;
+
 export type RunResult = {
   platform?: Platform;
   /** Collection notes (RingCentral: partial data, sample volume, JWT expiry). */
   warnings?: string[];
+  /** Null when the run collected no user or license data. */
+  licenses?: LicenseSummary | null;
   meta: { generatedAt: string; accountId: string; window: { from: string; to: string }; grantedScopes: string[]; subrequestsUsed: number };
   scorecard: {
     overall: number | null; overallGrade: Grade; configAlignment: number | null;
@@ -109,6 +136,33 @@ export type RunResult = {
   };
 };
 
+export type TrendRun = {
+  id: string;
+  source: RunSummary["source"];
+  created_at: string;
+  from_date: string;
+  to_date: string;
+  overall: number | null;
+  overall_grade: Grade | null;
+  config_alignment: number | null;
+  red_findings: number | null;
+  amber_findings: number | null;
+  /** True when layer scores were derived from per-KPI rows (runs saved before layer scores were stored). */
+  layers_derived: boolean;
+  layers: { layer: number; label: string; score: number | null }[];
+};
+
+export type Trend = {
+  connection: { id: string; platform: Platform; schedule_enabled: number; schedule_day: number; timezone: string };
+  runs: TrendRun[];
+  kpi_options: { key: string; label: string; layer: number; unit: string | null }[];
+  kpis: {
+    key: string; label: string; unit: string | null;
+    points: { run_id: string; value: number | null; target: number | null; attainment: number | null; status: string | null }[];
+  }[];
+};
+
+export type ZoomCredentialsInput = { accountId: string; clientId: string; clientSecret: string };
 export type QuestionnaireSummary = {
   platform: Platform;
   instrument: Instrument;
@@ -135,7 +189,6 @@ export type QuestionnaireResponse = {
   suggested_scope: string[] | null;
 };
 
-export type ZoomCredentialsInput ={ accountId: string; clientId: string; clientSecret: string };
 export type RingCentralCredentialsInput = { clientId: string; clientSecret: string; jwt: string };
 
 export const optimizeV2Api = {
@@ -144,6 +197,8 @@ export const optimizeV2Api = {
   account: (accountId: string) =>
     request<{
       account: { id: string; customer_id: string; customer_name: string; crm_account_id: string | null; optimize_status: string; vendor: string | null };
+      /** Whether the signed-in role can change connections and schedules. */
+      can_edit?: boolean;
       connections: Connection[];
       runs: RunSummary[];
     }>(`/optimize-v2/accounts/${encodeURIComponent(accountId)}`),
@@ -165,6 +220,17 @@ export const optimizeV2Api = {
     request<{ runId: string; overall: number | null; grade: Grade }>(
       `/optimize-v2/connections/${encodeURIComponent(connectionId)}/runs`,
       { method: "POST" },
+    ),
+
+  saveSchedule: (connectionId: string, body: { enabled: boolean; day: number; timezone?: string }) =>
+    request<{ connection: Connection; due: { due: boolean; reason: string; dueDate?: string } | null }>(
+      `/optimize-v2/connections/${encodeURIComponent(connectionId)}/schedule`,
+      { method: "PUT", body: JSON.stringify(body) },
+    ),
+
+  trend: (connectionId: string, kpis?: string[]) =>
+    request<Trend>(
+      `/optimize-v2/connections/${encodeURIComponent(connectionId)}/trend${kpis?.length ? `?kpis=${encodeURIComponent(kpis.join(","))}` : ""}`,
     ),
 
   run: (runId: string) =>

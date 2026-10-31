@@ -20,6 +20,7 @@ export type ConnectionRow = {
   schedule_day: number;
   last_run_at: string | null;
   last_error: string | null;
+  schedule_attempted_at?: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -160,6 +161,8 @@ export type RunRow = {
   potential_gain: number | null;
   subrequests_used: number | null;
   result_key: string | null;
+  /** JSON [{layer, label, score}]; null on runs saved before migration 0162. */
+  layer_scores?: string | null;
   created_by: string | null;
   created_at: string;
 };
@@ -183,13 +186,14 @@ export async function saveRun(
     env.DB.prepare(
       `INSERT INTO opt2_runs (id, connection_id, optimize_account_id, platform, from_date, to_date, source, overall, overall_grade,
          config_alignment, indices, kpis_populated, kpis_total, api_populated, red_findings, amber_findings, potential_gain,
-         subrequests_used, result_key, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         subrequests_used, result_key, layer_scores, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).bind(
       runId, conn.id, conn.optimize_account_id, conn.platform, result.meta.window.from, result.meta.window.to, source,
       sc.overall, sc.overallGrade, sc.configAlignment, JSON.stringify(sc.indices.map(({ key, label, value, target, status }) => ({ key, label, value, target, status }))),
       sc.coverage.populated, sc.coverage.total, sc.coverage.apiPopulated, result.findings.summary.red, result.findings.summary.amber,
-      sc.potentialGain, result.meta.subrequestsUsed, key, userId,
+      sc.potentialGain, result.meta.subrequestsUsed, key,
+      JSON.stringify(sc.layers.map(({ layer, label, score }) => ({ layer, label, score }))), userId,
     ),
     ...sc.layers.flatMap((l) => l.kpis.map((k) =>
       env.DB.prepare(
