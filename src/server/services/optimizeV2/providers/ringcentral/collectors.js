@@ -2,7 +2,9 @@
 // Kept as JavaScript, close to the validated original. Changes: config import
 // paths (the JSON now lives in ./config), and deliberate fixes from review —
 // RingCX requests now count against the budget (they bypassed it), and inventory
-// adds usersByStatus so license utilization uses one population.
+// adds usersByStatus so license utilization uses one population. The per-phone
+// E911 sweep (75 phones) and per-queue membership (100 queues) are bounded so a
+// large estate can't spend the whole run budget in inventory.
 
 // Data collection against a customer's RingCentral account.
 // Every endpoint here is verified in ../../../../docs/surfaces.md.
@@ -63,7 +65,14 @@ export async function collectInventory(rc, accountId) {
   let hardPhonesChecked = 0;
   let hardPhonesNoE911 = 0;
   let e911Complete = true;
-  for (const d of hardPhones) {
+  // CloudConnect change: only sweep when a complete answer is possible. The
+  // figure is withheld unless every phone is checked, so on a large estate the
+  // sweep spent the whole budget (181 of 200 calls on 900 phones) for nothing
+  // and starved the collectors after inventory.
+  const E911_MAX_PHONES = 75;
+  const e911Skipped = hardPhones.length > E911_MAX_PHONES;
+  if (e911Skipped) e911Complete = false;
+  for (const d of e911Skipped ? [] : hardPhones) {
     if (rc.remaining < 8) { e911Complete = false; break; }
     try {
       const detail = await rc.json(`/restapi/v1.0/account/${accountId}/device/${d.id}`);
@@ -79,9 +88,14 @@ export async function collectInventory(rc, accountId) {
   if (hardPhones.length && !hardPhonesChecked) e911Complete = false;
 
   // Queue membership needs one call per queue — only if the budget allows.
+  // CloudConnect change: like E911, membership is only used when complete, so
+  // past QUEUE_MAX queues the sweep is skipped rather than spending ~100 calls
+  // on a partial answer nothing publishes.
+  const QUEUE_MAX = 100;
   const queueDetail = [];
-  let queueMembershipComplete = true;
-  for (const q of queues) {
+  const queueMembershipSkipped = queues.length > QUEUE_MAX;
+  let queueMembershipComplete = !queueMembershipSkipped;
+  for (const q of queueMembershipSkipped ? [] : queues) {
     if (rc.remaining < 6) { queueMembershipComplete = false; break; }
     try {
       const m = await rc.json(`/restapi/v1.0/account/${accountId}/call-queues/${q.id}/members?perPage=1000`);
@@ -104,6 +118,7 @@ export async function collectInventory(rc, accountId) {
     hardPhonesChecked,
     hardPhonesNoE911,
     e911Complete,
+    e911Skipped,
     extensionsByType: byType,
     extensionsByStatus: byStatus,
     usersByStatus,
@@ -111,6 +126,7 @@ export async function collectInventory(rc, accountId) {
     faxNumbers,
     queues: queueDetail,
     queueMembershipComplete,
+    queueMembershipSkipped,
     businessHours, callRecording, sites,
     unavailable: [...unavailable],
     collectionFindings: findings,
