@@ -38,3 +38,8 @@ export function safeFileName(client: string): string {
 export function exportFileName(client: string, ext: "docx" | "pptx"): string {
   return `${safeFileName(client)}_AI_Agent_ROI_Analysis.${ext}`;
 }
+
+/** The Excel download carries the numbers, not the report: "_AI_Agent_ROI_Data.xlsx". */
+export function exportDataFileName(client: string): string {
+  return `${safeFileName(client)}_AI_Agent_ROI_Data.xlsx`;
+}
