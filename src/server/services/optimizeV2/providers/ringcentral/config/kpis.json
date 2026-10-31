@@ -1,0 +1,566 @@
+{
+  "_status": "In production use since 2026-10. Every KPI below is wired to a verified RingCentral data source, and one that cannot be measured carries `blockedBy` explaining why rather than being omitted. Targets are sensible defaults, not contractual ones — set them per engagement. Add KPIs here, never in renderer code.",
+  "_sources": {
+    "analytics.aggregate": "POST /analytics/calls/v1/accounts/{accountId}/aggregation/fetch",
+    "analytics.timeline": "POST /analytics/calls/v1/accounts/{accountId}/timeline/fetch",
+    "callLog": "GET /restapi/v1.0/account/{accountId}/call-log",
+    "inventory": "rest-api/ts/admin/inventory.ts",
+    "video": "GET /rcvideo/v1/history/meetings",
+    "ace": "GET /ai/ringsense/v1/public/accounts/{accountId}/domains/{domain}/records|sessions/{id}/insights",
+    "ringcx": "GET https://ringcx.ringcentral.com/voice/api/v1/admin/accounts/{acct}/gateGroups|agentGroups (RingCX token)",
+    "ringcxReports": "RingCX Reports APIs — require WEM Access",
+    "ringcxRealtime": "GET /voice/api/v1/admin/accounts/{acct}/realTimeData/{inbound|outbound|agent|chat|ivr} — ReadAccounts + RingCX reporting rights. NOT WEM. Same-day counters, reset at midnight in the account timezone."
+  },
+  "kpis": [
+    {
+      "id": "total_calls",
+      "layer": 5,
+      "name": "Total calls",
+      "product": "RingEX",
+      "description": "All calls RingCentral Business Analytics counted in the window, inbound and outbound. The denominator for volume context, never a score on its own.",
+      "unit": "count",
+      "direction": "neutral",
+      "source": "analytics.aggregate",
+      "target": null
+    },
+    {
+      "id": "answer_rate",
+      "layer": 5,
+      "name": "Answer rate",
+      "product": "RingEX",
+      "description": "Share of answerable inbound calls that reached a person. Answerable means answered + notAnswered; it excludes call legs Analytics does not treat as offered.",
+      "unit": "percent",
+      "direction": "higher",
+      "source": "analytics.aggregate",
+      "target": 90,
+      "formula": "answered / (answered + notAnswered) * 100   [inbound only]",
+      "reco": "Raise inbound answer rate by closing routing and staffing gaps before adding headcount.",
+      "steps": [
+        "Identify queues with the largest notAnswered share in the Voice report.",
+        "Confirm each has members and that overflow/after-hours rules are set.",
+        "Check business hours match actual operating hours.",
+        "Re-baseline after two weeks and compare the trend."
+      ],
+      "lever": "Customer experience · revenue protection"
+    },
+    {
+      "id": "missed_call_rate",
+      "layer": 5,
+      "name": "Missed call rate",
+      "product": "RingEX",
+      "description": "Share of answerable inbound calls that went unanswered. The inverse of answer rate, reported separately because it is the figure operations acts on.",
+      "unit": "percent",
+      "direction": "lower",
+      "source": "analytics.aggregate",
+      "target": 5,
+      "formula": "notAnswered / (answered + notAnswered) * 100   [inbound only]",
+      "reco": "Reduce missed calls — they are the single clearest revenue leak in a voice estate.",
+      "steps": [
+        "Rank queues by notAnswered in the Voice report.",
+        "Add members to under-staffed queues or widen overflow targets.",
+        "Enable voicemail-to-email so missed calls still reach an owner."
+      ],
+      "lever": "Revenue protection"
+    },
+    {
+      "id": "outbound_connect_rate",
+      "layer": 5,
+      "name": "Outbound connect rate",
+      "product": "RingEX",
+      "description": "Share of outbound attempts that connected. Measures dialling quality and number reputation, not agent effort.",
+      "unit": "percent",
+      "direction": "higher",
+      "source": "analytics.aggregate",
+      "target": 60,
+      "formula": "connected / (connected + notConnected) * 100   [outbound only]"
+    },
+    {
+      "id": "avg_speed_to_answer",
+      "layer": 5,
+      "name": "Average speed to answer",
+      "product": "RingEX",
+      "description": "Mean seconds a caller waits before a person answers. Drives abandonment more directly than any other queue metric.",
+      "unit": "seconds",
+      "direction": "lower",
+      "source": "analytics.aggregate",
+      "blockedBy": "Not available from RingCentral Business Analytics — it exposes no speed-to-answer timer. The valid timers are allCallsDuration and the callsDurationBy* family (confirmed by ANL-202 from the API). Queue-level speed to answer needs RingCX with WEM.",
+      "target": 20
+    },
+    {
+      "id": "avg_handle_time",
+      "layer": 5,
+      "name": "Average handle time",
+      "product": "RingEX",
+      "description": "Mean seconds a connected call lasts. Reference only — a rise can mean either worse efficiency or deeper service.",
+      "unit": "seconds",
+      "direction": "neutral",
+      "source": "analytics.aggregate",
+      "target": null
+    },
+    {
+      "id": "after_hours_call_pct",
+      "layer": 2,
+      "name": "After-hours call share",
+      "product": "RingEX",
+      "description": "Share of calls arriving outside configured business hours. Reveals hours that no longer match how the business operates.",
+      "unit": "percent",
+      "direction": "neutral",
+      "source": "analytics.aggregate",
+      "target": null
+    },
+    {
+      "id": "queues_without_members",
+      "layer": 2,
+      "name": "Queues with no members",
+      "product": "RingEX",
+      "description": "Call queues with no members assigned. Every call into one is abandoned or misrouted, whatever the staffing level elsewhere.",
+      "unit": "count",
+      "direction": "lower",
+      "source": "inventory",
+      "target": 0,
+      "reco": "Assign members to every queue, or retire the queue.",
+      "steps": [
+        "Open Configuration → Call queues and find rows flagged 'no members'.",
+        "Assign at least one member, or delete the queue if it is legacy.",
+        "Re-run to confirm the gap closes."
+      ],
+      "lever": "Deployment assurance"
+    },
+    {
+      "id": "ext_not_activated",
+      "layer": 1,
+      "name": "Extensions never activated",
+      "product": "RingEX",
+      "description": "Extensions still in NotActivated state. Paid-for seats that no one has ever used.",
+      "unit": "count",
+      "direction": "lower",
+      "source": "inventory",
+      "target": 0,
+      "reco": "Activate, reassign or release never-activated extensions — they are paid-for seats doing nothing.",
+      "steps": [
+        "Export the extension list filtered to NotActivated.",
+        "Confirm with the customer whether each is a planned hire or abandoned.",
+        "Release the abandoned ones at the next billing cycle."
+      ],
+      "lever": "Licence cost avoidance"
+    },
+    {
+      "id": "ext_disabled",
+      "layer": 1,
+      "name": "Disabled extensions",
+      "product": "RingEX",
+      "description": "Extensions in Disabled state. Usually leavers — they indicate how quickly offboarding reaches the phone system.",
+      "unit": "count",
+      "direction": "lower",
+      "source": "inventory",
+      "target": 0,
+      "reco": "Release or re-enable disabled extensions so the licence position is accurate.",
+      "steps": [
+        "Review disabled extensions with the account owner.",
+        "Release those no longer needed."
+      ],
+      "lever": "Licence cost avoidance"
+    },
+    {
+      "id": "license_utilization",
+      "layer": 10,
+      "name": "License utilization",
+      "product": "Platform",
+      "description": "Active users as a share of licensed seats. The single clearest input to a renewal conversation.",
+      "unit": "percent",
+      "direction": "higher",
+      "source": "inventory",
+      "target": 95,
+      "formula": "active_users / licensed_seats * 100",
+      "reco": "Keep licence utilisation high — unused seats are pure cost.",
+      "lever": "Licence cost avoidance"
+    },
+    {
+      "id": "hardphones_no_e911",
+      "layer": 0,
+      "name": "Hard phones without E911 address",
+      "product": "RingEX",
+      "description": "Hard phones with no emergency service address assigned. Emergency calls from these devices cannot be located — a RAY BAUM'S Act exposure.",
+      "unit": "count",
+      "direction": "lower",
+      "source": "inventory",
+      "target": 0,
+      "reco": "Assign an emergency service address to every hard phone.",
+      "steps": [
+        "List devices with no emergencyServiceAddress.",
+        "Set the address for each from its physical location.",
+        "Validate against the site record."
+      ],
+      "lever": "Regulatory compliance (RAY BAUM'S Act)"
+    },
+    {
+      "id": "softphone_ratio",
+      "layer": 4,
+      "name": "Softphone share of devices",
+      "product": "RingEX app",
+      "description": "Share of devices that are softphones rather than hard phones. Indicates how much desk hardware could be retired rather than refreshed.",
+      "unit": "percent",
+      "direction": "neutral",
+      "source": "inventory",
+      "target": null
+    },
+    {
+      "id": "meetings_held",
+      "layer": 7,
+      "name": "Video meetings held",
+      "product": "RingCentral Video",
+      "description": "Meetings hosted on RingCentral Video in the window. Shows whether meetings run here or on a parallel tool that is also being paid for.",
+      "unit": "count",
+      "direction": "higher",
+      "source": "video",
+      "target": null
+    },
+    {
+      "id": "meeting_minutes",
+      "layer": 7,
+      "name": "Video meeting minutes",
+      "product": "RingCentral Video",
+      "description": "Total participant minutes on RingCentral Video. Scales meeting adoption by actual time, not meeting count.",
+      "unit": "minutes",
+      "direction": "higher",
+      "source": "video",
+      "target": null
+    },
+    {
+      "id": "sms_volume",
+      "layer": 6,
+      "name": "SMS volume",
+      "product": "RingCentral SMS",
+      "description": "Business SMS and MMS messages in the window. Establishes whether the lower-cost channel is being used at all.",
+      "unit": "count",
+      "direction": "neutral",
+      "source": "callLog",
+      "blockedBy": "Account-wide SMS volume has no single endpoint — message-store is per extension, so a true total needs one call per extension and does not fit the subrequest budget. A2P campaign health is a separate block: /a2p-sms/* returns 403 InsufficientPermissions without the A2PSMS scope, which this application does not hold.",
+      "target": null
+    },
+    {
+      "id": "recorded_call_pct",
+      "layer": 10,
+      "name": "Calls recorded",
+      "product": "RingEX",
+      "description": "Share of calls with a recording. Sets the ceiling on what quality review, coaching and dispute defence can ever cover.",
+      "unit": "percent",
+      "direction": "neutral",
+      "source": "callLog",
+      "target": null,
+      "formula": "recorded calls / total calls * 100",
+      "reco": "Confirm recording coverage matches policy — it also gates every AI insight.",
+      "lever": "Compliance · AI enablement"
+    },
+    {
+      "id": "ace_insight_coverage",
+      "layer": 9,
+      "name": "AI insight coverage of recordings",
+      "product": "RingSense (ACE)",
+      "description": "Share of sampled recordings that have AI Conversation Expert insights attached. Where coverage is low, quality findings rest on impressions rather than evidence.",
+      "unit": "percent",
+      "direction": "higher",
+      "source": "ace",
+      "target": 80,
+      "formula": "recordings with ACE insights / recordings sampled * 100",
+      "reco": "Assign AI Conversation Expert licences so recorded calls generate insights.",
+      "steps": [
+        "Confirm ACE licences are purchased on the account.",
+        "Assign a licence to each user whose calls should be analysed.",
+        "Confirm those users' calls are being recorded.",
+        "Re-run — insights appear only for licensed users' recordings."
+      ],
+      "lever": "AI adoption · coaching efficiency"
+    },
+    {
+      "id": "ace_recordings_analyzed",
+      "layer": 9,
+      "name": "Recordings with AI insights",
+      "product": "RingSense (ACE)",
+      "description": "Count of recordings with ACE insights returned. Reference for the coverage figure's denominator.",
+      "unit": "count",
+      "direction": "higher",
+      "source": "ace",
+      "target": null
+    },
+    {
+      "id": "ringcx_queues",
+      "layer": 8,
+      "name": "RingCX queues (gates)",
+      "product": "RingCX",
+      "description": "Queues (gates) defined in RingCX, across all gate groups. Reference for the contact-centre configuration findings.",
+      "unit": "count",
+      "direction": "neutral",
+      "source": "ringcx",
+      "target": null,
+      "blockedBy": "RingCX Admin permission — the automation user needs MANAGE_USERS or SUPER_USER in the RingCX Admin portal"
+    },
+    {
+      "id": "ringcx_agents",
+      "layer": 8,
+      "name": "RingCX agents",
+      "product": "RingCX",
+      "description": "Agents defined in RingCX. Reference for agent licence utilisation.",
+      "unit": "count",
+      "direction": "neutral",
+      "source": "ringcx",
+      "target": null,
+      "blockedBy": "RingCX Admin permission — MANAGE_USERS or SUPER_USER required"
+    },
+    {
+      "id": "ringcx_queue_answer_rate",
+      "layer": 8,
+      "name": "RingCX queue answer rate (today)",
+      "product": "RingCX",
+      "description": "Share of presented inbound contacts answered. Available same-day only from realTimeData without WEM, so it describes today, not the measurement window.",
+      "unit": "percent",
+      "direction": "higher",
+      "source": "ringcxRealtime",
+      "target": 85,
+      "formula": "answeredAll / presentedAll * 100  [realTimeData/inbound, same-day]",
+      "reco": "Improve contact-centre answer rate through staffing and routing before adding licences.",
+      "lever": "Customer experience"
+    },
+    {
+      "id": "call_failure_rate",
+      "layer": 3,
+      "name": "Call failure / not-connected rate",
+      "product": "RingEX",
+      "description": "Share of outbound attempts that did not connect. Isolates carrier, number and network problems from staffing problems.",
+      "unit": "percent",
+      "direction": "lower",
+      "source": "analytics.aggregate",
+      "target": 5,
+      "formula": "notConnected / (connected + notConnected) * 100   [outbound]",
+      "reco": "Investigate outbound calls that never connect — a high rate points at number quality or carrier routing.",
+      "steps": [
+        "Segment notConnected by destination and by campaign.",
+        "Check for invalid or stale numbers in the dialled lists.",
+        "Raise persistent patterns with the carrier."
+      ],
+      "lever": "Operational efficiency"
+    },
+    {
+      "id": "ringcx_active_queues",
+      "layer": 8,
+      "name": "Active queues",
+      "product": "RingCX",
+      "description": "Queues marked active. The denominator for unstaffed-queue findings — inactive gates are excluded so the finding stays true.",
+      "unit": "count",
+      "direction": "neutral",
+      "source": "ringcx",
+      "target": null
+    },
+    {
+      "id": "ringcx_unstaffed_queues",
+      "layer": 8,
+      "name": "Active queues with no agent access",
+      "product": "RingCX",
+      "description": "Active queues with no agent holding access. Determined from each gate's assignedAgents endpoint, because the list endpoints return null for agent access.",
+      "unit": "count",
+      "direction": "lower",
+      "source": "ringcx",
+      "target": 0,
+      "reco": "Grant agent access to every active queue, or deactivate unused ones.",
+      "steps": [
+        "Open the RingCX report and note queues flagged with no agent access.",
+        "In RingCX Admin, assign agents to the gate, or set the gate inactive."
+      ],
+      "lever": "Contact centre availability"
+    },
+    {
+      "id": "ringcx_inactive_agents",
+      "layer": 8,
+      "name": "Inactive RingCX agents",
+      "product": "RingCX",
+      "description": "Agents marked inactive or never logged in while still holding a seat. Directly reclaimable licence spend.",
+      "unit": "count",
+      "direction": "lower",
+      "source": "ringcx",
+      "target": 0,
+      "reco": "Remove or reactivate inactive RingCX agents.",
+      "lever": "Deployment assurance"
+    },
+    {
+      "id": "ringcx_agents_not_rc_managed",
+      "layer": 8,
+      "name": "Agents not managed by RingEX",
+      "product": "RingCX",
+      "description": "RingCX agents whose identity is not managed by RingEX. Each is a separate joiner-mover-leaver path and a separate offboarding risk.",
+      "unit": "count",
+      "direction": "lower",
+      "source": "ringcx",
+      "target": 0
+    },
+    {
+      "id": "ringcx_dialgroups_no_campaign",
+      "layer": 8,
+      "name": "Dial groups with no campaign",
+      "product": "RingCX",
+      "description": "Outbound dial groups with no campaign attached. Outbound capacity configured but not dialling.",
+      "unit": "count",
+      "direction": "lower",
+      "source": "ringcx",
+      "target": 0
+    },
+    {
+      "id": "ringcx_queue_abandon_rate",
+      "layer": 8,
+      "name": "RingCX queue abandon rate (today)",
+      "product": "RingCX",
+      "description": "Share of presented contacts abandoned before answer. Same-day only from realTimeData without WEM.",
+      "unit": "percent",
+      "direction": "lower",
+      "source": "ringcxRealtime",
+      "target": 5,
+      "formula": "abandoned / presentedAll * 100  [same-day]",
+      "reco": "Reduce abandons — callers leaving the queue is the most direct measure of under-staffing.",
+      "lever": "Customer experience · revenue protection"
+    },
+    {
+      "id": "ringcx_outbound_answer_rate",
+      "layer": 8,
+      "name": "RingCX outbound answer rate (today)",
+      "product": "RingCX",
+      "description": "Share of outbound RingCX attempts answered. Same-day only from realTimeData without WEM.",
+      "unit": "percent",
+      "direction": "higher",
+      "source": "ringcxRealtime",
+      "target": 30,
+      "formula": "answer / (answer + noanswer) * 100  [same-day]"
+    },
+    {
+      "id": "ringcx_ivr_containment",
+      "layer": 8,
+      "name": "IVR containment (today)",
+      "product": "RingCX",
+      "description": "Share of presented contacts resolved without transfer to a gate. Every contained contact avoids an agent-handled minute. Same-day only.",
+      "unit": "percent",
+      "direction": "higher",
+      "source": "ringcxRealtime",
+      "target": 40,
+      "formula": "(presented - transferGate) / presented * 100  [same-day]",
+      "reco": "Raise IVR containment so fewer callers need an agent.",
+      "steps": [
+        "Review which IVR nodes transfer most often.",
+        "Add self-service for the top transfer reasons.",
+        "Re-measure containment after each change."
+      ],
+      "lever": "Deflection · cost per contact"
+    },
+    {
+      "id": "ringcx_queue_stats_historical",
+      "layer": 8,
+      "name": "Queue statistics over the measurement window",
+      "product": "RingCX",
+      "description": "Queue statistics retrieved over the measurement window from RingCX reporting. Reference for whether window-length queue history is available at all.",
+      "unit": "count",
+      "direction": "neutral",
+      "source": "ringcxReports",
+      "target": null,
+      "blockedBy": "WEM Access not enabled — the HISTORICAL Reports APIs (queue statistics, agent extended statistics, segment metadata) require it. Same-day figures above come from realTimeData and need no WEM."
+    },
+    {
+      "id": "presence_offline_pct",
+      "layer": 4,
+      "name": "Extensions offline",
+      "product": "RingEX app",
+      "description": "Share of user extensions showing Offline presence at the time of the run. A high share means people are not signed in to any RingCentral app, so presence and softphone routing cannot work for them.",
+      "unit": "percent",
+      "direction": "lower",
+      "source": "presence",
+      "target": 25,
+      "formula": "offline user extensions / user extensions * 100  [point-in-time]",
+      "reco": "Get the people who are never signed in onto a RingCentral app — presence, softphone and mobility all depend on it.",
+      "steps": [
+        "Export the offline list and compare it against recent call activity.",
+        "Separate genuinely unused seats (a licence finding) from users who simply never sign in (a training finding).",
+        "Push the desktop and mobile apps through MDM so signing in is the default, not a choice."
+      ],
+      "lever": "Employee experience · mobility"
+    },
+    {
+      "id": "dnd_blocking_calls",
+      "layer": 4,
+      "name": "Extensions refusing calls via DND",
+      "product": "RingEX app",
+      "description": "Extensions whose do-not-disturb state is set to refuse all calls or all department (queue) calls. A queue member in this state is counted as staffing but receives nothing, which is invisible from the queue configuration alone.",
+      "unit": "count",
+      "direction": "lower",
+      "source": "presence",
+      "target": 0,
+      "formula": "count(dndStatus in DoNotAcceptAnyCalls, DoNotAcceptDepartmentCalls)  [point-in-time]",
+      "reco": "Review extensions sitting in a call-refusing DND state, especially any that belong to a call queue.",
+      "steps": [
+        "Cross-reference the DND list against call queue membership.",
+        "For queue members, confirm whether the state is deliberate or left on by accident.",
+        "Where it is routine, the queue is effectively short-staffed — fix the roster rather than the symptom."
+      ],
+      "lever": "Customer experience · revenue protection"
+    },
+    {
+      "id": "fax_numbers",
+      "layer": 6,
+      "name": "Dedicated fax numbers",
+      "product": "RingCentral Fax",
+      "description": "Numbers still provisioned for fax. Each one is a displacement target: a recurring cost, and usually a workflow nobody has revisited.",
+      "unit": "count",
+      "direction": "lower",
+      "source": "inventory",
+      "target": 0,
+      "formula": "count(usageType = CompanyFaxNumber)",
+      "reco": "Identify what still sends and receives fax, and retire the lines whose workflow has an alternative.",
+      "steps": [
+        "Pull fax volume per number for the last quarter.",
+        "For numbers with no traffic, release them at the next billing cycle.",
+        "For numbers with traffic, find the counterparty — it is usually one partner who can move to secure email or a portal."
+      ],
+      "lever": "Cost reduction"
+    },
+    {
+      "id": "team_chat_adoption",
+      "layer": 7,
+      "name": "Team Chat adoption",
+      "product": "Team Chat",
+      "description": "Share of users active in Team Chat.",
+      "unit": "percent",
+      "direction": "higher",
+      "source": "teamMessaging",
+      "target": 60,
+      "blockedBy": "The Team Messaging API is scoped to the authenticated user — /glip/chats and /glip/teams return only the token owner's own chats and teams, not a tenant-wide view. Account-level chat adoption has no API on this surface; it is available in the RingCentral Analytics portal only.",
+      "reco": "Read Team Chat adoption from the RingCentral Analytics portal until an account-level API exists.",
+      "steps": [
+        "Analytics portal → Adoption & Usage → Message, for the measurement window.",
+        "Record the figure in the engagement notes rather than the scorecard, so its provenance stays obvious."
+      ],
+      "lever": "Employee experience"
+    },
+    {
+      "id": "licenses_unassigned",
+      "layer": 10,
+      "name": "Unassigned licenses",
+      "product": "Platform",
+      "description": "Licenses the account holds that are not assigned to anyone. Counted from the platform's own license inventory, which is a different and usually larger figure than dormant extensions — an extension can only be dormant if a licence was assigned to it in the first place.",
+      "unit": "count",
+      "direction": "lower",
+      "source": "licenses",
+      "target": 0,
+      "formula": "sum(quantity where assigned = false)",
+      "reco": "Reconcile the unassigned license pool against what the business actually needs before the next renewal.",
+      "steps": [
+        "Take the SKU list from the assessment page to the customer's order form and name each one.",
+        "Separate deliberate headroom for planned hiring from licences nobody remembers buying.",
+        "Put the remainder on the renewal agenda — this is the single largest reclaimable figure the assessment produces."
+      ],
+      "lever": "Cost reduction · renewal leverage"
+    }
+  ],
+  "_thresholds": {
+    "sampleVolumeMinCalls": 100,
+    "sampleVolumeMinCallsPerDay": 20,
+    "_note": "Rate KPIs are flagged as sample-volume artifacts below EITHER floor. A 90-day window with 3 calls/day is not a basis for a headline rate."
+  },
+  "_answerRateNote": "Answer rate comes from callsByResponse, NOT callsByResult. On real tenants callsByResult's largest bucket can be 'unknown'. callsByResponse partitions cleanly: answered+notAnswered == inbound, connected+notConnected == outbound.",
+  "_blockedByNote": "A KPI with `blockedBy` is part of the model but cannot be measured on this tenant yet. It renders as 'not assessed' WITH the reason, never omitted — a layer silently missing from a readout reads as 'assessed and fine'.",
+  "_recoNote": "reco / steps / lever drive the findings cards and the Increase Your Score panel. Adding guidance is a config edit — never a renderer change."
+}

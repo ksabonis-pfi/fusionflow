@@ -14,10 +14,13 @@ export function fmtDate(v: string | null | undefined) {
 export function fmtValue(v: number | string | null | undefined, unit?: string) {
   if (v == null || v === "") return "—";
   if (typeof v === "string") return v;
-  if (unit === "$") return "$" + v.toLocaleString("en-US");
-  if (unit === "%") return `${v}%`;
-  if (unit === "sec") return `${v}s`;
-  return v.toLocaleString("en-US");
+  // RingCentral rates arrive unrounded (e.g. 86.6666…).
+  const n = Math.round(v * 100) / 100;
+  if (unit === "$") return "$" + n.toLocaleString("en-US");
+  if (unit === "%") return `${n}%`;
+  if (unit === "sec") return `${Math.round(n)}s`;
+  if (unit === "min") return `${Math.round(n)}m`;
+  return n.toLocaleString("en-US");
 }
 
 export const SEVERITY_COLOR = {

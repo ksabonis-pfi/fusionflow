@@ -1,0 +1,43 @@
+{
+  "_note": "Composite indices, mirroring the Zoom program's structure. Inputs are RingCentral-available metrics, so definitions differ from Zoom's even where the label matches. Each index is the mean of its available components' attainment; null when none are available.",
+  "_status": "In production use since 2026-10. Each index is the mean of its available components' attainment, computed from the Scorecard rather than from a separate model, so it can always be explained to a customer. Components that are unavailable are dropped, not zeroed.",
+  "indices": [
+    {
+      "key": "cxHealth",
+      "label": "CX Health Index",
+      "target": 80,
+      "note": "Answer rate, abandon, routing hygiene and contact-centre staffing",
+      "components": [
+        "answer_rate",
+        "missed_call_rate",
+        "queues_without_members",
+        "ringcx_unstaffed_queues",
+        "ringcx_queue_abandon_rate"
+      ]
+    },
+    {
+      "key": "automationMaturity",
+      "label": "Automation Maturity Index",
+      "target": 60,
+      "note": "AI insight coverage, IVR containment and recording discipline",
+      "components": [
+        "ace_insight_coverage",
+        "ringcx_ivr_containment",
+        "recorded_call_pct"
+      ]
+    },
+    {
+      "key": "deploymentHealth",
+      "label": "Deployment Health Index",
+      "target": 90,
+      "note": "Provisioning hygiene, licence utilisation and emergency-address completeness",
+      "components": [
+        "license_utilization",
+        "ext_not_activated",
+        "ext_disabled",
+        "hardphones_no_e911",
+        "ringcx_inactive_agents"
+      ]
+    }
+  ]
+}

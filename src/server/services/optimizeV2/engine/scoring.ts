@@ -17,8 +17,8 @@ export function attainment(v: number | null, target: number | null, dir: Directi
   return Math.round(clamp((target / v) * 100));
 }
 
-export function kpiStatus(v: number | null, target: number, dir: Direction): KpiStatus {
-  if (v == null) return "—";
+export function kpiStatus(v: number | null, target: number | null, dir: Direction): KpiStatus {
+  if (v == null || target == null) return "—";
   if (dir === "higher") {
     // A 0 target on a higher-is-better KPI (hours saved, cost avoided, revenue)
     // means "any is good": match attainment(), which scores 0 as 0%. Without
