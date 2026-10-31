@@ -4,8 +4,7 @@ import { optimizeV2Api, type LayerScore, type RunResult, type RunSummary } from 
 import { PLATFORM_LABEL, SEVERITY_COLOR, fmtDate, fmtValue } from "../components/optimizeV2/format";
 import LicensesSection from "../components/optimizeV2/LicensesSection";
 import RunNav from "../components/optimizeV2/RunNav";
-import { readoutTrack } from "../components/optimizeV2/reports/track";
-import type { ReportResult, ReportRun } from "../components/optimizeV2/reports/types";
+import type { ReportRun } from "../components/optimizeV2/reports/types";
 import { GradePill, Pill } from "../components/optimizeV2/ui";
 
 type Tab = "scorecard" | "plan" | "findings" | "config" | "coverage";
@@ -35,16 +34,14 @@ export default function OptimizeV2RunPage() {
     { id: "config", label: `Configuration (${sc.configAudit.aligned}/${sc.configAudit.assessed})` },
     { id: "coverage", label: "Data coverage" },
   ];
-  // Same track rule as the readouts, so the Outcomes tab only shows when that readout exists.
+  // A Zoom audience chosen on the Reports page rides along so "Reports" reopens with it.
   const trackParam = search.get("track");
-  const { outcomesHidden } = readoutTrack(run.platform, data.result as ReportResult, trackParam);
 
   return (
     <div style={{ maxWidth: 1100, margin: "0 auto" }}>
       <RunNav
         run={run}
         active="assessment"
-        outcomesHidden={outcomesHidden}
         query={trackParam ? `?track=${encodeURIComponent(trackParam)}` : ""}
         actions={
           // Plain link: the server names the file via Content-Disposition.

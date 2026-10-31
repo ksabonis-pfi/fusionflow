@@ -9,7 +9,36 @@ export const REPORT_CSS = `
 .o2r-seg button { background: none; border: none; color: #475569; padding: 6px 12px; font-size: 13px; font-weight: 600; cursor: pointer; }
 .o2r-seg button + button { border-left: 1px solid rgba(3,57,95,0.18); }
 .o2r-seg button.on { background: #03395f; color: #fff; }
-.o2r-hint { font-size: 12px; color: #64748b; margin: -8px 0 12px; }
+
+/* Reports area: side panel (audience + report list) beside the readout. */
+.o2r-layout { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 20px; align-items: start; }
+.o2r-main { min-width: 0; }
+.o2r-side { position: sticky; top: 12px; background: #fff; border: 1px solid #dde4ef; border-radius: 10px; padding: 14px; }
+.o2r-side-group + .o2r-side-group { margin-top: 18px; }
+.o2r-side-label { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #64748b; margin-bottom: 8px; }
+.o2r-aud { display: flex; width: 100%; }
+.o2r-aud button { flex: 1; }
+.o2r-side-hint { font-size: 12px; color: #64748b; margin-top: 6px; line-height: 1.4; }
+.o2r-linkbtn { background: none; border: none; padding: 0; color: #03395f; font: inherit; font-weight: 600; cursor: pointer; text-decoration: underline; }
+.o2r-rlist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.o2r-ritem { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 8px 10px; border-radius: 6px;
+  font-size: 13px; font-weight: 500; color: #334155; text-decoration: none; border-left: 3px solid transparent; }
+.o2r-ritem:hover { background: #f1f5f9; color: #0f172a; }
+.o2r-ritem.on { background: #e8f0f7; color: #03395f; font-weight: 600; border-left-color: #03395f; }
+.o2r-ritem.off { color: #94a3b8; }
+span.o2r-ritem.off { cursor: not-allowed; }
+span.o2r-ritem.off:hover { background: none; color: #94a3b8; }
+.o2r-ritem small { font-size: 11px; font-weight: 500; color: #94a3b8; white-space: nowrap; }
+.o2r-note { background: #fff; border: 1px solid #dde4ef; border-radius: 10px; padding: 20px 24px; font-size: 14px; max-width: 560px; }
+@media (max-width: 900px) {
+  .o2r-layout { grid-template-columns: 1fr; gap: 14px; }
+  .o2r-side { position: static; display: flex; flex-direction: column; gap: 12px; }
+  .o2r-side-group + .o2r-side-group { margin-top: 0; }
+  .o2r-aud { width: auto; display: inline-flex; }
+  .o2r-rlist { flex-direction: row; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+  .o2r-ritem { white-space: nowrap; border-left: none; border: 1px solid #dde4ef; border-radius: 999px; padding: 6px 14px; }
+  .o2r-ritem.on { border-color: #03395f; }
+}
 
 .o2r { --o2r-navy: #03395F; --o2r-navy2: #066AAB; --o2r-green: #17C662; --o2r-good: #0F9E4E; --o2r-warning: #E0900A;
   --o2r-serious: #E07A06; --o2r-critical: #D0473A; --o2r-muted: #6B7A86; --o2r-ink: #2B2B2B; --o2r-line: #E7EDF1;
@@ -193,6 +222,8 @@ export const REPORT_CSS = `
     display: block !important; height: auto !important; min-height: 0 !important; overflow: visible !important;
     position: static !important; flex: none !important; padding: 0 !important; background: #fff !important; }
   .o2r-page { max-width: none; margin: 0; }
+  /* The side panel is .o2r-chrome (hidden above); drop the grid so the readout spans the page. */
+  .o2r-layout { display: block; }
   .o2r { max-width: none; margin: 0; padding: 0; box-shadow: none; border-radius: 0; font-size: 12px; }
   .o2r, .o2r * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .o2r details summary { display: none; }

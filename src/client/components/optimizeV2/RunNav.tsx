@@ -1,27 +1,25 @@
-// Page header + tab row shared by a run's assessment page and its readouts, so
-// the two read as one place: Assessment | Executive | Outcomes | Growth plan.
+// Page header + area tabs shared by a run's assessment page and its Reports
+// page, so the two read as one place: Assessment | Reports. Which report is
+// open, and for which audience, is chosen in the Reports page's own side panel.
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { PLATFORM_LABEL, fmtDate } from "./format";
-import type { ReportKind, ReportRun } from "./reports/types";
+import { DEFAULT_REPORT } from "./reports/catalog";
+import type { ReportRun } from "./reports/types";
 
-export type RunView = "assessment" | ReportKind;
+export type RunArea = "assessment" | "reports";
 
-export default function RunNav({ run, active, outcomesHidden, query = "", actions }: {
+export default function RunNav({ run, active, query = "", actions }: {
   run: ReportRun;
-  active: RunView;
-  /** Zoom Essentials has no Outcomes readout; its Executive readout is titled "Communications". */
-  outcomesHidden: boolean;
-  /** Carried across tabs (e.g. "?track=advanced") so a chosen Zoom track sticks. */
+  active: RunArea;
+  /** Carried across areas (e.g. "?track=advanced") so a chosen Zoom audience sticks. */
   query?: string;
   actions?: ReactNode;
 }) {
   const base = `/optimize-v2/runs/${encodeURIComponent(run.id)}`;
-  const tabs: { id: RunView; label: string; to: string }[] = [
+  const tabs: { id: RunArea; label: string; to: string }[] = [
     { id: "assessment", label: "Assessment", to: `${base}${query}` },
-    { id: "executive", label: outcomesHidden ? "Communications" : "Executive", to: `${base}/report/executive${query}` },
-    ...(outcomesHidden ? [] : [{ id: "outcomes" as const, label: "Outcomes", to: `${base}/report/outcomes${query}` }]),
-    { id: "growth", label: "Growth plan", to: `${base}/report/growth${query}` },
+    { id: "reports", label: "Reports", to: `${base}/report/${DEFAULT_REPORT}${query}` },
   ];
   const customer = run.customer_name || "Customer";
 
@@ -47,7 +45,7 @@ export default function RunNav({ run, active, outcomesHidden, query = "", action
         {actions && <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>{actions}</div>}
       </div>
 
-      <nav className="ms-tabs" aria-label="Assessment and readouts">
+      <nav className="ms-tabs" aria-label="Assessment and reports">
         {tabs.map((t) => (
           <Link
             key={t.id}
