@@ -11,6 +11,9 @@ import {
   getConnection, getRunResult, recordRunError, saveRun, toView, upsertConnection,
   type ConnectionRow, type RunRow,
 } from "../services/optimizeV2/store";
+import {
+  buildRunWorkbook, workbookFilename, WorkbookUnavailableError, XLSX_CONTENT_TYPE,
+} from "../services/optimizeV2/workbook";
 
 // Optimizations V2 (see docs/optimize-v2/DESIGN.md). Hangs off the V1
 // optimize_accounts row, so these use the same role rules as V1 Optimize.
@@ -206,6 +209,33 @@ app.get("/runs/:runId", async (c) => {
   // renders from the shared scorecard, findings and warnings.
   const slim = result ? { ...result, raw: undefined, native: undefined } : null;
   return c.json({ run: { ...run, indices: JSON.parse(run.indices || "[]") }, result: slim });
+});
+
+/** The run's scorecard workbook (.xlsx), built from the stored result. */
+app.get("/runs/:runId/workbook.xlsx", async (c) => {
+  const run = await c.env.DB.prepare("SELECT * FROM opt2_runs WHERE id = ?").bind(c.req.param("runId")).first<RunRow>();
+  if (!run) return c.json({ error: "Run not found" }, 404);
+  const result = await getRunResult(c.env, run);
+  if (!result) return c.json({ error: "This run's result is no longer stored" }, 404);
+  const customer = await c.env.DB.prepare(
+    "SELECT cu.name FROM optimize_accounts oa JOIN customers cu ON cu.id = oa.customer_id WHERE oa.id = ?",
+  ).bind(run.optimize_account_id).first<{ name: string }>();
+  const customerName = customer?.name ?? "";
+
+  let bytes: Uint8Array;
+  try {
+    bytes = buildRunWorkbook(run, result, customerName);
+  } catch (err) {
+    if (err instanceof WorkbookUnavailableError) return c.json({ error: err.message }, 409);
+    throw err;
+  }
+  return new Response(bytes, {
+    headers: {
+      "Content-Type": XLSX_CONTENT_TYPE,
+      "Content-Disposition": `attachment; filename="${workbookFilename(run, customerName)}"`,
+      "Cache-Control": "no-store",
+    },
+  });
 });
 
 export default app;
