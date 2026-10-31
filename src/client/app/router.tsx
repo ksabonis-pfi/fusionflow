@@ -22,6 +22,7 @@ import OptimizeV2Page from "../pages/OptimizeV2Page";
 import OptimizeV2AccountPage from "../pages/OptimizeV2AccountPage";
 import OptimizeV2RunPage from "../pages/OptimizeV2RunPage";
 import OptimizeV2ReportPage from "../pages/OptimizeV2ReportPage";
+import OptimizeV2QuestionnairePage from "../pages/OptimizeV2QuestionnairePage";
 import LoginPage from "../pages/LoginPage";
 import InboxPage from "../pages/InboxPage";
 import CustomersPage from "../pages/CustomersPage";
@@ -90,6 +91,7 @@ export default function Router() {
           <Route path="/optimize-v2" element={<OptimizeV2Page />} />
           <Route path="/optimize-v2/runs/:runId" element={<OptimizeV2RunPage />} />
           <Route path="/optimize-v2/:accountId" element={<OptimizeV2AccountPage />} />
+          <Route path="/optimize-v2/:accountId/questionnaires/:platform/:instrument" element={<OptimizeV2QuestionnairePage />} />
           <Route path="/customers" element={<CustomersPage />} />
           <Route path="/customers/:id" element={<CustomerDetailPage />} />
           <Route path="/prospecting" element={<ProspectingPage />} />

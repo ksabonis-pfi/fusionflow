@@ -6,6 +6,7 @@ import { auditMiddleware } from "./middleware/audit";
 import { runShipmentTracking } from "./lib/shipmentTracking";
 import { runAccountTeamSync } from "./lib/accountTeamSync";
 import { revokeCompletedProjectGrants } from "./services/graphService";
+import { runDueConnections } from "./services/optimizeV2/schedule";
 import authRoutes from "./routes/auth";
 import dashboardRoutes from "./routes/dashboard";
 import projectRoutes from "./routes/projects";
@@ -303,6 +304,13 @@ export default {
   async scheduled(event: ScheduledEvent, env: Bindings, ctx: ExecutionContext) {
     if (event.cron === "0 * * * *") {
       ctx.waitUntil(runLeadershipWeeklySummaryCheck(env));
+      // Optimizations V2 monthly runs: a few per tick, one at a time, so each
+      // invocation stays inside its subrequest budget; later ticks take the
+      // rest. Hourly rather than the daily cron, whose invocation already
+      // spends subrequests on the jobs below. No-op unless OPTIMIZE_V2_ENABLED.
+      ctx.waitUntil(runDueConnections(env).catch((err) =>
+        console.error("[cron] Optimizations V2 schedule sweep failed:", err instanceof Error ? err.message : err)
+      ));
       return;
     }
     // Shipment tracking runs on its own 6-hour cron so it doesn't make the daily

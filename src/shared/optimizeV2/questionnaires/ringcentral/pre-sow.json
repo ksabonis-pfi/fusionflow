@@ -1,0 +1,875 @@
+{
+ "platform": "ringcentral",
+ "key": "pre-sow",
+ "order": 1,
+ "cadence": "Before signature",
+ "role": "Solutions Architect (pre-sales)",
+ "title": "Pre-SOW Discovery & Scoping Questionnaire",
+ "lede": "The companion instrument to the post-SOW readiness survey, fielded before signature. Its job is not readiness — it is scope accuracy. Every answer either sizes the SOW or becomes a written assumption that protects it, and every unanswered question is a change order waiting to happen.",
+ "meta": {
+  "Instrument": "Guided discovery",
+  "Fielded": "Discovery → pre-proposal",
+  "Length": "58 questions · 15–20 min",
+  "Output": "SOW scope + assumptions"
+ },
+ "count": 58,
+ "parts": [],
+ "caps": [
+  {
+   "key": "ringex",
+   "label": "RingEX telephony"
+  },
+  {
+   "key": "video",
+   "label": "RingCentral Video"
+  },
+  {
+   "key": "chat",
+   "label": "Team Chat"
+  },
+  {
+   "key": "rooms",
+   "label": "RingCentral Rooms"
+  },
+  {
+   "key": "sms",
+   "label": "Business SMS"
+  },
+  {
+   "key": "fax",
+   "label": "Fax"
+  },
+  {
+   "key": "ringcx-voice",
+   "label": "RingCX voice"
+  },
+  {
+   "key": "webchat",
+   "label": "RingCX web chat"
+  },
+  {
+   "key": "email",
+   "label": "RingCX email"
+  },
+  {
+   "key": "social",
+   "label": "RingCX social"
+  },
+  {
+   "key": "outbound",
+   "label": "RingCX outbound dialer"
+  },
+  {
+   "key": "sms-campaign",
+   "label": "SMS campaigns"
+  },
+  {
+   "key": "ai-voice",
+   "label": "RingCX AI agent (voice)"
+  },
+  {
+   "key": "ai-digital",
+   "label": "RingCX AI agent (digital)"
+  },
+  {
+   "key": "agent-assist",
+   "label": "RingCX agent assist"
+  },
+  {
+   "key": "ringsense",
+   "label": "RingSense"
+  },
+  {
+   "key": "qm",
+   "label": "Quality Management"
+  },
+  {
+   "key": "wfm",
+   "label": "Workforce Management"
+  },
+  {
+   "key": "cti",
+   "label": "Agent desktop / CRM"
+  },
+  {
+   "key": "surveys",
+   "label": "Surveys / VoC"
+  },
+  {
+   "key": "pii",
+   "label": "Data privacy / PII"
+  },
+  {
+   "key": "archiver",
+   "label": "Archiver / retention"
+  }
+ ],
+ "groups": [
+  {
+   "id": "P0",
+   "title": "Respondent and context",
+   "questions": [
+    {
+     "id": "P0.1",
+     "type": "short",
+     "required": true,
+     "text": "Full name"
+    },
+    {
+     "id": "P0.2",
+     "type": "short",
+     "required": true,
+     "text": "Job title and department"
+    },
+    {
+     "id": "P0.3",
+     "type": "single",
+     "required": true,
+     "text": "What is your role in this evaluation?",
+     "options": [
+      "I will sign",
+      "I will own delivery",
+      "I am the technical evaluator",
+      "I am advising the decision",
+      "Not yet determined"
+     ]
+    },
+    {
+     "id": "P0.4",
+     "type": "single",
+     "required": false,
+     "text": "Have you been through a platform migration like this before?",
+     "options": [
+      "Yes, I led one",
+      "Yes, I participated",
+      "No",
+      "Unsure"
+     ],
+     "logic": "A first-time migration team needs more hand-holding hours than an experienced one. This is an effort input, not a judgment, and it belongs in the estimate."
+    },
+    {
+     "id": "P0.5",
+     "type": "short",
+     "required": false,
+     "text": "Who else must be in the room before this can be signed?"
+    }
+   ],
+   "part": "P"
+  },
+  {
+   "id": "P1",
+   "title": "Driver and compelling event",
+   "questions": [
+    {
+     "id": "P1.1",
+     "type": "single",
+     "required": true,
+     "text": "What is driving this now?",
+     "options": [
+      "Contract expiry or renewal",
+      "End-of-life platform",
+      "Merger or acquisition",
+      "Cost reduction",
+      "Customer-experience failure",
+      "Compliance or regulatory pressure",
+      "Site consolidation or office move",
+      "No single driver"
+     ]
+    },
+    {
+     "id": "P1.2",
+     "type": "short",
+     "required": true,
+     "text": "What is the date that cannot move, and what happens if it does?",
+     "logic": "A hard date with a named consequence is a real date. A hard date with no consequence is a preference, and it should not drive a phase plan or a premium."
+    },
+    {
+     "id": "P1.3",
+     "type": "long",
+     "required": false,
+     "text": "What is wrong with what you have today, in the words you would use to your own executive?"
+    },
+    {
+     "id": "P1.4",
+     "type": "single",
+     "required": false,
+     "text": "Is an incumbent contract still running?",
+     "options": [
+      "No",
+      "Yes, ends within 3 months",
+      "Yes, ends in 3–12 months",
+      "Yes, more than 12 months",
+      "Unknown"
+     ],
+     "logic": "Overlap between an incumbent contract and a new platform is a budget conversation, not a technical one, but it reshapes the phase plan. Dual-running costs belong in the proposal, stated."
+    },
+    {
+     "id": "P1.5",
+     "type": "single",
+     "required": false,
+     "text": "Has a decision effectively been made, or is this a genuine evaluation?",
+     "options": [
+      "Decided, confirming details",
+      "Leaning, not committed",
+      "Genuinely open",
+      "Required to run a competitive process"
+     ]
+    }
+   ],
+   "part": "P"
+  },
+  {
+   "id": "P2",
+   "title": "Current-state snapshot",
+   "questions": [
+    {
+     "id": "P2.1",
+     "type": "short",
+     "required": true,
+     "text": "Current telephony platform and version"
+    },
+    {
+     "id": "P2.2",
+     "type": "short",
+     "required": false,
+     "text": "Current contact-centre platform, if separate from telephony"
+    },
+    {
+     "id": "P2.3",
+     "type": "fill",
+     "required": true,
+     "text": "Employees in total: ____  ·  Employees who need a phone: ____  ·  Contact-centre agents: ____",
+     "blanks": [
+      "Employees in total",
+      "Employees who need a phone",
+      "Contact-centre agents"
+     ]
+    },
+    {
+     "id": "P2.4",
+     "type": "single",
+     "required": false,
+     "text": "How many physical sites?",
+     "options": [
+      "1",
+      "2–5",
+      "6–20",
+      "21–100",
+      "More than 100"
+     ]
+    },
+    {
+     "id": "P2.5",
+     "type": "multiple",
+     "required": false,
+     "text": "Which of these are in use today and expected to survive the migration?",
+     "options": [
+      "Desk phones",
+      "Softphone only",
+      "Conference-room systems",
+      "Overhead paging",
+      "Analog devices (fax, alarm, elevator)",
+      "Contact-centre desktop",
+      "Mobile-first users",
+      "Call recording",
+      "None of these"
+     ]
+    },
+    {
+     "id": "P2.6",
+     "type": "single",
+     "required": false,
+     "text": "Who administers the current platform day to day?",
+     "options": [
+      "In-house IT",
+      "Managed service provider",
+      "The carrier",
+      "A mix",
+      "Nobody clearly owns it"
+     ],
+     "logic": "\"Nobody clearly owns it\" is not a complaint — it is an estimate input. It means discovery will be archaeology, and the hours should say so."
+    },
+    {
+     "id": "P2.7",
+     "type": "single",
+     "required": true,
+     "text": "How well documented is the current configuration?",
+     "options": [
+      "Fully documented and current",
+      "Partially",
+      "Out of date",
+      "Not documented",
+      "Unknown"
+     ],
+     "logic": "This is the single largest swing factor in discovery hours. Anything below \"fully documented and current\" means the estimate carries discovery as its own line item, not as an assumption."
+    },
+    {
+     "id": "P2.8",
+     "type": "long",
+     "required": false,
+     "text": "What has been tried before and did not work?"
+    }
+   ],
+   "part": "P"
+  },
+  {
+   "id": "P3",
+   "title": "Scope sizing",
+   "questions": [
+    {
+     "id": "P3.1",
+     "type": "fill",
+     "required": true,
+     "text": "RingEX users expected: ____  ·  RingCX agent seats expected: ____  ·  Supervisor seats: ____",
+     "blanks": [
+      "RingEX users expected",
+      "RingCX agent seats expected",
+      "Supervisor seats"
+     ]
+    },
+    {
+     "id": "P3.2",
+     "type": "single",
+     "required": false,
+     "text": "Is the agent count growing, flat or shrinking over the next 12 months?",
+     "options": [
+      "Growing more than 20%",
+      "Growing modestly",
+      "Flat",
+      "Shrinking",
+      "Unknown"
+     ]
+    },
+    {
+     "id": "P3.3",
+     "type": "single",
+     "required": false,
+     "text": "Do agents work from one site, several, or from home?",
+     "options": [
+      "Single site",
+      "Multiple sites",
+      "Fully remote",
+      "Hybrid",
+      "Unknown"
+     ]
+    },
+    {
+     "id": "P3.4",
+     "type": "fill",
+     "required": true,
+     "text": "Busiest-hour inbound calls: ____  ·  Daily inbound calls: ____  ·  Daily outbound calls: ____",
+     "logic": "Re-asked after signature as B2.3 against real reporting. The pre/post delta is the point — do not pre-fill it there.",
+     "blanks": [
+      "Busiest-hour inbound calls",
+      "Daily inbound calls",
+      "Daily outbound calls"
+     ]
+    },
+    {
+     "id": "P3.5",
+     "type": "single",
+     "required": true,
+     "text": "Where do the numbers in P3.4 come from?",
+     "options": [
+      "Exported from a reporting system",
+      "Estimated from headcount",
+      "A figure someone remembers",
+      "A carrier bill",
+      "Unknown"
+     ],
+     "logic": "The highest-leverage question in the instrument. A remembered number carried into a fixed-fee SOW is a margin problem discovered during build. Anything other than \"exported from a reporting system\" converts into a written assumption with a re-baseline clause."
+    },
+    {
+     "id": "P3.6",
+     "type": "single",
+     "required": false,
+     "text": "How many queues or routing destinations exist today?",
+     "options": [
+      "Fewer than 10",
+      "10–30",
+      "31–75",
+      "More than 75",
+      "Unknown"
+     ],
+     "logic": "Queue count drives RingCX gate and gate-group build hours more directly than agent count does."
+    },
+    {
+     "id": "P3.7",
+     "type": "single",
+     "required": true,
+     "text": "Will routing be rebuilt to match what exists today, or redesigned?",
+     "options": [
+      "Lift and shift as-is",
+      "Mostly as-is with cleanup",
+      "Redesign from the business process",
+      "Undecided"
+     ],
+     "logic": "\"Undecided\" at signature is the most expensive answer on this page. If it cannot be resolved, the SOW prices lift-and-shift and names redesign as a separate engagement."
+    },
+    {
+     "id": "P3.8",
+     "type": "single",
+     "required": false,
+     "text": "How many IVR menus or auto-attendants are in scope?",
+     "options": [
+      "None",
+      "1–3",
+      "4–10",
+      "More than 10",
+      "Unknown"
+     ]
+    }
+   ],
+   "part": "P"
+  },
+  {
+   "id": "P4",
+   "title": "Integrations",
+   "questions": [
+    {
+     "id": "P4.1",
+     "type": "multiple",
+     "required": true,
+     "text": "Which systems must RingCentral connect to?",
+     "options": [
+      "Salesforce",
+      "Microsoft Dynamics",
+      "ServiceNow",
+      "HubSpot",
+      "Zendesk",
+      "Epic or another EHR",
+      "Microsoft Teams",
+      "Google Workspace",
+      "A homegrown system",
+      "None",
+      "Unknown"
+     ]
+    },
+    {
+     "id": "P4.2",
+     "type": "single",
+     "required": false,
+     "text": "For the primary integration, what does \"integrated\" mean to you?",
+     "options": [
+      "Screen pop only",
+      "Click to dial",
+      "Activity logging",
+      "Embedded softphone in the CRM",
+      "Data-driven routing",
+      "Not yet defined"
+     ],
+     "logic": "Each of these is a different amount of work and some are a packaged app rather than a build. \"Not yet defined\" is scoped as a discovery workshop, never as an integration."
+    },
+    {
+     "id": "P4.3",
+     "type": "single",
+     "required": false,
+     "text": "Is Microsoft Teams in use for calling today?",
+     "options": [
+      "No",
+      "Yes, Teams Phone",
+      "Yes, chat and meetings only",
+      "Evaluating",
+      "Unknown"
+     ],
+     "logic": "Teams calling in place changes the RingEX conversation from replacement to coexistence, and the two have different licence and routing shapes."
+    },
+    {
+     "id": "P4.4",
+     "type": "single",
+     "required": true,
+     "text": "How should user identity be managed?",
+     "options": [
+      "Directory sync from Entra ID or Okta with SCIM",
+      "Directory sync, manual contact-centre users",
+      "Manual throughout",
+      "Not yet decided"
+     ],
+     "logic": "Where RingCX agents are not managed by RingEX identity, every joiner-mover-leaver is two pieces of work and offboarding has two places to fail. That is a design decision made here or an operational problem discovered later."
+    },
+    {
+     "id": "P4.5",
+     "type": "single",
+     "required": false,
+     "text": "Is single sign-on required at go-live?",
+     "options": [
+      "Yes, required",
+      "Preferred",
+      "Not required",
+      "Unknown"
+     ]
+    },
+    {
+     "id": "P4.6",
+     "type": "long",
+     "required": false,
+     "text": "Describe anything custom that touches telephony today — scripts, middleware, wallboards, dashboards, recording exports."
+    }
+   ],
+   "part": "P"
+  },
+  {
+   "id": "P5",
+   "title": "Telephony and porting",
+   "questions": [
+    {
+     "id": "P5.1",
+     "type": "fill",
+     "required": true,
+     "text": "DIDs to port: ____  ·  Toll-free numbers: ____  ·  Carriers involved: ____",
+     "blanks": [
+      "DIDs to port",
+      "Toll-free numbers",
+      "Carriers involved"
+     ]
+    },
+    {
+     "id": "P5.2",
+     "type": "single",
+     "required": true,
+     "text": "Do you have current CSRs or carrier bills for all numbers?",
+     "options": [
+      "Yes, all",
+      "Partially",
+      "No",
+      "Unknown"
+     ],
+     "logic": "Porting timelines are gated entirely on documentation the customer supplies. Anything other than \"yes, all\" converts to a timeline assumption rather than a task."
+    },
+    {
+     "id": "P5.3",
+     "type": "multiple",
+     "required": false,
+     "text": "Ingress and edge requirements",
+     "options": [
+      "Port existing DIDs",
+      "BYOC or carrier bring-your-own",
+      "Retain an existing SBC",
+      "Toll-free RespOrg change",
+      "New numbers only",
+      "Analog endpoints via ATA",
+      "E911 and dispatchable location",
+      "International numbers",
+      "Overhead paging"
+     ]
+    },
+    {
+     "id": "P5.4",
+     "type": "single",
+     "required": false,
+     "text": "Emergency-address complexity:",
+     "options": [
+      "Single site",
+      "Multi-site, one address per location",
+      "Dispatchable location per floor or room",
+      "Regulated care or education facility",
+      "Unknown"
+     ],
+     "logic": "RAY BAUM'S Act dispatchable-location-per-room is a distinct workstream with its own discovery, not a configuration checkbox. It belongs as a line item, and it is the finding most likely to appear in the first optimization review if it is skipped."
+    },
+    {
+     "id": "P5.5",
+     "type": "single",
+     "required": false,
+     "text": "Are any numbers bundled or contracted in a way that blocks porting?",
+     "options": [
+      "No",
+      "Yes",
+      "Unknown"
+     ]
+    },
+    {
+     "id": "P5.6",
+     "type": "single",
+     "required": false,
+     "text": "Is business SMS or MMS in scope on any ported number?",
+     "options": [
+      "Yes",
+      "No",
+      "Unknown"
+     ],
+     "logic": "SMS on a ported number requires A2P 10DLC brand and campaign registration, which is a lead-time item owned by the customer and gated on their legal entity details. It is never a day-one capability, and the SOW should say so."
+    },
+    {
+     "id": "P5.7",
+     "type": "single",
+     "required": false,
+     "text": "Is fax still in use, and must it survive?",
+     "options": [
+      "No fax in use",
+      "Fax must survive on RingCentral",
+      "Fax stays on analog lines",
+      "Being retired as part of this project",
+      "Unknown"
+     ]
+    },
+    {
+     "id": "P5.8",
+     "type": "long",
+     "required": false,
+     "text": "Anything unusual about the number estate — main lines, hunt groups, fax, alarm circuits, elevator lines, overhead paging."
+    }
+   ],
+   "part": "P",
+   "cap": [
+    "ringex"
+   ]
+  },
+  {
+   "id": "P6",
+   "title": "Capability scope",
+   "questions": [
+    {
+     "id": "P6.1",
+     "type": "matching",
+     "required": true,
+     "text": "Which capabilities do you want, and when?",
+     "prompts": [
+      "RingEX telephony",
+      "RingCentral Video",
+      "Team Chat",
+      "RingCentral Rooms",
+      "Business SMS",
+      "Fax",
+      "RingCX voice queues",
+      "RingCX digital — email",
+      "RingCX digital — web chat",
+      "RingCX digital — SMS",
+      "RingCX digital — social",
+      "RingCX outbound dialer",
+      "RingCX AI agent (voice)",
+      "RingCX AI agent (digital)",
+      "RingCX agent assist",
+      "RingSense conversation intelligence",
+      "Quality Management",
+      "Workforce Management",
+      "CRM embedded softphone",
+      "Surveys and VoC",
+      "Call recording",
+      "RingCentral Archiver",
+      "PII redaction"
+     ],
+     "matchTo": [
+      "Phase 1",
+      "Later phase",
+      "Not interested",
+      "Need to understand it first"
+     ],
+     "logic": "Becomes the scope baseline that the post-SOW A6.8 is measured against. The delta between what they asked for here and what they believe they bought there is a measurable trust signal — and the only way to get it is to ask the same question twice, deliberately."
+    },
+    {
+     "id": "P6.2",
+     "type": "long",
+     "required": false,
+     "text": "For anything marked \"need to understand it first,\" what is your question?",
+     "logic": "Feeds the demo agenda, and prevents a module being quoted into a SOW that the buyer never actually understood."
+    },
+    {
+     "id": "P6.3",
+     "type": "single",
+     "required": true,
+     "text": "Has anyone in your organization approved AI handling or analysing customer conversations?",
+     "options": [
+      "Yes, approved",
+      "In review",
+      "Not raised yet",
+      "Policy currently prohibits it"
+     ],
+     "logic": "AI governance is a common late-stage blocker and it kills the highest-margin modules. \"Not raised yet\" on a SOW carrying a RingCX AI agent or RingSense means those modules should be conditional or phase 2, not phase 1."
+    },
+    {
+     "id": "P6.4",
+     "type": "single",
+     "required": false,
+     "text": "Is call recording required, and for whom?",
+     "options": [
+      "All calls",
+      "Contact centre only",
+      "Specific teams by policy",
+      "Not required",
+      "Unknown"
+     ],
+     "logic": "Recording scope sets the ceiling on everything downstream — quality management, RingSense coverage and dispute defence can only ever cover what was recorded."
+    },
+    {
+     "id": "P6.5",
+     "type": "single",
+     "required": false,
+     "text": "Is there a retention requirement on recordings or messages?",
+     "options": [
+      "Yes, a stated period",
+      "Yes, but the period is not defined",
+      "No",
+      "Unknown"
+     ],
+     "logic": "A stated retention period that exceeds the platform default is an Archiver conversation and a storage cost, both of which belong in the proposal rather than in a surprise."
+    }
+   ],
+   "part": "P"
+  },
+  {
+   "id": "P7",
+   "title": "Complexity multipliers",
+   "questions": [
+    {
+     "id": "P7.1",
+     "type": "multiple",
+     "required": false,
+     "text": "Which of these apply?",
+     "options": [
+      "Unionized workforce",
+      "24×7 operation with no maintenance window",
+      "Regulated industry",
+      "Multi-country deployment",
+      "Multi-language requirement",
+      "Active merger or divestiture",
+      "Recent failed migration",
+      "Frozen change window during part of the year",
+      "None of these"
+     ],
+     "logic": "Each of these is a named multiplier in section 3. They are not disqualifiers; they are hours."
+    },
+    {
+     "id": "P7.2",
+     "type": "single",
+     "required": false,
+     "text": "How many languages must be supported in routing and prompts?",
+     "options": [
+      "One",
+      "Two",
+      "Three to five",
+      "More than five",
+      "Unknown"
+     ]
+    },
+    {
+     "id": "P7.3",
+     "type": "single",
+     "required": false,
+     "text": "Will any part of the deployment be outside the country of the headquarters?",
+     "options": [
+      "No",
+      "Yes, one other country",
+      "Yes, several",
+      "Unknown"
+     ],
+     "logic": "Numbering, emergency services and data residency are all country-specific. A multi-country deployment is several small projects, not one large one."
+    },
+    {
+     "id": "P7.4",
+     "type": "single",
+     "required": false,
+     "text": "Is there a maintenance or change-freeze window that constrains cutover?",
+     "options": [
+      "No",
+      "Yes, specific dates",
+      "Yes, an ongoing restriction",
+      "Unknown"
+     ]
+    },
+    {
+     "id": "P7.5",
+     "type": "single",
+     "required": false,
+     "text": "How much of the migration can be phased, and how much must be a single cutover?",
+     "options": [
+      "Fully phaseable by site or team",
+      "Mostly phaseable",
+      "Must be a single cutover",
+      "Unknown"
+     ],
+     "logic": "A forced single cutover changes the risk profile and the weekend-hours line in the estimate. It is a price input, not a preference."
+    }
+   ],
+   "part": "P"
+  },
+  {
+   "id": "P8",
+   "title": "Decision, budget and timeline",
+   "questions": [
+    {
+     "id": "P8.1",
+     "type": "single",
+     "required": true,
+     "text": "Is there an approved budget?",
+     "options": [
+      "Yes, approved",
+      "Submitted, not approved",
+      "Being built now",
+      "No budget yet",
+      "Unknown"
+     ]
+    },
+    {
+     "id": "P8.2",
+     "type": "single",
+     "required": false,
+     "text": "What is the approval path?",
+     "options": [
+      "Respondent can approve",
+      "One further approver",
+      "Committee or board",
+      "Procurement-led RFP",
+      "Unknown"
+     ]
+    },
+    {
+     "id": "P8.3",
+     "type": "short",
+     "required": false,
+     "text": "Target signature date"
+    },
+    {
+     "id": "P8.4",
+     "type": "short",
+     "required": false,
+     "text": "Target go-live date"
+    },
+    {
+     "id": "P8.5",
+     "type": "single",
+     "required": false,
+     "text": "Is professional services expected to be fixed fee or time and materials?",
+     "options": [
+      "Fixed fee",
+      "Time and materials",
+      "Either",
+      "Unknown"
+     ],
+     "logic": "A fixed fee against an undocumented current state and a remembered call volume is the combination that produces a loss. If both are true, the assumptions in section 4 are the entire protection."
+    }
+   ],
+   "part": "P"
+  },
+  {
+   "id": "P9",
+   "title": "Known constraints",
+   "questions": [
+    {
+     "id": "P9.1",
+     "type": "long",
+     "required": false,
+     "text": "What do you already know will be difficult?"
+    },
+    {
+     "id": "P9.2",
+     "type": "single",
+     "required": false,
+     "text": "Is there anything in the current environment that must not be touched?",
+     "options": [
+      "No",
+      "Yes",
+      "Unknown"
+     ]
+    },
+    {
+     "id": "P9.3",
+     "type": "long",
+     "required": false,
+     "text": "Anything else that would change how we scope this?"
+    }
+   ],
+   "part": "P"
+  }
+ ]
+}

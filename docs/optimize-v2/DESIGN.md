@@ -128,6 +128,42 @@ lower-is-better KPI with a 0 target, Zoom awards full attainment and RingCentral
 none; RingCentral also has neutral (unscored) KPIs and "blocked" KPIs that are excluded
 from layer scores. Each engine keeps its own rules; reconcile deliberately if needed.
 
+**Schedules and trends** (phase 5). A connection opts in to a monthly run on a day (1–31;
+past a short month's end it runs on the last day), judged in the connection's timezone. The
+hourly cron runs due connections, at most 3 per tick and one at a time (each run is up to ~200
+API calls); a connection stays due from its day until a run lands, so leftovers and failures
+roll to later ticks, and a manual run on or after the day counts. The scheduler claims a
+connection before running it (`schedule_attempted_at`), so a failing one is retried once per
+local day, not every tick. Runs store their layer scores (`opt2_runs.layer_scores`) so the trend
+view reads D1 only; runs from before that column fall back to layer means from `opt2_run_kpis`.
+
+## Questionnaires (phase 3)
+
+The three instruments per platform live as JSON in `src/shared/optimizeV2/questionnaires/{zoom,ringcentral}/`,
+converted once from the standalone apps' `questionnaires/*.md` with the same parsing rules as their
+`parse_questionnaires.mjs`. Question ids, types, options, interviewer guidance (`logic`), parts and
+capability gating (`cap`) are carried over. The client loads one instrument per page (each is its own
+chunk); the worker loads them to validate answers and compute progress.
+
+| Instrument | Zoom | RingCentral |
+|---|---|---|
+| Pre-SOW | 56 (P0–P9) | 58 (P0–P9) |
+| Post-SOW | 237 (A 60 · B 114 · C 51 · D 12) | 198 (A 64 · B 84 · C 38 · D 12) |
+| Optimization review | 38 (O0–O7) | 45 (O0–O7) |
+
+The Zoom documents' own headers say 54 and 234; the question lists have grown since. Zoom post-SOW
+`A5.1b` was silently dropped by the original parser (its id pattern had no letter suffix) and is included here.
+
+Behavior kept from the originals: scope chips hide capability-gated sections; the scope starts from
+the pre-SOW capability answers (Zoom P6.1/P3.2, RingCentral P6.1 rows marked Phase 1 or Later phase);
+progress counts answered questions in scope; "Other"-type options reveal a specify field; per-question
+notes; part tabs on post-SOW; Mark complete / Mark as draft. Answers save as one JSON blob per
+account, platform and instrument (`__scope`, `<id>__other`, `<id>__note` are reserved keys), are
+checked against the definition on save, and autosave after 800 ms.
+
+Not carried over yet: per-question file attachments (R2 upload) and the Word export of a
+questionnaire. Scope chips are hidden on the optimization review, which has no gated sections.
+
 ## Open items
 
 - Which V1 customers (if any) get a migration effort into V2: under discussion.

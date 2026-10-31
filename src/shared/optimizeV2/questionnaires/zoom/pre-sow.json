@@ -1,0 +1,865 @@
+{
+ "platform": "zoom",
+ "key": "pre-sow",
+ "order": 1,
+ "cadence": "Before signature",
+ "role": "Solutions Architect (pre-sales)",
+ "title": "Pre-SOW Discovery & Scoping Questionnaire",
+ "lede": "The companion instrument to the post-SOW readiness survey, fielded before signature. Its job is not readiness — it is scope accuracy. Every answer either sizes the SOW or becomes a written assumption that protects it, and every unanswered question is a change order waiting to happen.",
+ "meta": {
+  "Instrument": "Guided discovery",
+  "Fielded": "Discovery → pre-proposal",
+  "Length": "54 questions · 15–20 min",
+  "Output": "SOW scope + assumptions"
+ },
+ "count": 56,
+ "parts": [],
+ "caps": [
+  {
+   "key": "voice",
+   "label": "Voice"
+  },
+  {
+   "key": "video",
+   "label": "Video / CoBrowse"
+  },
+  {
+   "key": "webchat",
+   "label": "Web chat"
+  },
+  {
+   "key": "email",
+   "label": "Email"
+  },
+  {
+   "key": "sms",
+   "label": "SMS"
+  },
+  {
+   "key": "social",
+   "label": "Social"
+  },
+  {
+   "key": "outbound",
+   "label": "Outbound dialer"
+  },
+  {
+   "key": "agentless",
+   "label": "Agentless dialer"
+  },
+  {
+   "key": "sms-campaign",
+   "label": "SMS campaigns"
+  },
+  {
+   "key": "va-voice",
+   "label": "Virtual Agent (voice)"
+  },
+  {
+   "key": "va-chat",
+   "label": "Virtual Agent (chat)"
+  },
+  {
+   "key": "ai",
+   "label": "AI assist & routing"
+  },
+  {
+   "key": "qm",
+   "label": "Quality Management"
+  },
+  {
+   "key": "wfm",
+   "label": "Workforce Management"
+  },
+  {
+   "key": "cti",
+   "label": "Agent desktop / CTI"
+  },
+  {
+   "key": "surveys",
+   "label": "Surveys / VoC"
+  },
+  {
+   "key": "pii",
+   "label": "Data privacy / PII"
+  }
+ ],
+ "groups": [
+  {
+   "id": "P0",
+   "title": "Respondent and context",
+   "questions": [
+    {
+     "id": "P0.1",
+     "type": "short",
+     "required": true,
+     "text": "Full name"
+    },
+    {
+     "id": "P0.2",
+     "type": "short",
+     "required": true,
+     "text": "Job title and department"
+    },
+    {
+     "id": "P0.3",
+     "type": "single",
+     "required": true,
+     "text": "What is your role in this evaluation?",
+     "options": [
+      "I will sign",
+      "I will own delivery",
+      "I am the technical evaluator",
+      "I am advising the decision",
+      "Not yet determined"
+     ]
+    },
+    {
+     "id": "P0.4",
+     "type": "single",
+     "required": false,
+     "text": "Have you been through a platform migration like this before?",
+     "options": [
+      "Yes, I led one",
+      "Yes, I participated",
+      "No",
+      "Unsure"
+     ],
+     "logic": "A first-time migration team needs more hand-holding hours than an experienced one. This is an effort input, not a judgment, and it belongs in the estimate."
+    }
+   ],
+   "part": "P"
+  },
+  {
+   "id": "P1",
+   "title": "Driver and compelling event",
+   "questions": [
+    {
+     "id": "P1.1",
+     "type": "long",
+     "required": true,
+     "text": "What is prompting this change now?"
+    },
+    {
+     "id": "P1.2",
+     "type": "multiple",
+     "required": false,
+     "text": "What happens if nothing changes in the next twelve months? (select all that apply)",
+     "options": [
+      "Incumbent contract auto-renews",
+      "Costs escalate materially",
+      "A known service failure continues",
+      "Growth or a new site is blocked",
+      "A compliance gap stays open",
+      "Nothing material"
+     ],
+     "logic": "\"Nothing material\" is the most useful answer this question produces. It tells you the deal has no compelling event and the SOW will sit unsigned regardless of how good it is."
+    },
+    {
+     "id": "P1.3",
+     "type": "short",
+     "required": true,
+     "text": "Incumbent contract end date and notice-of-termination window"
+    },
+    {
+     "id": "P1.4",
+     "type": "single",
+     "required": false,
+     "text": "Is there a hard date this must be live by?",
+     "options": [
+      "Yes — contract expiry",
+      "Yes — business event",
+      "Yes — regulatory",
+      "Soft target",
+      "None"
+     ]
+    },
+    {
+     "id": "P1.5",
+     "type": "rank",
+     "required": false,
+     "text": "Rank these outcomes by priority.",
+     "options": [
+      "Cost reduction",
+      "Customer experience",
+      "Agent experience and retention",
+      "Self-service and automation",
+      "Reporting and visibility",
+      "Vendor consolidation",
+      "Compliance and security",
+      "Reliability",
+      "Scalability"
+     ]
+    },
+    {
+     "id": "P1.6",
+     "type": "long",
+     "required": false,
+     "text": "What have you already tried, and why did it not resolve this?",
+     "logic": "Surfaces a failed prior implementation, an abandoned internal project, or a competitor already in the account. All three change how you scope and how you price."
+    }
+   ],
+   "part": "P"
+  },
+  {
+   "id": "P2",
+   "title": "Current-state snapshot",
+   "questions": [
+    {
+     "id": "P2.1",
+     "type": "single",
+     "required": true,
+     "text": "Primary voice platform today",
+     "options": [
+      "RingCentral",
+      "Dialpad",
+      "8x8",
+      "Cisco CUCM or UCCX",
+      "Webex Calling",
+      "Mitel MiVoice",
+      "Avaya",
+      "Microsoft Teams Phone",
+      "On-prem PBX (other)",
+      "Other"
+     ]
+    },
+    {
+     "id": "P2.2",
+     "type": "single",
+     "required": false,
+     "text": "Contact center platform today, if different",
+     "options": [
+      "TalkDesk",
+      "Five9",
+      "Genesys",
+      "NICE CXone",
+      "Cisco UCCX or PCCE",
+      "Amazon Connect",
+      "Same as voice platform",
+      "None — queues only",
+      "Other"
+     ]
+    },
+    {
+     "id": "P2.3",
+     "type": "fill",
+     "required": true,
+     "text": "Sites: ____  ·  Countries: ____  ·  Total employees: ____  ·  Employees needing a phone: ____",
+     "blanks": [
+      "Sites",
+      "Countries",
+      "Total employees",
+      "Employees needing a phone"
+     ]
+    },
+    {
+     "id": "P2.4",
+     "type": "fill",
+     "required": true,
+     "text": "Contact center agents: ____  ·  Supervisors: ____  ·  Administrators: ____",
+     "blanks": [
+      "Contact center agents",
+      "Supervisors",
+      "Administrators"
+     ]
+    },
+    {
+     "id": "P2.5",
+     "type": "multiple",
+     "required": false,
+     "text": "What is on-premise today?",
+     "options": [
+      "PBX or call control",
+      "Voice gateways",
+      "Session border controller",
+      "Analog or fax lines",
+      "Overhead paging",
+      "Elevator or alarm lines",
+      "Call recording appliance",
+      "Nothing — fully cloud"
+     ]
+    },
+    {
+     "id": "P2.6",
+     "type": "single",
+     "required": false,
+     "text": "Who supports voice today?",
+     "options": [
+      "Internal IT",
+      "Managed service provider",
+      "The carrier",
+      "The platform vendor",
+      "Nobody consistently"
+     ]
+    },
+    {
+     "id": "P2.7",
+     "type": "rating",
+     "required": true,
+     "text": "The customer's documentation of existing call flows and routing is accurate and current.",
+     "logic": "Direct multiplier on discovery hours. A score of 2 or below means you are reverse-engineering the current state from the platform itself, which is billable work that has to be in the estimate rather than absorbed."
+    },
+    {
+     "id": "P2.8",
+     "type": "single",
+     "required": false,
+     "text": "Who owns and maintains the call-flow and routing documentation?",
+     "options": [
+      "Internal IT",
+      "Managed service provider",
+      "The platform vendor",
+      "Nobody — it is tribal knowledge",
+      "No documentation exists",
+      "Other"
+     ],
+     "logic": "Names the owner behind the P2.7 accuracy score. \"Tribal knowledge\" or \"none\" means discovery is reverse-engineering, not review — price it. Ask the owner to attach the flow docs (＋ Note / attachment) so they land in the project folder."
+    },
+    {
+     "id": "P2.9",
+     "type": "fill",
+     "required": false,
+     "text": "Documented call flows: ____ · Routing/IVR diagrams available: ____",
+     "logic": "Current-state documentation count, distinct from the total distinct flows sized in P7.1 — the gap between them is undocumented flow you will have to discover.",
+     "blanks": [
+      "Documented call flows",
+      "Routing/IVR diagrams available"
+     ]
+    }
+   ],
+   "part": "P"
+  },
+  {
+   "id": "P3",
+   "title": "Scope sizing",
+   "questions": [
+    {
+     "id": "P3.1",
+     "type": "fill",
+     "required": true,
+     "text": "Zoom Phone users: ____  ·  Common-area or shared devices: ____  ·  Contact center agents: ____  ·  Supervisors needing a license: ____",
+     "logic": "Target Zoom licensing — what to buy. May differ from the current-state counts in P2.3/P2.4 (the incumbent). Enter the seats to license on Zoom; leave 0 where a product is not in scope.",
+     "blanks": [
+      "Zoom Phone users",
+      "Common-area or shared devices",
+      "Contact center agents",
+      "Supervisors needing a license"
+     ]
+    },
+    {
+     "id": "P3.2",
+     "type": "matching",
+     "required": true,
+     "text": "Which channels at go-live?",
+     "prompts": [
+      "Voice",
+      "Video",
+      "Web chat",
+      "Email",
+      "SMS",
+      "Social",
+      "Outbound dialer",
+      "Agentless outbound",
+      "SMS campaigns"
+     ],
+     "matchTo": [
+      "Phase 1",
+      "Later phase",
+      "Not needed",
+      "Undecided"
+     ]
+    },
+    {
+     "id": "P3.3",
+     "type": "fill",
+     "required": false,
+     "text": "Monthly volume — Voice: ____  ·  Digital (all channels): ____  ·  Outbound attempts: ____",
+     "blanks": [
+      "Monthly volume — Voice",
+      "Digital (all channels)",
+      "Outbound attempts"
+     ]
+    },
+    {
+     "id": "P3.4",
+     "type": "fill",
+     "required": true,
+     "text": "Peak concurrency — Inbound voice: ____  ·  Digital conversations: ____  ·  Logged-in agents: ____",
+     "logic": "Enter whole numbers — the maximum handled at the same time during your busiest interval, not daily totals. Inbound voice = concurrent calls; Digital = concurrent chat/email/SMS; Logged-in agents = peak agents active at once. A best estimate is fine — record how you got it in P3.5.",
+     "blanks": [
+      "Peak concurrency — Inbound voice",
+      "Digital conversations",
+      "Logged-in agents"
+     ]
+    },
+    {
+     "id": "P3.5",
+     "type": "multiple",
+     "required": true,
+     "text": "How did you arrive at those concurrency figures? (select all that apply — e.g. measured for voice, estimated for digital)",
+     "options": [
+      "Measured from platform reporting",
+      "Derived from Erlang or WFM modelling",
+      "Estimated from headcount",
+      "Rough guess",
+      "Unknown"
+     ],
+     "logic": "The highest-leverage question in the instrument. Anything below \"measured\" means the sizing assumption clause goes into the SOW verbatim — see section 4."
+    },
+    {
+     "id": "P3.6",
+     "type": "single",
+     "required": false,
+     "text": "Expected growth over 24 months:",
+     "options": [
+      "None",
+      "Under 10%",
+      "10–25%",
+      "25–50%",
+      "Over 50%",
+      "Unknown"
+     ]
+    },
+    {
+     "id": "P3.7",
+     "type": "single",
+     "required": true,
+     "text": "How do you want to cut over?",
+     "options": [
+      "Full cutover on one date",
+      "Phased by site",
+      "Phased by department",
+      "Extended coexistence with the incumbent",
+      "Undecided"
+     ],
+     "logic": "The single largest driver of professional services effort in the whole instrument. Extended coexistence means hybrid routing, dual number estates, and a dual-run cost the customer has usually not budgeted for. Price it explicitly or exclude it explicitly."
+    }
+   ],
+   "part": "P"
+  },
+  {
+   "id": "P4",
+   "title": "Integrations",
+   "questions": [
+    {
+     "id": "P4.1",
+     "type": "multiple",
+     "required": false,
+     "text": "CRM and service systems in scope",
+     "options": [
+      "Salesforce",
+      "HubSpot",
+      "Microsoft Dynamics",
+      "ServiceNow",
+      "Zendesk",
+      "Custom or in-house",
+      "None",
+      "Other"
+     ]
+    },
+    {
+     "id": "P4.2",
+     "type": "multiple",
+     "required": false,
+     "text": "Clinical, vertical and operational systems in scope",
+     "options": [
+      "Epic",
+      "eClinicalWorks",
+      "Veradigm",
+      "Brightree",
+      "Kipu",
+      "NexTech",
+      "Healthie",
+      "ERP or order management",
+      "WFM or scheduling",
+      "Payment or secure IVR"
+     ]
+    },
+    {
+     "id": "P4.3",
+     "type": "matching",
+     "required": false,
+     "text": "What do you expect each selected system to require?",
+     "prompts": [
+      "repeat the systems selected above"
+     ],
+     "matchTo": [
+      "Out-of-box connector",
+      "Custom development",
+      "Screen pop only",
+      "Undecided"
+     ],
+     "logic": "Expectation-setting question as much as a scoping one. A prospect who assumes out-of-box for a custom EHR has priced the project wrong in their own head, and finding that out pre-proposal is far cheaper than finding it out at the pricing review."
+    },
+    {
+     "id": "P4.4",
+     "type": "single",
+     "required": true,
+     "text": "Do you have API access and a named internal owner for each of those systems?",
+     "options": [
+      "Yes, all of them",
+      "Some",
+      "No",
+      "Unknown"
+     ]
+    },
+    {
+     "id": "P4.5",
+     "type": "long",
+     "required": true,
+     "text": "Which integrations must exist at go-live, and which can follow in a later phase?",
+     "logic": "The phase-1 versus phase-2 integration split is where fixed-fee SOWs most often go wrong. Get it in the customer's own words and quote it back in the scope section."
+    }
+   ],
+   "part": "P"
+  },
+  {
+   "id": "P5",
+   "title": "Telephony and porting",
+   "questions": [
+    {
+     "id": "P5.1",
+     "type": "fill",
+     "required": true,
+     "text": "DIDs to port: ____  ·  Toll-free numbers: ____  ·  Carriers involved: ____",
+     "blanks": [
+      "DIDs to port",
+      "Toll-free numbers",
+      "Carriers involved"
+     ]
+    },
+    {
+     "id": "P5.2",
+     "type": "single",
+     "required": true,
+     "text": "Do you have current CSRs or carrier bills for all numbers?",
+     "options": [
+      "Yes, all",
+      "Partially",
+      "No",
+      "Unknown"
+     ],
+     "logic": "Porting timelines are gated entirely on documentation the customer supplies. Anything other than \"yes, all\" converts to a timeline assumption rather than a task."
+    },
+    {
+     "id": "P5.3",
+     "type": "multiple",
+     "required": false,
+     "text": "Ingress and edge requirements",
+     "options": [
+      "Port existing DIDs",
+      "SIP trunk or BYOC",
+      "Retain an existing SBC",
+      "Toll-free RespOrg change",
+      "New numbers only",
+      "Analog endpoints",
+      "E911 and ELIN",
+      "International numbers"
+     ]
+    },
+    {
+     "id": "P5.4",
+     "type": "single",
+     "required": false,
+     "text": "E911 complexity:",
+     "options": [
+      "Single site",
+      "Multi-site with ELIN per location",
+      "Dispatchable location per floor or room",
+      "Regulated care or education facility",
+      "Unknown"
+     ],
+     "logic": "Dispatchable-location-per-room is a distinct workstream with its own discovery, not a configuration checkbox. It belongs as a line item."
+    },
+    {
+     "id": "P5.5",
+     "type": "single",
+     "required": false,
+     "text": "Are any numbers bundled or contracted in a way that blocks porting?",
+     "options": [
+      "No",
+      "Yes",
+      "Unknown"
+     ]
+    },
+    {
+     "id": "P5.6",
+     "type": "long",
+     "required": false,
+     "text": "Anything unusual about the number estate — main lines, hunt groups, fax, alarm circuits, elevator lines, overhead paging."
+    }
+   ],
+   "part": "P",
+   "cap": [
+    "voice"
+   ]
+  },
+  {
+   "id": "P6",
+   "title": "Capability scope",
+   "questions": [
+    {
+     "id": "P6.1",
+     "type": "matching",
+     "required": true,
+     "text": "Which capabilities do you want, and when?",
+     "prompts": [
+      "Voice",
+      "Video",
+      "Email",
+      "SMS",
+      "Social",
+      "Web chat",
+      "Outbound dialing",
+      "Agentless outbound",
+      "SMS outbound campaigns",
+      "Virtual agent (voice)",
+      "Virtual agent (chat)",
+      "AI Expert Assist",
+      "Engagement Briefs",
+      "Live AI Interpreter",
+      "AI intent-based routing",
+      "Quality Management",
+      "Workforce Management",
+      "CTI adapter",
+      "Agent Mobile",
+      "CoBrowse",
+      "Surveys and VoC",
+      "PII redaction"
+     ],
+     "matchTo": [
+      "Phase 1",
+      "Later phase",
+      "Not interested",
+      "Need to understand it first"
+     ],
+     "logic": "Becomes the scope baseline that the post-SOW A6.8 is measured against. The delta between what they asked for here and what they believe they bought there is a measurable trust signal — and the only way to get it is to ask the same question twice, deliberately."
+    },
+    {
+     "id": "P6.2",
+     "type": "long",
+     "required": false,
+     "text": "For anything marked \"need to understand it first,\" what is your question?",
+     "logic": "Feeds the demo agenda, and prevents a module being quoted into a SOW that the buyer never actually understood."
+    },
+    {
+     "id": "P6.3",
+     "type": "single",
+     "required": true,
+     "text": "Has anyone in your organization approved AI handling customer conversations?",
+     "options": [
+      "Yes, approved",
+      "In review",
+      "Not raised yet",
+      "Policy currently prohibits it"
+     ],
+     "logic": "AI governance is a common late-stage blocker and it kills the highest-margin modules. \"Not raised yet\" on a SOW carrying virtual agent and Expert Assist means those modules should be conditional or phase-2, not phase-1."
+    }
+   ],
+   "part": "P"
+  },
+  {
+   "id": "P7",
+   "title": "Complexity multipliers",
+   "questions": [
+    {
+     "id": "P7.1",
+     "type": "fill",
+     "required": true,
+     "text": "Call queues: ____  ·  IVR or auto-receptionist trees: ____  ·  Skills: ____  ·  Distinct call flows: ____",
+     "logic": "Build effort scales on flow count, not on agent count. A 40-agent center with 60 flows is a bigger build than a 300-agent center with 8.",
+     "blanks": [
+      "Call queues",
+      "IVR or auto-receptionist trees",
+      "Skills",
+      "Distinct call flows"
+     ]
+    },
+    {
+     "id": "P7.2",
+     "type": "single",
+     "required": false,
+     "text": "How complex is your routing?",
+     "options": [
+      "Simple menu to queue",
+      "Skills-based",
+      "Data-dip driven (lookup before routing)",
+      "Heavily conditional business rules",
+      "Unknown"
+     ]
+    },
+    {
+     "id": "P7.3",
+     "type": "multiple",
+     "required": false,
+     "text": "Which of these apply?",
+     "options": [
+      "Multi-language",
+      "24x7 operation",
+      "Multiple time zones",
+      "Union or works-council rules",
+      "Outsourced or BPO staff",
+      "Regulated recording",
+      "Seasonal surges",
+      "M&A in progress",
+      "VDI or locked-down desktops",
+      "Multiple brands kept separate"
+     ]
+    },
+    {
+     "id": "P7.4",
+     "type": "single",
+     "required": false,
+     "text": "How many distinct business units or brands must stay separate in the platform?",
+     "options": [
+      "One",
+      "Two to three",
+      "Four to ten",
+      "More than ten",
+      "Unknown"
+     ]
+    },
+    {
+     "id": "P7.5",
+     "type": "single",
+     "required": true,
+     "text": "What security review will this require?",
+     "options": [
+      "None",
+      "Standard questionnaire",
+      "Full assessment with evidence",
+      "Third-party risk platform",
+      "Unknown"
+     ],
+     "logic": "A schedule input, not a scope input, but it belongs in the SOW as an assumption because it sits on the critical path and you do not control it."
+    },
+    {
+     "id": "P7.6",
+     "type": "single",
+     "required": false,
+     "text": "What change management support do you expect from us?",
+     "options": [
+      "None — we own it",
+      "Materials only",
+      "Train-the-trainer",
+      "Full delivery to end users",
+      "Undecided"
+     ]
+    },
+    {
+     "id": "P7.7",
+     "type": "single",
+     "required": true,
+     "text": "Who administers the platform after go-live?",
+     "options": [
+      "A named internal team",
+      "Internal, but not yet identified",
+      "We expect you to manage it",
+      "Undecided"
+     ],
+     "logic": "\"We expect you to manage it\" is a managed-service line item, not a professional-services one. Catching that pre-proposal is the difference between a recurring revenue line and an unpriced obligation."
+    }
+   ],
+   "part": "P"
+  },
+  {
+   "id": "P8",
+   "title": "Decision, budget and timeline",
+   "questions": [
+    {
+     "id": "P8.1",
+     "type": "long",
+     "required": true,
+     "text": "Describe your approval path from here to signature."
+    },
+    {
+     "id": "P8.2",
+     "type": "multiple",
+     "required": false,
+     "text": "Which approvals are still required?",
+     "options": [
+      "Technical",
+      "Security",
+      "Legal",
+      "Procurement",
+      "Finance",
+      "Executive committee",
+      "Board",
+      "None remaining"
+     ]
+    },
+    {
+     "id": "P8.3",
+     "type": "single",
+     "required": false,
+     "text": "Budget status:",
+     "options": [
+      "Approved and allocated",
+      "In the current budget cycle",
+      "Identified but not approved",
+      "Not yet identified"
+     ]
+    },
+    {
+     "id": "P8.4",
+     "type": "single",
+     "required": false,
+     "text": "Are you evaluating other vendors?",
+     "options": [
+      "Yes, actively",
+      "Yes, informally",
+      "No",
+      "Prefer not to say"
+     ]
+    },
+    {
+     "id": "P8.5",
+     "type": "short",
+     "required": false,
+     "text": "Target signature date."
+    },
+    {
+     "id": "P8.6",
+     "type": "long",
+     "required": false,
+     "text": "What would stop this from happening?"
+    }
+   ],
+   "part": "P"
+  },
+  {
+   "id": "P9",
+   "title": "Known constraints",
+   "questions": [
+    {
+     "id": "P9.1",
+     "type": "long",
+     "required": false,
+     "text": "Blackout periods, freeze windows and seasonal peaks."
+    },
+    {
+     "id": "P9.2",
+     "type": "rank",
+     "required": false,
+     "text": "Rank the risks most likely to delay this.",
+     "options": [
+      "Internal resource availability",
+      "Competing IT initiatives",
+      "Integration complexity",
+      "Number porting",
+      "Security or legal review",
+      "Change resistance",
+      "Budget or procurement",
+      "AI governance approval"
+     ]
+    },
+    {
+     "id": "P9.3",
+     "type": "long",
+     "required": true,
+     "text": "What have we not asked that will affect scope, timeline or cost?"
+    }
+   ],
+   "part": "P"
+  }
+ ]
+}

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { optimizeV2Api, type LayerScore, type RunResult, type RunSummary } from "../lib/optimizeV2Api";
 import { PLATFORM_LABEL, SEVERITY_COLOR, fmtDate, fmtValue } from "../components/optimizeV2/format";
+import LicensesSection from "../components/optimizeV2/LicensesSection";
 import { GradePill, Pill } from "../components/optimizeV2/ui";
 
 type Tab = "scorecard" | "plan" | "findings" | "config" | "coverage";
@@ -43,6 +44,14 @@ export default function OptimizeV2RunPage() {
         <Stat label="KPIs measured" value={`${sc.coverage.populated} / ${sc.coverage.total}`} sub={`${sc.coverage.apiPopulated} from the API`} />
         <Stat label="Window" value={`${fmtDate(run.from_date)} – ${fmtDate(run.to_date)}`} sub={`${PLATFORM_LABEL[run.platform]} · run ${fmtDate(run.created_at)}`} />
         <ReadoutLinks runId={run.id} />
+        {/* Plain link: the server names the file via Content-Disposition. */}
+        <a
+          href={`/api/optimize-v2/runs/${encodeURIComponent(run.id)}/workbook.xlsx`}
+          className="ms-btn-ghost"
+          style={{ marginLeft: "auto", padding: "6px 12px", fontSize: 13, whiteSpace: "nowrap" }}
+        >
+          Download workbook (.xlsx)
+        </a>
       </div>
 
       {data.result.warnings && data.result.warnings.length > 0 && (
@@ -130,6 +139,7 @@ function ScorecardTab({ result }: { result: RunResult }) {
           ))}
         </div>
       )}
+      {result.licenses && <LicensesSection summary={result.licenses} />}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 12 }}>
         {sc.layers.map((l) => (
           <button
