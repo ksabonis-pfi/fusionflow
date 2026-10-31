@@ -1,12 +1,34 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { optimizeV2Api, type Connection, type RunSummary } from "../lib/optimizeV2Api";
+import {
+  optimizeV2Api, type Connection, type Platform, type RingCentralCredentialsInput, type RunSummary, type ZoomCredentialsInput,
+} from "../lib/optimizeV2Api";
 import { PLATFORM_LABEL, fmtDate } from "../components/optimizeV2/format";
 import { GradePill } from "../components/optimizeV2/ui";
 
 type AccountData = Awaited<ReturnType<typeof optimizeV2Api.account>>;
 
 const errMsg = (e: unknown, fallback: string) => (e instanceof Error && e.message ? e.message : fallback);
+
+/** Credential fields per platform, and the help shown above them. */
+const CRED_FIELDS: Record<Platform, { help: string; fields: { key: string; label: string; secret?: boolean; multiline?: boolean }[] }> = {
+  zoom: {
+    help: "The customer creates a read-only Server-to-Server OAuth app in their Zoom tenant and shares its credentials.",
+    fields: [
+      { key: "accountId", label: "Account ID" },
+      { key: "clientId", label: "Client ID" },
+      { key: "clientSecret", label: "Client secret", secret: true },
+    ],
+  },
+  ringcentral: {
+    help: "The customer creates a read-only JWT app in the RingCentral developer console and issues a JWT for an admin user.",
+    fields: [
+      { key: "clientId", label: "Client ID" },
+      { key: "clientSecret", label: "Client secret", secret: true },
+      { key: "jwt", label: "JWT credential", secret: true, multiline: true },
+    ],
+  },
+};
 
 export default function OptimizeV2AccountPage() {
   const { accountId = "" } = useParams<{ accountId: string }>();
@@ -21,7 +43,7 @@ export default function OptimizeV2AccountPage() {
   if (error) return <Page><div style={{ color: "#b91c1c", fontSize: 13 }}>{error}</div></Page>;
   if (!data) return <Page><div style={{ color: "#64748b", fontSize: 13 }}>Loading…</div></Page>;
 
-  const zoom = data.connections.find((c) => c.platform === "zoom") ?? null;
+  const conn = (p: Platform) => data.connections.find((c) => c.platform === p) ?? null;
 
   return (
     <Page>
@@ -33,11 +55,10 @@ export default function OptimizeV2AccountPage() {
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 16, marginBottom: 24 }}>
-        <ZoomConnectionCard accountId={accountId} connection={zoom} onChanged={load} />
-        <div className="ms-card" style={{ background: "#f8fafc" }}>
-          <div style={{ fontWeight: 700, color: "#64748b", marginBottom: 4 }}>RingCentral</div>
-          <div style={{ fontSize: 13, color: "#94a3b8" }}>Coming in the next phase.</div>
-        </div>
+        {(["zoom", "ringcentral"] as const).map((p) => (
+          // Keyed by connection id so a new or replaced connection resets the form.
+          <ConnectionCard key={`${p}-${conn(p)?.id ?? "new"}`} platform={p} accountId={accountId} connection={conn(p)} onChanged={load} />
+        ))}
       </div>
 
       <h2 style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", margin: "0 0 12px" }}>Assessments</h2>
@@ -55,37 +76,45 @@ function Page({ children }: { children: React.ReactNode }) {
   );
 }
 
-function ZoomConnectionCard({ accountId, connection, onChanged }: { accountId: string; connection: Connection | null; onChanged: () => void }) {
+function ConnectionCard({ platform, accountId, connection, onChanged }: {
+  platform: Platform; accountId: string; connection: Connection | null; onChanged: () => void;
+}) {
   const navigate = useNavigate();
-  const [editing, setEditing] = useState(!connection?.has_credentials);
-  const [form, setForm] = useState({ accountId: "", clientId: "", clientSecret: "" });
+  const spec = CRED_FIELDS[platform];
+  const connected = !!connection?.has_credentials;
+  const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [creds, setCreds] = useState<Record<string, string>>({});
   const [windowDays, setWindowDays] = useState(connection?.window_days ?? 30);
   const [rate, setRate] = useState(connection?.assumptions.agentLoadedRatePerHr?.toString() ?? "");
   const [autoCost, setAutoCost] = useState(connection?.assumptions.automationCostYr?.toString() ?? "");
   const [busy, setBusy] = useState<"save" | "run" | null>(null);
   const [message, setMessage] = useState<{ tone: "ok" | "err"; text: string } | null>(null);
 
+  const showForm = editing || (!connected && open);
+  const anyCreds = spec.fields.some((f) => creds[f.key]?.trim());
+
   async function save(e: React.FormEvent) {
     e.preventDefault();
     setBusy("save");
     setMessage(null);
     try {
-      const creds = form.accountId || form.clientId || form.clientSecret ? form : undefined;
-      if (!connection?.has_credentials && !creds) throw new Error("Enter the customer's Zoom Server-to-Server app credentials");
-      const res = await optimizeV2Api.saveConnection(accountId, "zoom", {
-        credentials: creds,
+      if (!connected && !anyCreds) throw new Error(`Enter the customer's ${PLATFORM_LABEL[platform]} app credentials`);
+      if (anyCreds && spec.fields.some((f) => !creds[f.key]?.trim())) throw new Error("Fill in every credential field");
+      const res = await optimizeV2Api.saveConnection(accountId, platform, {
+        // Field keys come from CRED_FIELDS, which mirrors each platform's credential type.
+        credentials: anyCreds
+          ? (Object.fromEntries(spec.fields.map((f) => [f.key, creds[f.key].trim()])) as unknown as ZoomCredentialsInput | RingCentralCredentialsInput)
+          : undefined,
         window_days: windowDays,
         assumptions: {
           ...(rate ? { agentLoadedRatePerHr: Number(rate) } : {}),
           ...(autoCost ? { automationCostYr: Number(autoCost) } : {}),
         },
       });
-      setForm({ accountId: "", clientId: "", clientSecret: "" });
+      setCreds({});
       setEditing(false);
-      setMessage({
-        tone: "ok",
-        text: res.grantedScopes ? `Connected. Zoom granted ${res.grantedScopes.length} scopes.` : "Saved.",
-      });
+      setMessage({ tone: "ok", text: res.grantedScopes ? `Connected. ${PLATFORM_LABEL[platform]} granted ${res.grantedScopes.length} scopes.` : "Saved." });
       onChanged();
     } catch (err) {
       setMessage({ tone: "err", text: errMsg(err, "Couldn't save") });
@@ -116,20 +145,37 @@ function ZoomConnectionCard({ accountId, connection, onChanged }: { accountId: s
     </label>
   );
 
+  const hint = connection?.creds_hint ?? {};
+  const jwtExpires = hint.jwt_expires_at ? new Date(hint.jwt_expires_at) : null;
+  const jwtDaysLeft = jwtExpires ? Math.round((jwtExpires.getTime() - Date.now()) / 86_400_000) : null;
+
   return (
     <div className="ms-card">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-        <div style={{ fontWeight: 700, color: "#0f172a" }}>{PLATFORM_LABEL.zoom}</div>
-        {connection?.has_credentials && !editing && (
+        <div style={{ fontWeight: 700, color: "#0f172a" }}>{PLATFORM_LABEL[platform]}</div>
+        {connected && !editing && (
           <button type="button" className="ms-btn-ghost" style={{ padding: "2px 8px", fontSize: 12 }} onClick={() => setEditing(true)}>Edit</button>
         )}
       </div>
 
-      {connection?.has_credentials && !editing && (
+      {!connected && !open && (
+        <>
+          <div style={{ fontSize: 13, color: "#64748b", marginBottom: 12 }}>Not connected.</div>
+          <button type="button" className="ms-btn-secondary" onClick={() => setOpen(true)}>Connect {PLATFORM_LABEL[platform]}</button>
+        </>
+      )}
+
+      {connected && !editing && (
         <>
           <div style={{ fontSize: 13, color: "#475569", marginBottom: 4 }}>
-            Account <span style={{ fontFamily: "ui-monospace, monospace" }}>{connection.creds_hint.account_id ?? "—"}</span>
+            {platform === "zoom" ? "Account " : "Client "}
+            <span style={{ fontFamily: "ui-monospace, monospace" }}>{(platform === "zoom" ? hint.account_id : hint.client_id) ?? "—"}</span>
           </div>
+          {jwtDaysLeft != null && (
+            <div style={{ fontSize: 13, color: jwtDaysLeft < 30 ? "#b45309" : "#475569", marginBottom: 4 }}>
+              JWT {jwtDaysLeft < 0 ? `expired ${fmtDate(hint.jwt_expires_at)}` : `expires ${fmtDate(hint.jwt_expires_at)}`}
+            </div>
+          )}
           <div style={{ fontSize: 13, color: "#475569", marginBottom: 12 }}>
             {connection.window_days}-day window · last run {fmtDate(connection.last_run_at)}
           </div>
@@ -142,15 +188,31 @@ function ZoomConnectionCard({ accountId, connection, onChanged }: { accountId: s
         </>
       )}
 
-      {editing && (
+      {showForm && (
         <form onSubmit={save}>
           <div style={{ fontSize: 12, color: "#64748b", marginBottom: 12, lineHeight: 1.5 }}>
-            The customer creates a read-only Server-to-Server OAuth app in their Zoom tenant and shares its credentials.
-            {connection?.has_credentials && " Leave these blank to keep the current credentials."}
+            {spec.help}
+            {connected && " Leave these blank to keep the current credentials."}
           </div>
-          {field("Account ID", <input className="ms-input" value={form.accountId} onChange={(e) => setForm({ ...form, accountId: e.target.value })} autoComplete="off" />)}
-          {field("Client ID", <input className="ms-input" value={form.clientId} onChange={(e) => setForm({ ...form, clientId: e.target.value })} autoComplete="off" />)}
-          {field("Client secret", <input className="ms-input" type="password" value={form.clientSecret} onChange={(e) => setForm({ ...form, clientSecret: e.target.value })} autoComplete="new-password" />)}
+          {spec.fields.map((f) => field(f.label, f.multiline ? (
+            <textarea
+              className="ms-input"
+              rows={3}
+              value={creds[f.key] ?? ""}
+              onChange={(e) => setCreds({ ...creds, [f.key]: e.target.value })}
+              autoComplete="off"
+              spellCheck={false}
+              style={{ fontFamily: "ui-monospace, monospace", fontSize: 12, resize: "vertical" }}
+            />
+          ) : (
+            <input
+              className="ms-input"
+              type={f.secret ? "password" : "text"}
+              value={creds[f.key] ?? ""}
+              onChange={(e) => setCreds({ ...creds, [f.key]: e.target.value })}
+              autoComplete={f.secret ? "new-password" : "off"}
+            />
+          )))}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
             {field("Window (days)", <input className="ms-input" type="number" min={7} max={90} value={windowDays} onChange={(e) => setWindowDays(Number(e.target.value))} />)}
             {field("Agent $/hr (loaded)", <input className="ms-input" type="number" min={0} value={rate} onChange={(e) => setRate(e.target.value)} placeholder="optional" />)}
@@ -158,9 +220,7 @@ function ZoomConnectionCard({ accountId, connection, onChanged }: { accountId: s
           </div>
           <div style={{ display: "flex", gap: 8 }}>
             <button type="submit" className="ms-btn-primary" disabled={busy !== null}>{busy === "save" ? "Verifying…" : "Save"}</button>
-            {connection?.has_credentials && (
-              <button type="button" className="ms-btn-secondary" onClick={() => setEditing(false)} disabled={busy !== null}>Cancel</button>
-            )}
+            <button type="button" className="ms-btn-secondary" onClick={() => { setEditing(false); setOpen(false); setCreds({}); }} disabled={busy !== null}>Cancel</button>
           </div>
         </form>
       )}

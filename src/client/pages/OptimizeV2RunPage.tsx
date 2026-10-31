@@ -44,6 +44,15 @@ export default function OptimizeV2RunPage() {
         <Stat label="Window" value={`${fmtDate(run.from_date)} – ${fmtDate(run.to_date)}`} sub={`${PLATFORM_LABEL[run.platform]} · run ${fmtDate(run.created_at)}`} />
       </div>
 
+      {data.result.warnings && data.result.warnings.length > 0 && (
+        <div className="ms-card" style={{ background: "#fffbeb", borderColor: "#fde68a", marginBottom: 16 }}>
+          <div style={{ fontWeight: 700, color: "#92400e", marginBottom: 6 }}>Collection notes</div>
+          <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: "#78350f", lineHeight: 1.5 }}>
+            {data.result.warnings.map((w) => <li key={w}>{w}</li>)}
+          </ul>
+        </div>
+      )}
+
       <div style={{ display: "flex", gap: 2, borderBottom: "2px solid #e2e8f0", marginBottom: 16, overflowX: "auto" }}>
         {TABS.map((t) => (
           <button
@@ -64,7 +73,7 @@ export default function OptimizeV2RunPage() {
       {tab === "plan" && <PlanTab result={data.result} />}
       {tab === "findings" && <FindingsTab result={data.result} />}
       {tab === "config" && <ConfigTab result={data.result} />}
-      {tab === "coverage" && <CoverageTab result={data.result} />}
+      {tab === "coverage" && <CoverageTab result={data.result} platform={run.platform} />}
     </Wrap>
   );
 }
@@ -245,12 +254,12 @@ function ConfigTab({ result }: { result: RunResult }) {
   );
 }
 
-function CoverageTab({ result }: { result: RunResult }) {
+function CoverageTab({ result, platform }: { result: RunResult; platform: RunSummary["platform"] }) {
   const sc = result.scorecard;
   return (
     <>
       <div className="ms-card" style={{ marginBottom: 16 }}>
-        <div style={{ fontWeight: 700, color: "#0f172a", marginBottom: 8 }}>Zoom areas reached</div>
+        <div style={{ fontWeight: 700, color: "#0f172a", marginBottom: 8 }}>{PLATFORM_LABEL[platform]} areas reached</div>
         {Object.entries(sc.domains).map(([name, d]) => (
           <div key={name} style={{ fontSize: 13, marginBottom: 4 }}>
             <span style={{ color: d.ok ? "#166534" : "#b91c1c", fontWeight: 700 }}>{d.ok ? "✓" : "✗"}</span> {name}

@@ -1,0 +1,109 @@
+{
+  "_status": "In production use since 2026-10. Every check below reads from a verified endpoint. Add checks here, never in renderer code — a check added in a renderer is invisible to the workbook and the exports.",
+  "checks": [
+    {
+      "id": "emergency_locations_present",
+      "layer": 0,
+      "setting": "Account emergency locations",
+      "recommended": "At least one per physical site",
+      "impact": "E911 dispatch may route incorrectly; regulatory exposure (RAY BAUM'S Act).",
+      "remediation": "Define emergency locations per site and assign them to devices."
+    },
+    {
+      "id": "hardphone_e911_assigned",
+      "layer": 0,
+      "setting": "Device emergency service address",
+      "recommended": "Every hard phone has one",
+      "impact": "Emergency calls from that device cannot be located.",
+      "remediation": "Assign an emergency address to each hard phone."
+    },
+    {
+      "id": "queue_has_members",
+      "layer": 2,
+      "setting": "Call queue membership",
+      "recommended": "Every queue has ≥1 member",
+      "impact": "Calls into an empty queue are abandoned or misrouted.",
+      "remediation": "Assign members or retire the queue."
+    },
+    {
+      "id": "business_hours_defined",
+      "layer": 2,
+      "setting": "Account business hours",
+      "recommended": "Defined and matching operations",
+      "impact": "After-hours calls follow the wrong rule set.",
+      "remediation": "Set business hours and review after-hours answering rules."
+    },
+    {
+      "id": "no_stale_extensions",
+      "layer": 1,
+      "setting": "Extension status",
+      "recommended": "No NotActivated extensions older than 30 days",
+      "impact": "Paid-for seats sitting unused; inflated licence count.",
+      "remediation": "Activate, reassign, or release."
+    },
+    {
+      "id": "no_disabled_extensions",
+      "layer": 1,
+      "setting": "Extension status",
+      "recommended": "Disabled extensions reviewed quarterly",
+      "impact": "Configuration drift and unclear licence position.",
+      "remediation": "Release or re-enable."
+    },
+    {
+      "id": "call_recording_policy",
+      "layer": 10,
+      "setting": "Call recording",
+      "recommended": "Explicitly configured and consistent with policy",
+      "impact": "Compliance gap, or recordings captured without a defined retention posture.",
+      "remediation": "Set automatic/on-demand recording per policy and confirm retention."
+    },
+    {
+      "id": "sites_configured",
+      "layer": 0,
+      "setting": "Multi-site configuration",
+      "recommended": "Sites reflect real locations",
+      "impact": "Routing, emergency addressing, and reporting all inherit site structure.",
+      "remediation": "Define sites and assign extensions."
+    },
+    {
+      "id": "ringcx_queues_staffed",
+      "layer": 8,
+      "setting": "RingCX queue staffing",
+      "recommended": "Every active gate has at least one agent with access",
+      "impact": "Calls entering an unstaffed queue cannot be answered.",
+      "remediation": "Grant agent gate access, or deactivate the gate."
+    },
+    {
+      "id": "ringcx_no_inactive_agents",
+      "layer": 8,
+      "setting": "RingCX agent status",
+      "recommended": "No inactive agents left configured",
+      "impact": "Inactive agents inflate seat counts and confuse routing design.",
+      "remediation": "Remove or reactivate."
+    },
+    {
+      "id": "ringcx_agents_rc_managed",
+      "layer": 8,
+      "setting": "Agent identity source",
+      "recommended": "Agents managed by RingEX (userManagedByRC)",
+      "impact": "Locally-managed agents drift from the RingEX directory and bypass joiner/leaver processes.",
+      "remediation": "Link agents to RingEX users."
+    },
+    {
+      "id": "ringcx_dnc_configured",
+      "layer": 8,
+      "setting": "DNC list",
+      "recommended": "At least one DNC list where outbound dialing is in use",
+      "impact": "Outbound campaigns without a DNC list are a compliance exposure.",
+      "remediation": "Create and attach a DNC list."
+    },
+    {
+      "id": "ringcx_dialgroups_have_campaigns",
+      "layer": 8,
+      "setting": "Dial group configuration",
+      "recommended": "Every dial group has at least one campaign",
+      "impact": "An empty dial group is dead configuration that misleads routing design.",
+      "remediation": "Attach a campaign or remove the dial group."
+    }
+  ]
+}

@@ -2,8 +2,8 @@
 // credentials), runs, and per-KPI rows for trends.
 import type { Bindings } from "../../types";
 import { decryptJson, encryptJson } from "./crypto";
-import type { Assumptions, ManualInputs, Platform } from "./engine/types";
-import type { ZoomAssessmentResult } from "./providers/zoom/assess";
+import type { Assumptions, Findings, ManualInputs, Platform, Scorecard } from "./engine/types";
+import { jwtExpiry, type RingCentralCredentials } from "./providers/ringcentral/assess";
 import type { ZoomCredentials } from "./providers/zoom/client";
 
 export type ConnectionRow = {
@@ -32,7 +32,26 @@ export type ConnectionView = Omit<ConnectionRow, "creds_enc" | "creds_hint" | "a
   inputs: ManualInputs;
 };
 
-export type CredentialsFor = { zoom: ZoomCredentials };
+export type CredentialsFor = { zoom: ZoomCredentials; ringcentral: RingCentralCredentials };
+export type AnyCredentials = CredentialsFor[keyof CredentialsFor];
+
+/** What every provider's run result has in common; the rest is provider-specific. */
+export type StoredResult = {
+  platform?: Platform;
+  meta: {
+    generatedAt: string;
+    accountId: string;
+    window: { from: string; to: string };
+    grantedScopes: string[];
+    subrequestsUsed: number;
+    generator: string;
+  };
+  scorecard: Scorecard;
+  findings: Findings;
+  /** Collection notes worth showing (RingCentral: partial collection, sample volume, JWT expiry). */
+  warnings?: string[];
+  [k: string]: unknown;
+};
 
 const parse = <T>(s: string | null | undefined, fallback: T): T => {
   try { return s ? (JSON.parse(s) as T) : fallback; } catch { return fallback; }
@@ -50,9 +69,15 @@ export function toView(row: ConnectionRow): ConnectionView {
 }
 
 /** Non-secret identifiers shown in the UI so staff can tell which tenant a connection points at. */
-export function credentialHint(platform: Platform, creds: ZoomCredentials): Record<string, string> {
-  if (platform === "zoom") {
+export function credentialHint(platform: Platform, creds: AnyCredentials): Record<string, string> {
+  if (platform === "zoom" && "accountId" in creds) {
     return { account_id: creds.accountId, client_id: creds.clientId };
+  }
+  if (platform === "ringcentral" && "jwt" in creds) {
+    const hint: Record<string, string> = { client_id: creds.clientId, rc_env: creds.rcEnv || "production" };
+    const exp = jwtExpiry(creds.jwt);
+    if (exp) hint.jwt_expires_at = exp;
+    return hint;
   }
   return {};
 }
@@ -90,7 +115,7 @@ export async function upsertConnection(
   platform: Platform,
   userId: string,
   settings: ConnectionSettings,
-  creds?: ZoomCredentials,
+  creds?: AnyCredentials,
 ): Promise<ConnectionRow> {
   const existing = await getConnectionFor(env, accountId, platform);
   const credsEnc = creds ? await encryptJson(encKey(env), creds) : existing?.creds_enc ?? null;
@@ -145,7 +170,7 @@ const resultKey = (accountId: string, runId: string) => `optimize-v2/${accountId
 export async function saveRun(
   env: Bindings,
   conn: ConnectionRow,
-  result: ZoomAssessmentResult,
+  result: StoredResult,
   source: RunRow["source"],
   userId: string | null,
 ): Promise<string> {
@@ -183,8 +208,8 @@ export async function recordRunError(env: Bindings, connectionId: string, messag
     .bind(message.slice(0, 500), connectionId).run();
 }
 
-export async function getRunResult(env: Bindings, run: RunRow): Promise<ZoomAssessmentResult | null> {
+export async function getRunResult(env: Bindings, run: RunRow): Promise<StoredResult | null> {
   if (!run.result_key) return null;
   const obj = await env.R2.get(run.result_key);
-  return obj ? (await obj.json()) as ZoomAssessmentResult : null;
+  return obj ? (await obj.json()) as StoredResult : null;
 }
