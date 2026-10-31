@@ -141,10 +141,10 @@ export async function buildRoiWordDocument(
     ({ c: [label, ...yr(arr, f, tot)], ...x });
 
   const c: (DocxParagraph | DocxTable)[] = [];
-  c.push(para([t("PACKETFUSION", { size: 20, bold: true, color: XC.green })], { after: 200 }));
+  c.push(para([t("PACKET FUSION", { size: 20, bold: true, color: XC.green })], { after: 200 }));
   c.push(para([t("AI Agent ROI Analysis", { size: 52, bold: true, color: XC.navy })], { after: 60 }));
   c.push(para([t(`${client} · AI agent business case · 3 years`, { size: 26, color: XC.navy })], { after: 60 }));
-  c.push(para([t(`${exportDate()}  |  Prepared by PacketFusion  |  For discussion`, { size: 18, color: XC.muted })], { after: 300 }));
+  c.push(para([t(`${exportDate()}  |  Prepared by Packet Fusion  |  For discussion`, { size: 18, color: XC.muted })], { after: 300 }));
   c.push(tiles(S.headline));
   c.push(h1("Executive summary"));
   c.push(para(S.intro));
@@ -229,10 +229,10 @@ export async function buildRoiWordDocument(
     S.confirm.forEach(([a, b]) => c.push(bullet([t(a, { bold: true }), t(b)])));
   }
   c.push(para("", { after: 80 }));
-  c.push(para([t("Source: PacketFusion AI Agent ROI Builder. Figures are planning estimates, not a quote or a guarantee of results.", { size: 16, color: XC.muted, italics: true })]));
+  c.push(para([t("Source: Packet Fusion AI Agent ROI Builder. Figures are planning estimates, not a quote or a guarantee of results.", { size: 16, color: XC.muted, italics: true })]));
 
   return new Document({
-    creator: "PacketFusion",
+    creator: "Packet Fusion",
     title: `AI Agent ROI Analysis – ${client}`,
     styles: { default: { document: { run: { font: F, size: 20, color: XC.ink } } } },
     numbering: {
@@ -248,7 +248,7 @@ export async function buildRoiWordDocument(
           children: [new Paragraph({
             tabStops: [{ type: TabStopType.RIGHT, position: W }],
             border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: XC.grey, space: 4 } },
-            children: [t("PacketFusion", { size: 16, bold: true, color: XC.navy }), t(`\tAI Agent ROI Analysis · ${client}`, { size: 16, color: XC.muted })],
+            children: [t("Packet Fusion", { size: 16, bold: true, color: XC.navy }), t(`\tAI Agent ROI Analysis · ${client}`, { size: 16, color: XC.muted })],
           })],
         }),
       },
