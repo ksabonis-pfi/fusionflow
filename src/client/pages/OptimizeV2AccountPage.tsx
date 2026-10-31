@@ -5,6 +5,7 @@ import {
 } from "../lib/optimizeV2Api";
 import { PLATFORM_LABEL, fmtDate } from "../components/optimizeV2/format";
 import { GradePill } from "../components/optimizeV2/ui";
+import QuestionnaireList from "../components/optimizeV2/QuestionnaireList";
 
 type AccountData = Awaited<ReturnType<typeof optimizeV2Api.account>>;
 
@@ -63,6 +64,13 @@ export default function OptimizeV2AccountPage() {
 
       <h2 style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", margin: "0 0 12px" }}>Assessments</h2>
       <RunList runs={data.runs} />
+
+      <h2 style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", margin: "24px 0 12px" }}>Questionnaires</h2>
+      <QuestionnaireList
+        accountId={accountId}
+        vendor={data.account.vendor}
+        connected={data.connections.filter((c) => c.has_credentials).map((c) => c.platform)}
+      />
     </Page>
   );
 }
