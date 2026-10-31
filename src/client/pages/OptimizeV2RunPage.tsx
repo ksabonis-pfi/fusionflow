@@ -43,6 +43,7 @@ export default function OptimizeV2RunPage() {
         <Stat label="Findings" value={`${f.summary.red} red · ${f.summary.amber} amber`} sub={`${f.summary.strengths} strengths`} />
         <Stat label="KPIs measured" value={`${sc.coverage.populated} / ${sc.coverage.total}`} sub={`${sc.coverage.apiPopulated} from the API`} />
         <Stat label="Window" value={`${fmtDate(run.from_date)} – ${fmtDate(run.to_date)}`} sub={`${PLATFORM_LABEL[run.platform]} · run ${fmtDate(run.created_at)}`} />
+        <ReadoutLinks runId={run.id} />
         {/* Plain link: the server names the file via Content-Disposition. */}
         <a
           href={`/api/optimize-v2/runs/${encodeURIComponent(run.id)}/workbook.xlsx`}
@@ -94,6 +95,21 @@ function Wrap({ children, accountId }: { children: React.ReactNode; accountId?: 
         ← {accountId ? "Account" : "All accounts"}
       </Link>
       {children}
+    </div>
+  );
+}
+
+/** Customer-facing readouts (full page, printable): see OptimizeV2ReportPage. */
+function ReadoutLinks({ runId }: { runId: string }) {
+  const kinds = [["executive", "Executive"], ["outcomes", "Outcomes"], ["growth", "Growth plan"]] as const;
+  return (
+    <div style={{ marginLeft: "auto" }}>
+      <div style={{ fontSize: 12, color: "#64748b", marginBottom: 4 }}>Readouts</div>
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+        {kinds.map(([k, label]) => (
+          <Link key={k} to={`/optimize-v2/runs/${runId}/report/${k}`} className="ms-btn-ghost" style={{ padding: "4px 10px", fontSize: 13 }}>{label}</Link>
+        ))}
+      </div>
     </div>
   );
 }
