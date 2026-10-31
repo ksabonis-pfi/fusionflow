@@ -39,11 +39,6 @@ function notifTimeAgo(iso: string): string {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
-// Preview features (e.g. Optimizations V2) show on staging and local dev only,
-// matching the home page's staging-only modules.
-const IS_PREVIEW_HOST = typeof window !== "undefined"
-  && (window.location.hostname.includes("staging") || window.location.hostname === "localhost");
-
 export default function AppShell() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [isClient, setIsClient] = useState(false);
@@ -53,6 +48,7 @@ export default function AppShell() {
   const [canTimeAssist, setCanTimeAssist] = useState(false);
   const [canSalesOps, setCanSalesOps] = useState(false);
   const [isLeadership, setIsLeadership] = useState(false);
+  const [canOptimizeV2, setCanOptimizeV2] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [impersonating, setImpersonating] = useState<string | null>(null);
   const [sysStatus, setSysStatus] = useState<SystemStatusResponse | null>(null);
@@ -108,6 +104,8 @@ export default function AppShell() {
         // Same: distributor cost pricing, explicit flag only.
         setCanSalesOps(res.user.is_sales_ops === 1);
         setIsLeadership(res.role === "admin" || res.role === "executive");
+        // On when the server has OPTIMIZE_V2_ENABLED and the role can use the V2 API.
+        setCanOptimizeV2(res.features?.optimize_v2 === true);
       })
       .catch(() => {});
     bootstrapDemoMode();
@@ -191,8 +189,8 @@ export default function AppShell() {
             <SideLink to="/solutions" icon={NAV_ICONS.solutions} onClick={() => setDrawerOpen(false)}>Solutions</SideLink>
             <SideLink to="/dashboard" icon={NAV_ICONS.projects} onClick={() => setDrawerOpen(false)}>Projects</SideLink>
             {!isPartnerAe && <SideLink to="/optimize" icon={NAV_ICONS.optimizations} onClick={() => setDrawerOpen(false)}>Optimizations</SideLink>}
-            {/* Optimizations V2 preview: staging + local dev only until cutover. */}
-            {!isPartnerAe && IS_PREVIEW_HOST && <SideLink to="/optimize-v2" icon={NAV_ICONS.optimizations} onClick={() => setDrawerOpen(false)}>Optimizations V2</SideLink>}
+            {/* Optimizations V2: beside V1 wherever the server enables it (OPTIMIZE_V2_ENABLED). */}
+            {canOptimizeV2 && <SideLink to="/optimize-v2" icon={NAV_ICONS.optimizations} onClick={() => setDrawerOpen(false)}>Optimizations V2</SideLink>}
             {false && canProspect && (
               <SideLink to="/prospecting" icon={NAV_ICONS.prospecting} onClick={() => setDrawerOpen(false)}>Prospecting</SideLink>
             )}

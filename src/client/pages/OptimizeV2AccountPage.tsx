@@ -4,7 +4,7 @@ import {
   optimizeV2Api, type Connection, type Platform, type RingCentralCredentialsInput, type RunSummary, type ZoomCredentialsInput,
 } from "../lib/optimizeV2Api";
 import { PLATFORM_LABEL, fmtDate } from "../components/optimizeV2/format";
-import { GradePill } from "../components/optimizeV2/ui";
+import { GradePill, ImportedBadge } from "../components/optimizeV2/ui";
 import { ScheduleControl, ScoreTrend } from "../components/optimizeV2/ScheduleTrend";
 import QuestionnaireList from "../components/optimizeV2/QuestionnaireList";
 
@@ -278,7 +278,9 @@ function RunList({ runs }: { runs: RunSummary[] }) {
             <tr key={r.id}>
               <td style={{ whiteSpace: "nowrap" }}>
                 <Link to={`/optimize-v2/runs/${r.id}`} style={{ fontWeight: 600 }}>{fmtDate(r.created_at)}</Link>
-                {r.source !== "manual" && <span style={{ marginLeft: 6, fontSize: 11, color: "#64748b" }}>{r.source}</span>}
+                {r.source === "imported"
+                  ? <ImportedBadge />
+                  : r.source !== "manual" && <span style={{ marginLeft: 6, fontSize: 11, color: "#64748b" }}>{r.source}</span>}
               </td>
               <td>{PLATFORM_LABEL[r.platform]}</td>
               <td style={{ whiteSpace: "nowrap", fontSize: 13 }}>{fmtDate(r.from_date)} – {fmtDate(r.to_date)}</td>

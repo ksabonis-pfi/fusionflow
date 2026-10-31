@@ -16,6 +16,7 @@ export type ConnectionSummary = {
   overall: number | null;
   overall_grade: Grade | null;
   latest_run_at: string | null;
+  latest_source: RunSummary["source"] | null;
 };
 
 export type OptimizeV2Account = {
@@ -162,7 +163,17 @@ export type Trend = {
   }[];
 };
 
-export type ZoomCredentialsInput = { accountId: string; clientId: string; clientSecret: string };
+/** What D1 holds for a run whose full result isn't stored (imported headline-only runs). */
+export type RunHeadline = {
+  kpis: {
+    key: string; label: string; layer: number; value: number | null; target: number | null; unit: string | null;
+    dir: string | null; status: string | null; attainment: number | null; mode: string | null; available: number;
+  }[];
+  /** Label is empty when the score was derived from the KPI rows. */
+  layers: { layer: number; label: string; score: number | null }[];
+};
+
+export type ZoomCredentialsInput ={ accountId: string; clientId: string; clientSecret: string };
 export type QuestionnaireSummary = {
   platform: Platform;
   instrument: Instrument;
@@ -234,7 +245,7 @@ export const optimizeV2Api = {
     ),
 
   run: (runId: string) =>
-    request<{ run: RunSummary; result: RunResult | null }>(`/optimize-v2/runs/${encodeURIComponent(runId)}`),
+    request<{ run: RunSummary; result: RunResult | null; headline?: RunHeadline }>(`/optimize-v2/runs/${encodeURIComponent(runId)}`),
 
   questionnaires: (accountId: string) =>
     request<QuestionnaireSummary[]>(`/optimize-v2/accounts/${encodeURIComponent(accountId)}/questionnaires`),

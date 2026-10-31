@@ -93,6 +93,7 @@ export default function OptimizeV2ReportPage() {
   let body: React.ReactNode;
   if (error) body = <Message tone="error">{error}</Message>;
   else if (!data) body = <Message>Building the readout…</Message>;
+  else if (!result && data.run.source === "imported") body = <Message>Imported from the standalone app — full detail wasn't stored for this run, so there are no readouts. The Assessment tab shows its headline scores.</Message>;
   else if (!result) body = <Message tone="error">This run's full result is missing. Re-run the assessment to generate the readouts.</Message>;
   else if (kind === "growth") body = isZoom ? <ZoomGrowth result={result} run={data.run} /> : <RcGrowth result={result} run={data.run} />;
   else if (zoomModel) body = kind === "outcomes" ? <ZoomOutcomes m={zoomModel} /> : <ZoomExecutive m={zoomModel} />;
@@ -107,10 +108,11 @@ export default function OptimizeV2ReportPage() {
             run={data.run}
             active={kind}
             outcomesHidden={outcomesHidden}
+            readoutsHidden={!result}
             query={query}
             actions={
               <>
-                {isZoom && (
+                {isZoom && result && (
                   <div className="o2r-seg" title="Report track">
                     <button type="button" className={track === "essentials" ? "on" : ""} onClick={() => setTrack("essentials")}>Essentials</button>
                     <button type="button" className={track === "advanced" ? "on" : ""} onClick={() => setTrack("advanced")}>Advanced</button>
@@ -123,7 +125,7 @@ export default function OptimizeV2ReportPage() {
         ) : (
           <Link to={`/optimize-v2/runs/${runId}`} className="ms-btn-ghost" style={{ marginBottom: 16 }}>← Assessment</Link>
         )}
-        {isZoom && trackParam == null && data && (
+        {isZoom && trackParam == null && result && (
           <div className="o2r-hint">
             Track auto-detected: {autoTrack === "advanced" ? "Contact Center / Virtual Agent activity found" : "no Contact Center activity"}
           </div>
