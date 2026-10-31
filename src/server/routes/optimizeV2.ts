@@ -3,10 +3,12 @@ import { HTTPException } from "hono/http-exception";
 import { z } from "zod";
 import type { Bindings, Variables } from "../types";
 import type { Platform } from "../services/optimizeV2/engine/types";
-import { runZoomAssessment } from "../services/optimizeV2/providers/zoom/assess";
-import { getToken, ZoomError } from "../services/optimizeV2/providers/zoom/client";
+import { jwtExpiry, type RingCentralCredentials } from "../services/optimizeV2/providers/ringcentral/assess";
+import { RcClient } from "../services/optimizeV2/providers/ringcentral/rc";
+import { getToken, ZoomError, type ZoomCredentials } from "../services/optimizeV2/providers/zoom/client";
+import { RunInputError, runConnection } from "../services/optimizeV2/run";
 import {
-  getConnection, getRunResult, readCredentials, recordRunError, saveRun, toView, upsertConnection,
+  getConnection, getRunResult, recordRunError, saveRun, toView, upsertConnection,
   type ConnectionRow, type RunRow,
 } from "../services/optimizeV2/store";
 
@@ -92,8 +94,16 @@ const zoomCredsSchema = z.object({
   clientSecret: z.string().trim().min(5).max(256),
 });
 
+const rcCredsSchema = z.object({
+  clientId: z.string().trim().min(5).max(128),
+  clientSecret: z.string().trim().min(5).max(256),
+  jwt: z.string().trim().min(20).max(4096),
+  rcEnv: z.enum(["production", "sandbox"]).optional(),
+});
+
 const connectionSchema = z.object({
-  credentials: zoomCredsSchema.optional(),
+  /** Validated per platform below. */
+  credentials: z.unknown().optional(),
   window_days: z.number().int().min(7).max(90).optional(),
   timezone: z.string().max(64).optional(),
   assumptions: z.object({
@@ -112,7 +122,6 @@ app.put("/accounts/:accountId/connections/:platform", async (c) => {
   const accountId = c.req.param("accountId");
   const platform = platformParam.safeParse(c.req.param("platform"));
   if (!platform.success) return c.json({ error: "Unknown platform" }, 400);
-  if (platform.data === "ringcentral") return c.json({ error: "RingCentral connections arrive in the next phase" }, 400);
   if (!c.env.OPTIMIZE_ENC_KEY) return c.json({ error: "Optimizations isn't configured (OPTIMIZE_ENC_KEY missing)" }, 503);
 
   const exists = await c.env.DB.prepare("SELECT 1 FROM optimize_accounts WHERE id = ?").bind(accountId).first();
@@ -120,21 +129,47 @@ app.put("/accounts/:accountId/connections/:platform", async (c) => {
 
   const parsed = connectionSchema.safeParse(await c.req.json().catch(() => null));
   if (!parsed.success) return c.json({ error: "Invalid connection settings", details: parsed.error.flatten() }, 400);
-  const { credentials, ...settings } = parsed.data;
+  const { credentials: rawCreds, ...settings } = parsed.data;
 
+  let credentials: ZoomCredentials | RingCentralCredentials | undefined;
   let scopes: string[] | undefined;
-  if (credentials) {
-    try {
-      scopes = (await getToken(credentials)).scopes;
-    } catch (err) {
-      const msg = err instanceof ZoomError ? err.message : "Couldn't reach Zoom";
-      return c.json({ error: `Zoom rejected these credentials: ${msg}` }, 400);
-    }
+  if (rawCreds != null) {
+    const verified = await verifyCredentials(platform.data, rawCreds);
+    if ("error" in verified) return c.json({ error: verified.error }, 400);
+    ({ credentials, scopes } = verified);
   }
 
   const row = await upsertConnection(c.env, accountId, platform.data as Platform, auth.user.id, settings, credentials);
   return c.json({ connection: toView(row), grantedScopes: scopes });
 });
+
+/** Validate a platform's credential shape and prove it against the platform
+ *  (token exchange only — no data is read) before anything is stored. */
+async function verifyCredentials(platform: Platform, raw: unknown):
+  Promise<{ credentials: ZoomCredentials | RingCentralCredentials; scopes: string[] } | { error: string }> {
+  if (platform === "zoom") {
+    const p = zoomCredsSchema.safeParse(raw);
+    if (!p.success) return { error: "Enter the Zoom account ID, client ID and client secret" };
+    try {
+      return { credentials: p.data, scopes: (await getToken(p.data)).scopes };
+    } catch (err) {
+      return { error: `Zoom rejected these credentials: ${err instanceof ZoomError ? err.message : "couldn't reach Zoom"}` };
+    }
+  }
+  const p = rcCredsSchema.safeParse(raw);
+  if (!p.success) return { error: "Enter the RingCentral client ID, client secret and JWT" };
+  const exp = jwtExpiry(p.data.jwt);
+  if (exp && new Date(exp).getTime() < Date.now()) return { error: `This JWT expired on ${exp.slice(0, 10)}. Issue a new one in the RingCentral developer console.` };
+  try {
+    // A budget of 2 allows the token exchange (with one retry) and nothing else.
+    const rc = new RcClient({ ...p.data, rcEnv: p.data.rcEnv || "production", accountId: "~", budget: 2 });
+    await rc.getToken();
+    return { credentials: { ...p.data, rcAccountId: "~" }, scopes: rc.scope ? rc.scope.split(/[\s,]+/).filter(Boolean) : [] };
+  } catch (err) {
+    const detail = String(err instanceof Error ? err.message : err).split("\n")[0];
+    return { error: `RingCentral rejected these credentials: ${detail}` };
+  }
+}
 
 app.delete("/connections/:id", async (c) => {
   assertEdit(c.get("auth").role);
@@ -149,25 +184,16 @@ app.post("/connections/:id/runs", async (c) => {
   assertEdit(auth.role);
   const conn = await getConnection(c.env, c.req.param("id"));
   if (!conn) return c.json({ error: "Connection not found" }, 404);
-  if (!conn.creds_enc) return c.json({ error: "Add credentials before running an assessment" }, 400);
-  if (conn.platform !== "zoom") return c.json({ error: "RingCentral assessments arrive in the next phase" }, 400);
 
   try {
-    const creds = await readCredentials<"zoom">(c.env, conn);
-    const view = toView(conn);
-    const result = await runZoomAssessment({
-      ...creds,
-      windowDays: conn.window_days,
-      assumptions: view.assumptions,
-      inputs: view.inputs,
-    });
+    const result = await runConnection(c.env, conn);
     const runId = await saveRun(c.env, conn, result, "manual", auth.user.id);
     return c.json({ runId, overall: result.scorecard.overall, grade: result.scorecard.overallGrade });
   } catch (err) {
     const msg = err instanceof ZoomError ? `Zoom: ${err.message}` : err instanceof Error ? err.message : String(err);
     console.error("[optimize-v2] run failed", conn.id, err);
     await recordRunError(c.env, conn.id, msg);
-    return c.json({ error: `Assessment failed — ${msg}` }, 502);
+    return c.json({ error: `Assessment failed — ${msg}` }, err instanceof RunInputError ? 400 : 502);
   }
 });
 
@@ -176,8 +202,9 @@ app.get("/runs/:runId", async (c) => {
   const run = await c.env.DB.prepare("SELECT * FROM opt2_runs WHERE id = ?").bind(c.req.param("runId")).first<RunRow>();
   if (!run) return c.json({ error: "Run not found" }, 404);
   const result = await getRunResult(c.env, run);
-  // Raw API payloads stay server-side; the UI renders from the scorecard and reports.
-  const slim = result ? { ...result, raw: undefined } : null;
+  // Raw API payloads and the engine-native result stay server-side; the UI
+  // renders from the shared scorecard, findings and warnings.
+  const slim = result ? { ...result, raw: undefined, native: undefined } : null;
   return c.json({ run: { ...run, indices: JSON.parse(run.indices || "[]") }, result: slim });
 });
 

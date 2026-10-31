@@ -84,6 +84,32 @@ Each phase ships to staging as its own PR.
 6. **Migration and cutover**: import run history for customers already in the standalone apps,
    re-enter their credentials, make V2 the Optimizations module, retire V1 and the standalone apps.
 
+## Provider notes
+
+**Zoom** (phase 1). Collectors are kept as JavaScript, identical to the standalone app apart
+from one import. Scoring, findings and the KPI registry are TypeScript on the shared
+`engine/` helpers. Two bugs inherited from the original were fixed deliberately (review of
+#758): negated config states ("Not configured") counted as aligned, and a 0 on a 0-target
+KPI showed "On Target" while scoring 0%.
+
+**RingCentral** (phase 2). The engine (client, collectors, KPI derivation, scoring, findings)
+and its JSON config are kept as JavaScript, identical to the standalone app apart from
+config import paths. `providers/ringcentral/assess.ts` replaces the original's
+`assessCustomer()` without its database and decryption, and `normalize.ts` maps the
+engine's native result onto the shared scorecard shape. The native result is stored too,
+for the RingCentral reports.
+
+Three bugs inherited from the original were fixed deliberately (review of #759): RingCX
+requests bypassed the request budget (on a large contact-center tenant the original reported
+17 calls while making 124 against a budget of 80); the config audit judged failed inventory
+reads as real configuration (unreadable extensions scored "aligned"); and license
+utilization mixed populations (80 enabled + 20 not-activated users read 67%, not 80%).
+
+The two engines are **not** identical despite the RingCentral one's comment: for a
+lower-is-better KPI with a 0 target, Zoom awards full attainment and RingCentral awards
+none; RingCentral also has neutral (unscored) KPIs and "blocked" KPIs that are excluded
+from layer scores. Each engine keeps its own rules; reconcile deliberately if needed.
+
 ## Open items
 
 - Which V1 customers (if any) get a migration effort into V2: under discussion.

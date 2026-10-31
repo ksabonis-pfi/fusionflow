@@ -1,0 +1,61 @@
+{
+  "_status": "In production use since 2026-10. The eleven layers below have scored live RingCentral tenants and fed customer-facing readouts; they are no longer provisional. Layer membership is what the scorecard renders, so adding or renaming one changes every deliverable — change it deliberately.",
+  "model": "PacketFusion RingCentral Optimization — layered value model",
+  "layers": [
+    {
+      "id": 0,
+      "name": "Foundation",
+      "description": "Account, sites, numbering, emergency addressing, licensing hygiene."
+    },
+    {
+      "id": 1,
+      "name": "Provisioning & Identity",
+      "description": "Extensions, users, devices, SCIM/directory sync, activation completeness."
+    },
+    {
+      "id": 2,
+      "name": "Call Routing",
+      "description": "IVR menus, answering rules, business hours, queue design, overflow."
+    },
+    {
+      "id": 3,
+      "name": "Voice Quality & Reliability",
+      "description": "Device health, network readiness, call failure and disconnect patterns."
+    },
+    {
+      "id": 4,
+      "name": "Employee Experience",
+      "description": "Presence, DND, app adoption, softphone vs hard phone mix, mobility."
+    },
+    {
+      "id": 5,
+      "name": "Customer Experience",
+      "description": "Answer rate, speed to answer, abandonment, first-contact resolution."
+    },
+    {
+      "id": 6,
+      "name": "Messaging & Digital",
+      "description": "SMS/MMS, A2P campaign health, fax displacement, digital channels."
+    },
+    {
+      "id": 7,
+      "name": "Meetings & Collaboration",
+      "description": "RingCentral Video and Team Chat adoption and meeting hygiene."
+    },
+    {
+      "id": 8,
+      "name": "Contact Center",
+      "description": "RingCX queues, agents, dispositions, routing effectiveness."
+    },
+    {
+      "id": 9,
+      "name": "AI & Automation",
+      "description": "AI summaries, transcription, RingSense insights, deflection."
+    },
+    {
+      "id": 10,
+      "name": "Governance & Value",
+      "description": "Cost per seat, license utilization, compliance posture, realized value."
+    }
+  ]
+}

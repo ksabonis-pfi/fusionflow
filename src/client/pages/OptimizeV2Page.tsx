@@ -25,7 +25,7 @@ export default function OptimizeV2Page() {
         <div>
           <h1 className="ms-page-title">Optimizations <span style={{ fontSize: 13, fontWeight: 700, color: "#0b9aad", verticalAlign: "middle" }}>V2 preview</span></h1>
           <div style={{ fontSize: 13, color: "#64748b", marginTop: 4 }}>
-            Connect a customer's Zoom tenant, run an assessment, and get the 11-layer scorecard, findings and improvement plan.
+            Connect a customer's Zoom or RingCentral tenant, run an assessment, and get the 11-layer scorecard, findings and improvement plan.
           </div>
         </div>
       </div>

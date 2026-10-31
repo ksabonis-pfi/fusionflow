@@ -64,8 +64,8 @@ export type RunSummary = {
 };
 
 export type ScoredKpi = {
-  layer: number; key: string; label: string; product: string; unit: string; dir: "higher" | "lower";
-  target: number; mode: string; source: string;
+  layer: number; key: string; label: string; product: string; unit: string; dir: "higher" | "lower" | "neutral";
+  target: number | null; mode: string; source: string;
   value: number | null; status: string; attainment: number | null; available: boolean; reason: string | null; endpoint: string | null;
 };
 
@@ -78,7 +78,7 @@ export type ConfigAuditRow = {
 
 export type Improvement = {
   type: "kpi" | "config"; key: string; kpi: string; layer: number; layerLabel?: string; product: string;
-  current: number | string | null; unit?: string; target: number | string; attainment: number | null;
+  current: number | string | null; unit?: string; target: number | string | null; attainment: number | null;
   scoreLift: number | null; reco: string; lever: string | null; steps: string[] | null;
 };
 
@@ -88,6 +88,9 @@ export type Finding = {
 };
 
 export type RunResult = {
+  platform?: Platform;
+  /** Collection notes (RingCentral: partial data, sample volume, JWT expiry). */
+  warnings?: string[];
   meta: { generatedAt: string; accountId: string; window: { from: string; to: string }; grantedScopes: string[]; subrequestsUsed: number };
   scorecard: {
     overall: number | null; overallGrade: Grade; configAlignment: number | null;
@@ -106,6 +109,7 @@ export type RunResult = {
 };
 
 export type ZoomCredentialsInput = { accountId: string; clientId: string; clientSecret: string };
+export type RingCentralCredentialsInput = { clientId: string; clientSecret: string; jwt: string };
 
 export const optimizeV2Api = {
   accounts: () => request<OptimizeV2Account[]>("/optimize-v2/accounts"),
@@ -120,7 +124,7 @@ export const optimizeV2Api = {
   saveConnection: (
     accountId: string,
     platform: Platform,
-    body: { credentials?: ZoomCredentialsInput; window_days?: number; assumptions?: Connection["assumptions"] },
+    body: { credentials?: ZoomCredentialsInput | RingCentralCredentialsInput; window_days?: number; assumptions?: Connection["assumptions"] },
   ) =>
     request<{ connection: Connection; grantedScopes?: string[] }>(
       `/optimize-v2/accounts/${encodeURIComponent(accountId)}/connections/${platform}`,

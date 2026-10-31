@@ -2,10 +2,12 @@
 
 export type Platform = "zoom" | "ringcentral";
 
-export type Direction = "higher" | "lower";
+/** "neutral" KPIs (RingCentral volume context, e.g. total calls) are shown but never scored. */
+export type Direction = "higher" | "lower" | "neutral";
 
-/** How a KPI's value is obtained. "supplied" = overridden by a manual input on the connection. */
-export type KpiMode = "api" | "derived" | "manual" | "supplied";
+/** How a KPI's value is obtained. "supplied" = overridden by a manual input on the connection.
+ *  RingCentral adds "blocked" (not measurable on this tenant, with a reason) and "missing". */
+export type KpiMode = "api" | "derived" | "manual" | "supplied" | "blocked" | "missing";
 
 export type KpiDef = {
   layer: number;
@@ -14,7 +16,8 @@ export type KpiDef = {
   product: string;
   unit: string;
   dir: Direction;
-  target: number;
+  /** null for neutral (context-only) KPIs. */
+  target: number | null;
   mode: KpiMode;
   source: string;
 };
@@ -85,7 +88,7 @@ export type Improvement = {
   product: string;
   current: number | string | null;
   unit?: string;
-  target: number | string;
+  target: number | string | null;
   dir: Direction;
   attainment: number | null;
   scoreLift: number | null;
@@ -102,7 +105,7 @@ export type Scorecard = {
   layers: LayerScore[];
   indices: IndexScore[];
   configAudit: { rows: ConfigAuditRow[]; assessed: number; aligned: number; total: number };
-  topActions: { kpi: string; layer: number; value: number | null; unit: string; target: number; attainment: number | null; product: string }[];
+  topActions: { kpi: string; layer: number; value: number | null; unit: string; target: number | null; attainment: number | null; product: string }[];
   improvements: Improvement[];
   potentialGain: number | null;
   potentialOverall: number | null;
@@ -121,7 +124,7 @@ export type Finding = {
   observation: string;
   value?: number | null;
   unit?: string;
-  target?: number;
+  target?: number | null;
   attainment?: number | null;
   businessImpact: string;
   recommendation: string;
