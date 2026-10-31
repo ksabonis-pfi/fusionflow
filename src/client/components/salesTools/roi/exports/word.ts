@@ -14,7 +14,7 @@ import { ROI_STEPS } from "../../../../../shared/roiModel/fields";
 import { showInput, sensDiscDigits, xf } from "../../../../../shared/roiModel/format";
 import { buildStory } from "../../../../../shared/roiModel/story";
 import type { RoiInputs, RoiResult } from "../../../../../shared/roiModel/types";
-import { EXPORT_FONT, EXPORT_FOOTER, XC, clientLabel, exportDate } from "./brand";
+import { EXPORT_FONT, XC, clientLabel, exportDate } from "./brand";
 
 export interface RoiChartImages {
   calls: Uint8Array;
@@ -256,7 +256,7 @@ export async function buildRoiWordDocument(
         default: new Footer({
           children: [new Paragraph({
             tabStops: [{ type: TabStopType.RIGHT, position: W }],
-            children: [t(EXPORT_FOOTER, { size: 16, color: XC.muted }), new TextRun({ children: ["\tPage ", PageNumber.CURRENT], font: F, size: 16, color: XC.muted })],
+            children: [new TextRun({ children: ["\tPage ", PageNumber.CURRENT], font: F, size: 16, color: XC.muted })],
           })],
         }),
       },

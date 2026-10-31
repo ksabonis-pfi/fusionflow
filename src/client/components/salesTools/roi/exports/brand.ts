@@ -20,16 +20,6 @@ export const XC = {
 /** System font only (no web fonts are loaded into the exports). */
 export const EXPORT_FONT = "Arial";
 
-/**
- * Attribution line in the Word footer and on the deck's title slide.
- *
- * OWNER DECISION: the original builder read "PacketFusion · Powered by
- * Bridgepointe Technologies" (Word footer) and "Powered by Bridgepointe
- * Technologies" (deck title slide). Until the owner confirms that wording it
- * defaults to plain "PacketFusion"; change it here and both exports follow.
- */
-export const EXPORT_FOOTER = "PacketFusion";
-
 /** Long en-US date for the cover and title slide, e.g. "October 30, 2026". */
 export function exportDate(): string {
   return new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
