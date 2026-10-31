@@ -1,7 +1,13 @@
-import type { ComponentType, ReactNode } from "react";
+import { lazy, type ComponentType, type ReactNode } from "react";
 import CommissionsCalculator from "./CommissionsCalculator";
 
-/** live: tile opens the app. coming_soon: tile shows, disabled. hidden: not listed and not routable. */
+// Lazy: the ROI builder and its model load only when the app is opened.
+const RoiBuilder = lazy(() => import("./roi/RoiBuilder"));
+
+/**
+ * live: tile opens the app. coming_soon: tile shows, disabled (admins can
+ * still preview the app at its URL). hidden: not listed and not routable.
+ */
 export type SalesToolStatus = "live" | "coming_soon" | "hidden";
 
 export type SalesToolApp = {
@@ -12,6 +18,8 @@ export type SalesToolApp = {
   icon: ReactNode;
   status: SalesToolStatus;
   component?: ComponentType;
+  /** Wider page container, for multi-column apps. */
+  wide?: boolean;
 };
 
 const svg = { width: 26, height: 26, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round", strokeLinejoin: "round" } as const;
@@ -23,8 +31,10 @@ export const SALES_TOOL_APPS: SalesToolApp[] = [
     title: "AI Agent ROI Builder",
     description: "Model contact center savings when an AI agent takes part of the call volume.",
     accent: "#0b9aad",
-    // Going live: set status "live" and add `component: RoiBuilder`.
+    // Going live: set status "live". Until then admins can preview /sales-tools/roi.
     status: "coming_soon",
+    component: RoiBuilder,
+    wide: true,
     icon: (
       <svg {...svg}>
         <path d="M3 3v18h18" />
