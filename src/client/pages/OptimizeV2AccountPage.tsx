@@ -7,6 +7,7 @@ import { PLATFORM_LABEL, fmtDate } from "../components/optimizeV2/format";
 import { GradePill, ImportedBadge } from "../components/optimizeV2/ui";
 import { ScheduleControl, ScoreTrend } from "../components/optimizeV2/ScheduleTrend";
 import QuestionnaireList from "../components/optimizeV2/QuestionnaireList";
+import CredentialSetupGuide from "../components/optimizeV2/CredentialSetupGuide";
 
 type AccountData = Awaited<ReturnType<typeof optimizeV2Api.account>>;
 
@@ -15,7 +16,7 @@ const errMsg = (e: unknown, fallback: string) => (e instanceof Error && e.messag
 /** Credential fields per platform, and the help shown above them. */
 const CRED_FIELDS: Record<Platform, { help: string; fields: { key: string; label: string; secret?: boolean; multiline?: boolean }[] }> = {
   zoom: {
-    help: "The customer creates a read-only Server-to-Server OAuth app in their Zoom tenant and shares its credentials.",
+    help: "From a read-only Server-to-Server OAuth app in the customer's Zoom account, usually created by Packet Fusion's admin there.",
     fields: [
       { key: "accountId", label: "Account ID" },
       { key: "clientId", label: "Client ID" },
@@ -23,7 +24,7 @@ const CRED_FIELDS: Record<Platform, { help: string; fields: { key: string; label
     ],
   },
   ringcentral: {
-    help: "The customer creates a read-only JWT app in the RingCentral developer console and issues a JWT for an admin user.",
+    help: "From a read-only JWT app in the customer's RingCentral account, with a JWT issued for a super admin (usually Packet Fusion's admin user there).",
     fields: [
       { key: "clientId", label: "Client ID" },
       { key: "clientSecret", label: "Client secret", secret: true },
@@ -251,6 +252,8 @@ function ConnectionCard({ platform, accountId, connection, canEdit, onChanged }:
       {message && (
         <div style={{ marginTop: 10, fontSize: 12, color: message.tone === "ok" ? "#166534" : "#b91c1c" }}>{message.text}</div>
       )}
+
+      {(!connected || editing) && <div style={{ marginTop: 12 }}><CredentialSetupGuide platform={platform} /></div>}
     </div>
   );
 }
