@@ -5,6 +5,7 @@ import {
 } from "../lib/optimizeV2Api";
 import { PLATFORM_LABEL, fmtDate } from "../components/optimizeV2/format";
 import { GradePill } from "../components/optimizeV2/ui";
+import { ScheduleControl, ScoreTrend } from "../components/optimizeV2/ScheduleTrend";
 
 type AccountData = Awaited<ReturnType<typeof optimizeV2Api.account>>;
 
@@ -57,9 +58,21 @@ export default function OptimizeV2AccountPage() {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 16, marginBottom: 24 }}>
         {(["zoom", "ringcentral"] as const).map((p) => (
           // Keyed by connection id so a new or replaced connection resets the form.
-          <ConnectionCard key={`${p}-${conn(p)?.id ?? "new"}`} platform={p} accountId={accountId} connection={conn(p)} onChanged={load} />
+          <ConnectionCard key={`${p}-${conn(p)?.id ?? "new"}`} platform={p} accountId={accountId} connection={conn(p)} canEdit={data.can_edit ?? true} onChanged={load} />
         ))}
       </div>
+
+      {data.connections.some((c) => data.runs.some((r) => r.connection_id === c.id)) && (
+        <>
+          <h2 style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", margin: "0 0 12px" }}>Score trend</h2>
+          <div style={{ display: "grid", gap: 16, marginBottom: 24 }}>
+            {data.connections.filter((c) => data.runs.some((r) => r.connection_id === c.id)).map((c) => (
+              // Keyed on the latest run so a new run refreshes the chart.
+              <ScoreTrend key={`${c.id}-${data.runs.find((r) => r.connection_id === c.id)?.id}`} connectionId={c.id} platform={c.platform} />
+            ))}
+          </div>
+        </>
+      )}
 
       <h2 style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", margin: "0 0 12px" }}>Assessments</h2>
       <RunList runs={data.runs} />
@@ -76,8 +89,8 @@ function Page({ children }: { children: React.ReactNode }) {
   );
 }
 
-function ConnectionCard({ platform, accountId, connection, onChanged }: {
-  platform: Platform; accountId: string; connection: Connection | null; onChanged: () => void;
+function ConnectionCard({ platform, accountId, connection, canEdit, onChanged }: {
+  platform: Platform; accountId: string; connection: Connection | null; canEdit: boolean; onChanged: () => void;
 }) {
   const navigate = useNavigate();
   const spec = CRED_FIELDS[platform];
@@ -182,6 +195,8 @@ function ConnectionCard({ platform, accountId, connection, onChanged }: {
           {connection.last_error && (
             <div style={{ fontSize: 12, color: "#b91c1c", marginBottom: 12 }}>Last run failed: {connection.last_error}</div>
           )}
+          <ScheduleControl connection={connection} canEdit={canEdit} onChanged={onChanged} />
+
           <button type="button" className="ms-btn-primary" onClick={run} disabled={busy !== null}>
             {busy === "run" ? "Running… (up to a minute)" : "Run assessment"}
           </button>

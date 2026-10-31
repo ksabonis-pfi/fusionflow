@@ -128,6 +128,15 @@ lower-is-better KPI with a 0 target, Zoom awards full attainment and RingCentral
 none; RingCentral also has neutral (unscored) KPIs and "blocked" KPIs that are excluded
 from layer scores. Each engine keeps its own rules; reconcile deliberately if needed.
 
+**Schedules and trends** (phase 5). A connection opts in to a monthly run on a day (1–31;
+past a short month's end it runs on the last day), judged in the connection's timezone. The
+hourly cron runs due connections, at most 3 per tick and one at a time (each run is up to ~200
+API calls); a connection stays due from its day until a run lands, so leftovers and failures
+roll to later ticks, and a manual run on or after the day counts. The scheduler claims a
+connection before running it (`schedule_attempted_at`), so a failing one is retried once per
+local day, not every tick. Runs store their layer scores (`opt2_runs.layer_scores`) so the trend
+view reads D1 only; runs from before that column fall back to layer means from `opt2_run_kpis`.
+
 ## Open items
 
 - Which V1 customers (if any) get a migration effort into V2: under discussion.
