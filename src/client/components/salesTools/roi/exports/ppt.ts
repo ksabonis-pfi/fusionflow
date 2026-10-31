@@ -24,7 +24,7 @@ export async function buildRoiPptx(p: RoiInputs, o: RoiResult): Promise<PptxGenJ
   const R = o.R, H = o.H, S = buildStory(p, o), client = clientLabel(p.client);
   const pp = new PG();
   pp.layout = "LAYOUT_WIDE";
-  pp.author = "PacketFusion";
+  pp.author = "Packet Fusion";
   pp.title = `AI Agent ROI Analysis – ${client}`;
   const F = EXPORT_FONT, N = XC.navy, G = XC.green;
 
@@ -34,7 +34,7 @@ export async function buildRoiPptx(p: RoiInputs, o: RoiResult): Promise<PptxGenJ
     objects: [
       { rect: { x: 0, y: 0, w: 13.33, h: 0.12, fill: { color: N } } },
       { rect: { x: 0, y: 0.12, w: 13.33, h: 0.04, fill: { color: G } } },
-      { text: { text: "PacketFusion", options: { x: 0.5, y: 7.0, w: 4, h: 0.3, fontFace: F, fontSize: 10, bold: true, color: N } } },
+      { text: { text: "Packet Fusion", options: { x: 0.5, y: 7.0, w: 4, h: 0.3, fontFace: F, fontSize: 10, bold: true, color: N } } },
       { text: { text: `AI Agent ROI Analysis · ${client}`, options: { x: 6.3, y: 7.0, w: 6.5, h: 0.3, fontFace: F, fontSize: 10, color: XC.muted, align: "right" } } },
     ],
     slideNumber: { x: 12.75, y: 7.0, w: 0.4, h: 0.3, fontFace: F, fontSize: 10, color: XC.muted },
@@ -58,7 +58,7 @@ export async function buildRoiPptx(p: RoiInputs, o: RoiResult): Promise<PptxGenJ
   let s = pp.addSlide();
   s.background = { color: N };
   s.addShape(pp.ShapeType.rect, { x: 0.6, y: 2.2, w: 0.12, h: 2.6, fill: { color: G }, line: { color: G } });
-  s.addText("PACKETFUSION", { x: 1.0, y: 2.1, w: 10, h: 0.5, fontFace: F, fontSize: 16, bold: true, color: G, charSpacing: 4 });
+  s.addText("PACKET FUSION", { x: 1.0, y: 2.1, w: 10, h: 0.5, fontFace: F, fontSize: 16, bold: true, color: G, charSpacing: 4 });
   s.addText("AI Agent ROI Analysis", { x: 1.0, y: 2.6, w: 11, h: 1.1, fontFace: F, fontSize: 46, bold: true, color: "FFFFFF" });
   s.addText(`${client} · 3-year business case`, { x: 1.0, y: 3.7, w: 11, h: 0.6, fontFace: F, fontSize: 22, color: XC.blue });
   s.addText(exportDate(), { x: 1.0, y: 4.3, w: 11, h: 0.5, fontFace: F, fontSize: 14, color: "D9E1E2" });
