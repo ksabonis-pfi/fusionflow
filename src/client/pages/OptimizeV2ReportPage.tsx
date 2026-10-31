@@ -64,7 +64,7 @@ export default function OptimizeV2ReportPage() {
   useEffect(() => {
     if (!data) return;
     const prev = document.title;
-    document.title = `PacketFusion ${PLATFORM_LABEL[data.run.platform]} ${kindLabel} — ${customer}`;
+    document.title = `${PLATFORM_LABEL[data.run.platform]} ${kindLabel} — ${customer}`;
     return () => { document.title = prev; };
   }, [data, kindLabel, customer]);
 

@@ -15,7 +15,6 @@ export type GrowthCopy = {
   /** Note under the integrations category when the collaboration suite is unknown. */
   ecoNote: (note: string) => string;
   howBuilt: string;
-  footer?: string;
 };
 
 function OppCard({ o, n, worthLabel }: { o: Opportunity; n?: number; worthLabel: string }) {
@@ -84,8 +83,7 @@ export function GrowthPlan({ model, copy }: { model: GrowthModel; copy: GrowthCo
       </Section>
 
       <footer className="o2r-foot">
-        <span>Confidential — prepared by PacketFusion for {c.customer} · {fmtDate(c.generatedAt)}</span>
-        {copy.footer && <span>{copy.footer}</span>}
+        <span>Confidential — prepared for {c.customer} · {fmtDate(c.generatedAt)}</span>
       </footer>
     </article>
   );

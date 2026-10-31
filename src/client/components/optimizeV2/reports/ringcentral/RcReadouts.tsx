@@ -14,8 +14,7 @@ import type { RcReadout } from "./model";
 function Footer({ m }: { m: RcReadout }) {
   return (
     <footer className="o2r-foot">
-      <span>Confidential — prepared by PacketFusion for {m.cover.customer} · {fmtDate(m.cover.generatedAt)}</span>
-      <span>Powered by Bridgepointe Technologies</span>
+      <span>Confidential — prepared for {m.cover.customer} · {fmtDate(m.cover.generatedAt)}</span>
     </footer>
   );
 }
@@ -35,7 +34,7 @@ export function RcExecutive({ m }: { m: RcReadout }) {
     <article className="o2r">
       <section className="o2r-hero">
         <div>
-          <Kicker icon="layers">PacketFusion · RingCentral Optimization</Kicker>
+          <Kicker icon="layers">RingCentral Optimization</Kicker>
           <h1>{c.customer}</h1>
           <div className="o2r-metaline">Account {String(c.accountId)} · {fmtDate(w.from)} → {fmtDate(w.to)} ({w.days ?? "?"} days)</div>
         </div>
@@ -237,7 +236,7 @@ export function RcOutcomes({ m }: { m: RcReadout }) {
     <article className="o2r">
       <section className="o2r-hero">
         <div>
-          <Kicker icon="flag">PacketFusion · RingCentral Optimization</Kicker>
+          <Kicker icon="flag">RingCentral Optimization</Kicker>
           <h1>Outcomes &amp; Value</h1>
           <div className="o2r-metaline">{c.customer} · {fmtDate(w.from)} → {fmtDate(w.to)}</div>
         </div>
@@ -330,7 +329,7 @@ export function RcGrowth({ result, run }: { result: ReportResult; run: ReportRun
   const model = buildRcGrowthModel(result, run);
   const c = model.cover;
   const copy: GrowthCopy = {
-    kicker: "PacketFusion · RingCentral Optimization Program",
+    kicker: "RingCentral Optimization",
     subtitle: "features, integrations and expansion opportunities",
     worthLabel: "Why it is worth it.",
     topWinsLede: TOP_WINS_LEDE,

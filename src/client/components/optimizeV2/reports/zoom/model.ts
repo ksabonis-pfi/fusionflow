@@ -136,7 +136,7 @@ export function buildZoomReportModel(r: ReportResult, run: ReportRun, scope: Zoo
       accountId: meta.accountId || "—",
       window: meta.window || {},
       generatedAt: meta.generatedAt || new Date().toISOString(),
-      generator: meta.generator || "PacketFusion Zoom Optimization",
+      generator: meta.generator || "Zoom Optimization",
       scheduled: !!run.schedule_enabled,
     },
     scope,
