@@ -8,8 +8,12 @@ import { api, IMPERSONATE_KEY } from "../lib/api";
 export default function SalesToolsPage() {
   const { appId } = useParams<{ appId?: string }>();
   if (appId) return <SalesToolAppView appId={appId} />;
+  return <Launcher />;
+}
 
+function Launcher() {
   const visible = SALES_TOOL_APPS.filter((a) => a.status !== "hidden");
+  const canPreview = useCanPreview(visible.some(isPreviewable)) === true;
 
   return (
     <div style={{ maxWidth: 1100, margin: "0 auto" }}>
@@ -23,7 +27,7 @@ export default function SalesToolsPage() {
       <ul className="st-grid">
         {visible.map((app) => (
           <li key={app.id}>
-            <AppTile app={app} />
+            <AppTile app={app} preview={canPreview && isPreviewable(app)} />
           </li>
         ))}
       </ul>
@@ -35,7 +39,12 @@ function isLive(app: SalesToolApp) {
   return app.status === "live" && !!app.component;
 }
 
-function AppTile({ app }: { app: SalesToolApp }) {
+/** A built app not yet released: admins can open it, everyone else sees "Coming soon". */
+function isPreviewable(app: SalesToolApp) {
+  return app.status === "coming_soon" && !!app.component;
+}
+
+function AppTile({ app, preview }: { app: SalesToolApp; preview: boolean }) {
   const live = isLive(app);
   const accent = { "--st-accent": app.accent } as CSSProperties;
   const body = (
@@ -43,11 +52,11 @@ function AppTile({ app }: { app: SalesToolApp }) {
       <div className="st-tile-icon" aria-hidden="true">{app.icon}</div>
       <div className="st-tile-title">{app.title}</div>
       <div className="st-tile-desc">{app.description}</div>
-      {!live && <div className="st-tile-badge">Coming soon</div>}
+      {!live && <div className="st-tile-badge">{preview ? "Coming soon · Admin preview" : "Coming soon"}</div>}
     </>
   );
 
-  if (!live) {
+  if (!live && !preview) {
     // Announced as a disabled link; no href and no tabIndex, so it can't be clicked or focused.
     return (
       <div className="st-tile" style={accent} role="link" aria-disabled="true">
@@ -63,9 +72,9 @@ function AppTile({ app }: { app: SalesToolApp }) {
 }
 
 /**
- * Admins may open coming-soon apps at their URL to preview them (the tile
- * stays disabled for everyone). Impersonating counts as not-admin, matching
- * AppShell. null while the role is loading.
+ * Admins may open coming-soon apps to preview them (their tile opens the app;
+ * for everyone else it stays disabled). Impersonating counts as not-admin,
+ * matching AppShell. null while the role is loading.
  */
 function useCanPreview(needed: boolean): boolean | null {
   const [canPreview, setCanPreview] = useState<boolean | null>(null);
@@ -87,7 +96,7 @@ const muted: CSSProperties = { padding: "48px 0", textAlign: "center", color: "#
 
 function SalesToolAppView({ appId }: { appId: string }) {
   const app = SALES_TOOL_APPS.find((a) => a.id === appId);
-  const preview = !!app?.component && app.status === "coming_soon";
+  const preview = !!app && isPreviewable(app);
   const canPreview = useCanPreview(preview);
   const width = app?.wide ? 1320 : 1100;
   const back = (
