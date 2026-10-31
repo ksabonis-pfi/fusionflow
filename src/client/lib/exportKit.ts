@@ -62,7 +62,13 @@ export function buildCsvText(headers: readonly string[], rows: string[][]): stri
 }
 
 export function downloadCsv(csv: string, filename: string): void {
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  downloadBlob(new Blob([csv], { type: "text/csv;charset=utf-8" }), filename);
+}
+
+/** Save a Blob as a file via a temporary <a download>. The object URL is
+ *  revoked on a delay: some browsers start reading a large blob (a .docx or
+ *  .pptx) only after click() returns, and an immediate revoke can cancel it. */
+export function downloadBlob(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
@@ -70,7 +76,7 @@ export function downloadCsv(csv: string, filename: string): void {
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 
 // ── HTML helpers ────────────────────────────────────────────────────────────
