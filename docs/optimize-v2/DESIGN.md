@@ -92,6 +92,16 @@ from one import. Scoring, findings and the KPI registry are TypeScript on the sh
 #758): negated config states ("Not configured") counted as aligned, and a 0 on a 0-target
 KPI showed "On Target" while scoring 0%.
 
+After the first real-tenant runs (a Zoom Phone-only customer, #760):
+- **Feature adoption** counts a workload only when it returned real activity (users, phone
+  users, rooms, contact-center agents, virtual-agent sessions, webinars, ZRA deals or
+  conversations). The original counted any area whose API calls didn't error, so a
+  phone-only tenant was credited with Contact Center, Virtual Agent and ZRA. The
+  denominator is still all 7 workloads: breadth of Zoom in use, i.e. room to grow.
+- **Account-settings failures** are reported. The collector swallowed them, so a missing
+  granular scope left the config audit empty while the coverage tab showed settings as
+  reached. It now shows Zoom's error, which names the scope needed.
+
 **RingCentral** (phase 2). The engine (client, collectors, KPI derivation, scoring, findings)
 and its JSON config are kept as JavaScript, identical to the standalone app apart from
 config import paths. `providers/ringcentral/assess.ts` replaces the original's
@@ -104,6 +114,14 @@ requests bypassed the request budget (on a large contact-center tenant the origi
 17 calls while making 124 against a budget of 80); the config audit judged failed inventory
 reads as real configuration (unreadable extensions scored "aligned"); and license
 utilization mixed populations (80 enabled + 20 not-activated users read 67%, not 80%).
+
+**Run budget.** Both standalone apps capped API calls per run (Zoom 48, RingCentral 80) to
+fit Cloudflare's free-plan subrequest limit. CloudConnect is on the paid plan, so both run
+with 200. Raising the cap exposed loops bounded only by budget, now bounded explicitly:
+Zoom samples at most 25 rooms for utilization; RingCentral runs the per-phone E911 check
+only for estates of up to 75 hard phones and per-queue membership only up to 100 queues
+(both figures are published only when complete, so a partial sweep bought nothing).
+RingCX runs last and uses whatever budget remains, reporting truncation.
 
 The two engines are **not** identical despite the RingCentral one's comment: for a
 lower-is-better KPI with a 0 target, Zoom awards full attainment and RingCentral awards
