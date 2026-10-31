@@ -87,10 +87,37 @@ export type Finding = {
   observation: string; businessImpact: string; recommendation: string; roiLever: string; steps: string[]; source: string;
 };
 
+/** Seat summary derived server-side from the run's raw data (see
+ *  src/server/services/optimizeV2/licenses.ts). utilizationPct uses the same
+ *  formula as the license_utilization KPI; scorecardKpi is that KPI as scored,
+ *  which differs only when a manual input supplied it. */
+type ScorecardLicenseKpi = { value: number | null; target: number | null; supplied: boolean };
+
+export type ZoomLicenseSummary = {
+  platform: "zoom";
+  licensed: number; inUse: number; dormantSeats: number; neverSeats: number; reclaimable: number;
+  countsIncludeBasic: boolean; utilizationPct: number | null; basic: number; totalUsers: number; sampled: boolean;
+  phone: { users: number; numbers: number | null; unassignedNumbers: number | null } | null;
+  rooms: number | null;
+  scorecardKpi: ScorecardLicenseKpi | null;
+};
+
+export type RingCentralLicenseSummary = {
+  platform: "ringcentral";
+  users: { total: number; enabled: number; notActivated: number; disabled: number; other: number } | null;
+  utilizationPct: number | null;
+  licenses: { total: number; assigned: number; unassigned: number; planName: string | null } | null;
+  scorecardKpi: ScorecardLicenseKpi | null;
+};
+
+export type LicenseSummary = ZoomLicenseSummary | RingCentralLicenseSummary;
+
 export type RunResult = {
   platform?: Platform;
   /** Collection notes (RingCentral: partial data, sample volume, JWT expiry). */
   warnings?: string[];
+  /** Null when the run collected no user or license data. */
+  licenses?: LicenseSummary | null;
   meta: { generatedAt: string; accountId: string; window: { from: string; to: string }; grantedScopes: string[]; subrequestsUsed: number };
   scorecard: {
     overall: number | null; overallGrade: Grade; configAlignment: number | null;
