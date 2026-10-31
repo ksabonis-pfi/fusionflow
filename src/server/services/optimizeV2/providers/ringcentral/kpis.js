@@ -142,8 +142,9 @@ export function deriveMetrics({ inventory, aggregate, ace, ringcx, video, presen
       if (inventory.e911Complete && inventory.hardPhonesChecked === inventory.hardPhones) {
         put("hardphones_no_e911", inventory.hardPhonesNoE911, "inventory:device.emergency");
       } else if (inventory.hardPhones) {
-        why("hardphones_no_e911",
-          `Emergency addressing needs one call per hard phone and the subrequest budget covered ${inventory.hardPhonesChecked} of ${inventory.hardPhones}. A partial count would understate a compliance gap, so none is published. Raise SUBREQUEST_BUDGET to complete it.`);
+        why("hardphones_no_e911", inventory.e911Skipped
+          ? `Emergency addressing needs one call per hard phone; ${inventory.hardPhones} hard phones is more than the 75 checked per run. A partial count would understate a compliance gap, so none is published — check E911 status in the RingCentral admin portal.`
+          : `Emergency addressing needs one call per hard phone and the subrequest budget covered ${inventory.hardPhonesChecked} of ${inventory.hardPhones}. A partial count would understate a compliance gap, so none is published.`);
       }
     }
 
@@ -339,7 +340,7 @@ export function runAudit(inventory, ringcx) {
     ? (inventory.queues || []).filter((q) => q.memberCount === 0)
     : null;
   verdict("queue_has_members", empty === null ? null : empty.length === 0,
-    empty === null ? (unread("call queues") ? "call queues could not be read" : "queue membership not fully collected (budget)") : empty.length ? `empty: ${empty.map((q) => q.name).join(", ")}` : "all queues staffed");
+    empty === null ? (unread("call queues") ? "call queues could not be read" : inventory.queueMembershipSkipped ? `${inventory.counts?.callQueues ?? "?"} queues is more than the 100 checked per run` : "queue membership not fully collected (budget)") : empty.length ? `empty: ${empty.map((q) => q.name).join(", ")}` : "all queues staffed");
 
   verdict("business_hours_defined", unread("business hours") ? null : !!inventory.businessHours,
     unread("business hours") ? "business hours could not be read" : inventory.businessHours ? "defined" : "not defined");

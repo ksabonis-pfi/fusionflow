@@ -2,7 +2,8 @@
 // Kept as JavaScript, close to the version validated against live tenants;
 // collectors.d.ts types its surface. Changes: the client import path, and
 // settingsAudit() now reports why account settings couldn't be read instead of
-// silently succeeding with an empty audit.
+// silently succeeding with an empty audit;
+// rooms() samples at most 25 rooms for utilization (it was bounded only by budget).
 
 // Domain collectors. They populate a shared metrics map (keyed by KPI key from
 // kpis.js), a raw context object, and a config-audit current-state map.
@@ -394,8 +395,14 @@ export async function rooms(ctx) {
       // vs bookable hours in the window.
       const days = Math.max(1, Math.round((Date.parse(ctx.to) - Date.parse(ctx.from)) / 86400000));
       const bookableMinPerRoom = days * (Number(ctx.bookableHoursPerDay) || 10) * 60;
+      // CloudConnect change: sample at most ROOM_SAMPLE rooms. This loop was
+      // bounded only by the run budget, which at the original 48 stopped it
+      // early; at CloudConnect's 200 a Rooms-heavy tenant would spend the whole
+      // budget here and starve phone, contact center, ZVA, ZRA and webinars.
+      // Utilization is an average across the detailed rooms, so a sample holds.
+      const ROOM_SAMPLE = 25;
       let usedMin = 0, detailed = 0;
-      for (const rm of rws) {
+      for (const rm of rws.slice(0, ROOM_SAMPLE)) {
         if (ctx.client.remaining() < 6) break;
         const d = await safeCall(() => ctx.client.get(`/metrics/zoomrooms/${rm.id}`, { from: ctx.from, to: ctx.to }));
         if (!d) continue;

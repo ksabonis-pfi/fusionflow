@@ -49,6 +49,11 @@ export function jwtExpiry(jwt: string): string | null {
 
 export class RcCredentialError extends Error {}
 
+/** 200 calls per run: CloudConnect is on Cloudflare's paid plan (the standalone
+ *  app's 80 was sized for tighter limits). Inventory's per-phone and per-queue
+ *  sweeps are bounded separately so they can't spend all of it. */
+export const RC_RUN_BUDGET = 200;
+
 /** The engine's native result: the same `snapshot` the standalone app stored per run. */
 export type RcSnapshot = {
   meta: {
@@ -89,7 +94,7 @@ export type RcAssessmentInput = RingCentralCredentials & {
   /** KPI keys to flag as sample-volume artifacts (the standalone app's `flags.sampleVolumeArtifacts`). */
   extraFlags?: string[];
   interval?: string;
-  /** Max RingCentral API calls for this run (the standalone app ran with 80). */
+  /** Max RingCentral API calls for this run (default 200; the standalone app ran with 80). */
   budget?: number;
 };
 
@@ -110,7 +115,7 @@ export async function runRingCentralAssessment(input: RcAssessmentInput): Promis
   }
 
   const acct = input.rcAccountId || "~";
-  const rc = new RcClient({ clientId, clientSecret, jwt, rcEnv: input.rcEnv || "production", accountId: acct, budget: input.budget ?? 80 });
+  const rc = new RcClient({ clientId, clientSecret, jwt, rcEnv: input.rcEnv || "production", accountId: acct, budget: input.budget ?? RC_RUN_BUDGET });
 
   // Authenticate before spending budget: when the token exchange fails every
   // collector degrades to empty results, which would score as "nothing wrong"
@@ -144,7 +149,8 @@ export async function runRingCentralAssessment(input: RcAssessmentInput): Promis
   try {
     inventory = await collectInventory(rc, acct);
     warnings.push(...(inventory.collectionFindings || []));
-    if (!inventory.queueMembershipComplete) warnings.push("Queue membership only partially collected — subrequest budget reached.");
+    if (inventory.queueMembershipSkipped) warnings.push("Queue membership not checked — more than 100 call queues (one call per queue).");
+    else if (!inventory.queueMembershipComplete) warnings.push("Queue membership only partially collected — subrequest budget reached.");
   } catch (e) { warnings.push(`Inventory unavailable: ${firstLine(e)}`); }
 
   let ace: Awaited<ReturnType<typeof collectAceCoverage>> | null = null;

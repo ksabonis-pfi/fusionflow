@@ -16,6 +16,8 @@ export type ZoomAssessmentInput = ZoomCredentials & {
   budget?: number;
 };
 
+export const ZOOM_RUN_BUDGET = 200;
+
 export type ZoomAssessmentResult = {
   meta: {
     generatedAt: string;
@@ -37,7 +39,12 @@ export type ZoomAssessmentResult = {
 };
 
 export async function runZoomAssessment(input: ZoomAssessmentInput): Promise<ZoomAssessmentResult> {
-  const { accountId, clientId, clientSecret, assumptions = {}, inputs = {}, budget = 48 } = input;
+  // 200 calls per run. The standalone app used 48 to fit Cloudflare's free plan
+  // (50 subrequests per invocation); CloudConnect runs on the paid plan. At 48 a
+  // tenant with full admin read scopes hit the cap every run and the late
+  // collectors (ZRA, webinars, deep phone/meeting reports) were cut short.
+  // Each collector still has its own page caps, so a run stays well under this.
+  const { accountId, clientId, clientSecret, assumptions = {}, inputs = {}, budget = ZOOM_RUN_BUDGET } = input;
   const to = input.toDate || new Date().toISOString().slice(0, 10);
   const from = input.fromDate || new Date(Date.parse(to) - (Number(input.windowDays) || 30) * 86_400_000).toISOString().slice(0, 10);
 
