@@ -45,7 +45,7 @@ export function ResultsView({ P, o, notes, onEdit }: Props) {
       <div className="roi-export">
         <div>
           <b>Export for your team or customer</b>
-          <span>A branded report built from these results, with charts, the full ROI table and a step-by-step explanation of how each number was calculated.</span>
+          <span>A report built from these results, with charts, the full ROI table and a step-by-step explanation of how each number was calculated.</span>
         </div>
         <div className="roi-export-btns">
           <button className="ms-btn-primary" type="button" disabled={!!busy} onClick={() => runExport("docx")}>
