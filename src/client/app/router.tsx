@@ -21,6 +21,7 @@ import OptimizeAccountPage from "../pages/OptimizeAccountPage";
 import OptimizeV2Page from "../pages/OptimizeV2Page";
 import OptimizeV2AccountPage from "../pages/OptimizeV2AccountPage";
 import OptimizeV2RunPage from "../pages/OptimizeV2RunPage";
+import OptimizeV2ReportPage from "../pages/OptimizeV2ReportPage";
 import LoginPage from "../pages/LoginPage";
 import InboxPage from "../pages/InboxPage";
 import CustomersPage from "../pages/CustomersPage";
@@ -50,7 +51,7 @@ export default function Router() {
   return (
     <BrowserRouter>
       {isStaging && (
-        <div style={{
+        <div className="staging-banner" style={{
           position: "fixed", top: 0, left: 0, right: 0, zIndex: 9999,
           background: "repeating-linear-gradient(135deg, #f59e0b 0px, #f59e0b 10px, #92400e 10px, #92400e 20px)",
           color: "#fff", textAlign: "center", fontSize: 11, fontWeight: 700,
@@ -70,6 +71,9 @@ export default function Router() {
 
         {/* Client Success mockup for CSM feedback — unlinked, full page */}
         <Route path="/client-success/preview" element={<ClientSuccessPreviewPage />} />
+
+        {/* Optimizations V2 readouts — full page so browser print gives a clean PDF */}
+        <Route path="/optimize-v2/runs/:runId/report/:kind" element={<OptimizeV2ReportPage />} />
 
         {/* Implementation module */}
         <Route element={<AppShell />}>

@@ -6,6 +6,7 @@ import type { Platform } from "../services/optimizeV2/engine/types";
 import { jwtExpiry, type RingCentralCredentials } from "../services/optimizeV2/providers/ringcentral/assess";
 import { RcClient } from "../services/optimizeV2/providers/ringcentral/rc";
 import { getToken, ZoomError, type ZoomCredentials } from "../services/optimizeV2/providers/zoom/client";
+import { buildReportData } from "../services/optimizeV2/reportData";
 import { RunInputError, runConnection } from "../services/optimizeV2/run";
 import {
   getConnection, getRunResult, recordRunError, saveRun, toView, upsertConnection,
@@ -204,8 +205,22 @@ app.get("/runs/:runId", async (c) => {
   const result = await getRunResult(c.env, run);
   // Raw API payloads and the engine-native result stay server-side; the UI
   // renders from the shared scorecard, findings and warnings.
-  const slim = result ? { ...result, raw: undefined, native: undefined } : null;
-  return c.json({ run: { ...run, indices: JSON.parse(run.indices || "[]") }, result: slim });
+  // `reportData` lifts the few counts the readouts need from them.
+  const slim = result ? { ...result, raw: undefined, native: undefined, reportData: buildReportData(result) } : null;
+  // Customer name and schedule state for the readouts' cover and "next review" lines.
+  const ctx = await c.env.DB.prepare(
+    `SELECT cu.name AS customer_name, oc.schedule_enabled
+       FROM optimize_accounts oa JOIN customers cu ON cu.id = oa.customer_id
+       LEFT JOIN opt2_connections oc ON oc.id = ?
+      WHERE oa.id = ?`,
+  ).bind(run.connection_id, run.optimize_account_id).first<{ customer_name: string; schedule_enabled: number | null }>();
+  return c.json({
+    run: {
+      ...run, indices: JSON.parse(run.indices || "[]"),
+      customer_name: ctx?.customer_name ?? null, schedule_enabled: ctx?.schedule_enabled ?? 0,
+    },
+    result: slim,
+  });
 });
 
 export default app;
