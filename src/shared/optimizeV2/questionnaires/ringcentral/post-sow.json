@@ -1,0 +1,2655 @@
+{
+ "platform": "ringcentral",
+ "key": "post-sow",
+ "order": 2,
+ "cadence": "After signature, before kickoff",
+ "role": "All decision makers + specialists",
+ "title": "Post-SOW Readiness & Baseline Survey",
+ "lede": "Fielded after signature and before kickoff. Two jobs, and they are different: establish whether this organization can execute what it signed, and capture the numbers that every later claim of improvement will be measured against. Get the second one wrong and the optimization program has nothing to stand on.",
+ "meta": {
+  "Instrument": "Structured survey, delegated by section",
+  "Fielded": "After signature, before kickoff",
+  "Length": "198 questions · delegated, 20–40 min per respondent",
+  "Output": "Readiness RAG + measured baseline + targets"
+ },
+ "count": 198,
+ "parts": [
+  {
+   "key": "A",
+   "label": "Part A · Readiness"
+  },
+  {
+   "key": "B",
+   "label": "Part B · KPI baseline"
+  },
+  {
+   "key": "C",
+   "label": "Part C · Specialists"
+  },
+  {
+   "key": "D",
+   "label": "Part D · Targets"
+  }
+ ],
+ "caps": [
+  {
+   "key": "ringex",
+   "label": "RingEX telephony"
+  },
+  {
+   "key": "video",
+   "label": "RingCentral Video"
+  },
+  {
+   "key": "chat",
+   "label": "Team Chat"
+  },
+  {
+   "key": "rooms",
+   "label": "RingCentral Rooms"
+  },
+  {
+   "key": "sms",
+   "label": "Business SMS"
+  },
+  {
+   "key": "fax",
+   "label": "Fax"
+  },
+  {
+   "key": "ringcx-voice",
+   "label": "RingCX voice"
+  },
+  {
+   "key": "webchat",
+   "label": "RingCX web chat"
+  },
+  {
+   "key": "email",
+   "label": "RingCX email"
+  },
+  {
+   "key": "social",
+   "label": "RingCX social"
+  },
+  {
+   "key": "outbound",
+   "label": "RingCX outbound dialer"
+  },
+  {
+   "key": "sms-campaign",
+   "label": "SMS campaigns"
+  },
+  {
+   "key": "ai-voice",
+   "label": "RingCX AI agent (voice)"
+  },
+  {
+   "key": "ai-digital",
+   "label": "RingCX AI agent (digital)"
+  },
+  {
+   "key": "agent-assist",
+   "label": "RingCX agent assist"
+  },
+  {
+   "key": "ringsense",
+   "label": "RingSense"
+  },
+  {
+   "key": "qm",
+   "label": "Quality Management"
+  },
+  {
+   "key": "wfm",
+   "label": "Workforce Management"
+  },
+  {
+   "key": "cti",
+   "label": "Agent desktop / CRM"
+  },
+  {
+   "key": "surveys",
+   "label": "Surveys / VoC"
+  },
+  {
+   "key": "pii",
+   "label": "Data privacy / PII"
+  },
+  {
+   "key": "archiver",
+   "label": "Archiver / retention"
+  }
+ ],
+ "groups": [
+  {
+   "id": "A1",
+   "title": "Respondent and scope of authority",
+   "questions": [
+    {
+     "id": "A1.1",
+     "type": "short",
+     "required": true,
+     "text": "Full name"
+    },
+    {
+     "id": "A1.2",
+     "type": "short",
+     "required": true,
+     "text": "Job title and department"
+    },
+    {
+     "id": "A1.3",
+     "type": "single",
+     "required": true,
+     "text": "What is your authority on this project?",
+     "options": [
+      "I can make decisions",
+      "I recommend, someone else decides",
+      "I execute decisions made elsewhere",
+      "Unclear"
+     ]
+    },
+    {
+     "id": "A1.4",
+     "type": "single",
+     "required": true,
+     "text": "How much of your time is allocated to this project?",
+     "options": [
+      "More than half",
+      "About a quarter",
+      "A few hours a week",
+      "Nothing formally allocated"
+     ],
+     "logic": "\"Nothing formally allocated\" on the project owner is the most common root cause of a slipped go-live, and it is visible before kickoff if anyone asks."
+    },
+    {
+     "id": "A1.5",
+     "type": "short",
+     "required": false,
+     "text": "Who is your named backup if you are unavailable for two weeks?"
+    },
+    {
+     "id": "A1.6",
+     "type": "single",
+     "required": false,
+     "text": "Were you involved before signature?",
+     "options": [
+      "Yes, throughout",
+      "Partially",
+      "No, I inherited this",
+      "Unknown"
+     ],
+     "logic": "Someone who inherited the project has no memory of what was promised. Where this is \"no\", budget time to re-establish scope rather than assuming it."
+    }
+   ],
+   "part": "A"
+  },
+  {
+   "id": "A2",
+   "title": "Governance and decision readiness",
+   "questions": [
+    {
+     "id": "A2.1",
+     "type": "single",
+     "required": true,
+     "text": "Is there an executive sponsor who is visibly engaged?",
+     "options": [
+      "Yes, actively",
+      "Named but not engaged",
+      "No sponsor",
+      "Unknown"
+     ]
+    },
+    {
+     "id": "A2.2",
+     "type": "single",
+     "required": true,
+     "text": "How are decisions made on this project?",
+     "options": [
+      "One named owner decides",
+      "A steering group meets regularly",
+      "Ad hoc",
+      "Not yet established"
+     ]
+    },
+    {
+     "id": "A2.3",
+     "type": "single",
+     "required": false,
+     "text": "What is the longest a decision has taken to get made so far?",
+     "options": [
+      "Same week",
+      "Two weeks",
+      "A month",
+      "Longer",
+      "Nothing has needed deciding yet"
+     ],
+     "logic": "The best available predictor of how long the next decision will take. It is not a judgment; it is a planning input and belongs in the schedule."
+    },
+    {
+     "id": "A2.4",
+     "type": "single",
+     "required": false,
+     "text": "Is there a change-control process this project must follow?",
+     "options": [
+      "Yes, formal",
+      "Yes, lightweight",
+      "No",
+      "Unknown"
+     ]
+    },
+    {
+     "id": "A2.5",
+     "type": "single",
+     "required": false,
+     "text": "Has the business case been communicated beyond the project team?",
+     "options": [
+      "Yes, broadly",
+      "To managers only",
+      "Not yet",
+      "There is no written business case"
+     ]
+    },
+    {
+     "id": "A2.6",
+     "type": "single",
+     "required": true,
+     "text": "Has AI handling or analysing customer conversations been approved internally?",
+     "options": [
+      "Yes, approved and documented",
+      "Approved verbally",
+      "In review",
+      "Not raised",
+      "Prohibited by policy"
+     ],
+     "logic": "Confirms the pre-SOW P6.3 answer after signature. A module that was quoted as phase 1 against a verbal approval is a module at risk."
+    },
+    {
+     "id": "A2.7",
+     "type": "single",
+     "required": false,
+     "text": "Is there a works council, union or employee-representation step required?",
+     "options": [
+      "No",
+      "Yes, already engaged",
+      "Yes, not yet engaged",
+      "Unknown"
+     ],
+     "logic": "Recording, quality management and workforce management frequently require consultation. \"Not yet engaged\" is a schedule dependency, not a formality."
+    },
+    {
+     "id": "A2.8",
+     "type": "long",
+     "required": false,
+     "text": "What has to be true internally for this project to be considered a success?"
+    }
+   ],
+   "part": "A"
+  },
+  {
+   "id": "A3",
+   "title": "Vendor onboarding readiness",
+   "questions": [
+    {
+     "id": "A3.1",
+     "type": "single",
+     "required": true,
+     "text": "Has the RingCentral account been provisioned?",
+     "options": [
+      "Yes",
+      "In progress",
+      "Not started",
+      "Unknown"
+     ]
+    },
+    {
+     "id": "A3.2",
+     "type": "single",
+     "required": true,
+     "text": "Who holds super-admin on the RingCentral account?",
+     "options": [
+      "A named internal owner",
+      "Shared across a team",
+      "The reseller",
+      "Nobody yet",
+      "Unknown"
+     ],
+     "logic": "A shared or absent super-admin is a day-one governance finding. It also makes every subsequent access question ambiguous."
+    },
+    {
+     "id": "A3.3",
+     "type": "single",
+     "required": false,
+     "text": "Has an API or integration application been created for reporting access?",
+     "options": [
+      "Yes",
+      "Not yet",
+      "Unknown"
+     ],
+     "logic": "The optimization program reads RingCentral through a JWT-authenticated application with read-only scopes. Creating it is a customer action with a lead time, and it blocks the first baseline run."
+    },
+    {
+     "id": "A3.4",
+     "type": "multiple",
+     "required": false,
+     "text": "Which scopes have been granted to that application?",
+     "options": [
+      "Read Accounts",
+      "Read Call Log",
+      "Analytics",
+      "Read Presence",
+      "Read Call Recording",
+      "RingSense",
+      "Team Messaging",
+      "None yet",
+      "Unknown"
+     ],
+     "logic": "Scope changes take a short time to propagate. A failed first run is usually propagation lag, not a permissions error — re-check before escalating."
+    },
+    {
+     "id": "A3.5",
+     "type": "single",
+     "required": false,
+     "text": "Is there a RingCX account, and is it a parent or sub-account?",
+     "options": [
+      "Parent only",
+      "Parent with sub-accounts",
+      "Sub-account only",
+      "No RingCX",
+      "Unknown"
+     ],
+     "logic": "RingCX permissions are granted per account. A role held on a sub-account does not operate on the parent, and that distinction has produced more false \"permission denied\" diagnoses than any other RingCX fact."
+    },
+    {
+     "id": "A3.6",
+     "type": "single",
+     "required": false,
+     "text": "Are RingSense (AI Conversation Expert) licences assigned?",
+     "options": [
+      "Yes, to all relevant users",
+      "Partially",
+      "Purchased but unassigned",
+      "Not purchased",
+      "Unknown"
+     ]
+    },
+    {
+     "id": "A3.7",
+     "type": "single",
+     "required": false,
+     "text": "Is WEM (Workforce Engagement Management) licensed on RingCX?",
+     "options": [
+      "Yes",
+      "No",
+      "Unknown"
+     ],
+     "logic": "Without WEM, RingCX queue statistics are available same-day only. Historical queue reporting across a window requires it, and a baseline that assumes otherwise cannot be produced."
+    },
+    {
+     "id": "A3.8",
+     "type": "single",
+     "required": false,
+     "text": "Has a technical contact been named to RingCentral support?",
+     "options": [
+      "Yes",
+      "Not yet",
+      "Unknown"
+     ]
+    }
+   ],
+   "part": "A"
+  },
+  {
+   "id": "A4",
+   "title": "Current-state technology",
+   "questions": [
+    {
+     "id": "A4.1",
+     "type": "short",
+     "required": true,
+     "text": "Current telephony platform and version"
+    },
+    {
+     "id": "A4.2",
+     "type": "short",
+     "required": false,
+     "text": "Current contact-centre platform, if separate"
+    },
+    {
+     "id": "A4.3",
+     "type": "single",
+     "required": true,
+     "text": "Has the network been assessed for voice?",
+     "options": [
+      "Yes, formally",
+      "Informally",
+      "No",
+      "Unknown"
+     ],
+     "logic": "Voice quality findings that appear at the first optimization review are almost always network findings that nobody looked for before go-live."
+    },
+    {
+     "id": "A4.4",
+     "type": "multiple",
+     "required": false,
+     "text": "Which of these are in place?",
+     "options": [
+      "QoS marking end to end",
+      "Dedicated voice VLAN",
+      "SD-WAN",
+      "Guest and corporate traffic separated",
+      "Wi-Fi used for voice",
+      "VPN used for remote voice",
+      "None of these",
+      "Unknown"
+     ]
+    },
+    {
+     "id": "A4.5",
+     "type": "multiple",
+     "required": true,
+     "text": "Which systems must RingCentral connect to?",
+     "options": [
+      "Salesforce",
+      "Microsoft Dynamics",
+      "ServiceNow",
+      "HubSpot",
+      "Zendesk",
+      "An EHR",
+      "Microsoft Teams",
+      "Google Workspace",
+      "A homegrown system",
+      "None"
+     ]
+    },
+    {
+     "id": "A4.6",
+     "type": "single",
+     "required": false,
+     "text": "Is Microsoft Teams in use for calling?",
+     "options": [
+      "No",
+      "Yes, Teams Phone",
+      "Chat and meetings only",
+      "Being evaluated"
+     ]
+    },
+    {
+     "id": "A4.7",
+     "type": "single",
+     "required": false,
+     "text": "What is the identity provider?",
+     "options": [
+      "Microsoft Entra ID",
+      "Okta",
+      "Google",
+      "Active Directory on premises",
+      "Several",
+      "None",
+      "Unknown"
+     ]
+    },
+    {
+     "id": "A4.8",
+     "type": "single",
+     "required": false,
+     "text": "Is SCIM provisioning available from that identity provider?",
+     "options": [
+      "Yes, in use elsewhere",
+      "Available, not in use",
+      "Not available",
+      "Unknown"
+     ]
+    },
+    {
+     "id": "A4.9",
+     "type": "single",
+     "required": false,
+     "text": "How are devices currently managed?",
+     "options": [
+      "MDM or UEM for all",
+      "Some devices",
+      "Manually",
+      "Unknown"
+     ]
+    },
+    {
+     "id": "A4.10",
+     "type": "long",
+     "required": false,
+     "text": "Describe anything custom that touches telephony today."
+    }
+   ],
+   "part": "A"
+  },
+  {
+   "id": "A5",
+   "title": "Stakeholder and coverage mapping",
+   "questions": [
+    {
+     "id": "A5.1",
+     "type": "short",
+     "required": true,
+     "text": "Who owns telephony day to day?"
+    },
+    {
+     "id": "A5.2",
+     "type": "short",
+     "required": false,
+     "text": "Who owns the contact centre day to day?"
+    },
+    {
+     "id": "A5.3",
+     "type": "short",
+     "required": false,
+     "text": "Who owns reporting and analytics?"
+    },
+    {
+     "id": "A5.4",
+     "type": "short",
+     "required": false,
+     "text": "Who owns identity and access?"
+    },
+    {
+     "id": "A5.5",
+     "type": "short",
+     "required": false,
+     "text": "Who owns network?"
+    },
+    {
+     "id": "A5.6",
+     "type": "single",
+     "required": true,
+     "text": "Are any of those roles vacant or shared with someone who has another full-time job?",
+     "options": [
+      "No, all are dedicated",
+      "One is shared or vacant",
+      "Several are",
+      "Unknown"
+     ],
+     "logic": "Coverage gaps are the most reliable predictor of a stalled day-2. They are also the easiest thing to plan around if named before kickoff."
+    },
+    {
+     "id": "A5.7",
+     "type": "single",
+     "required": false,
+     "text": "Is there a named owner for the optimization program after go-live?",
+     "options": [
+      "Yes",
+      "Will be named",
+      "No",
+      "Unknown"
+     ],
+     "logic": "A program with no day-2 owner produces findings nobody actions. O3.1 measures the consequence six months later."
+    },
+    {
+     "id": "A5.8",
+     "type": "multiple",
+     "required": false,
+     "text": "Which groups need to be consulted before changes go live?",
+     "options": [
+      "Front-line supervisors",
+      "HR",
+      "Legal or compliance",
+      "Security",
+      "Finance",
+      "Works council or union",
+      "Nobody beyond IT"
+     ]
+    }
+   ],
+   "part": "A"
+  },
+  {
+   "id": "A6",
+   "title": "Vision — today into tomorrow",
+   "questions": [
+    {
+     "id": "A6.1",
+     "type": "long",
+     "required": true,
+     "text": "What does good look like twelve months after go-live?"
+    },
+    {
+     "id": "A6.2",
+     "type": "single",
+     "required": false,
+     "text": "Is this primarily a cost project, an experience project or a capability project?",
+     "options": [
+      "Cost",
+      "Customer experience",
+      "Employee experience",
+      "New capability",
+      "A mix"
+     ]
+    },
+    {
+     "id": "A6.3",
+     "type": "long",
+     "required": false,
+     "text": "What is the one thing that must not get worse?",
+     "logic": "Often more useful than the success criteria. It names the thing that will get escalated if it slips."
+    },
+    {
+     "id": "A6.4",
+     "type": "single",
+     "required": false,
+     "text": "How much process change is the organization prepared to absorb?",
+     "options": [
+      "Significant, this is a transformation",
+      "Moderate",
+      "Minimal, keep it familiar",
+      "Unknown"
+     ]
+    },
+    {
+     "id": "A6.5",
+     "type": "single",
+     "required": false,
+     "text": "Will routing be rebuilt as-is or redesigned?",
+     "options": [
+      "As-is",
+      "Mostly as-is with cleanup",
+      "Redesigned",
+      "Not yet decided"
+     ]
+    },
+    {
+     "id": "A6.6",
+     "type": "single",
+     "required": false,
+     "text": "Is there an appetite to retire anything as part of this?",
+     "options": [
+      "Yes, specific things identified",
+      "Yes, in principle",
+      "No",
+      "Unknown"
+     ]
+    },
+    {
+     "id": "A6.7",
+     "type": "long",
+     "required": false,
+     "text": "What would make the front line say this was an improvement?"
+    },
+    {
+     "id": "A6.8",
+     "type": "matching",
+     "required": true,
+     "text": "Which capabilities do you believe are in scope, and when?",
+     "prompts": [
+      "RingEX telephony",
+      "RingCentral Video",
+      "Team Chat",
+      "RingCentral Rooms",
+      "Business SMS",
+      "Fax",
+      "RingCX voice queues",
+      "RingCX digital — email",
+      "RingCX digital — web chat",
+      "RingCX digital — SMS",
+      "RingCX digital — social",
+      "RingCX outbound dialer",
+      "RingCX AI agent (voice)",
+      "RingCX AI agent (digital)",
+      "RingCX agent assist",
+      "RingSense conversation intelligence",
+      "Quality Management",
+      "Workforce Management",
+      "CRM embedded softphone",
+      "Surveys and VoC",
+      "Call recording",
+      "RingCentral Archiver",
+      "PII redaction"
+     ],
+     "matchTo": [
+      "Phase 1",
+      "Later phase",
+      "Not interested",
+      "Need to understand it first"
+     ],
+     "logic": "Do not pre-fill this from the pre-SOW P6.1. It is asked blind on purpose. The delta between what was asked for before signature and what is believed afterwards is the only measurable trust signal available at kickoff, and pre-filling destroys it."
+    }
+   ],
+   "part": "A"
+  },
+  {
+   "id": "A7",
+   "title": "Adoption, training and day-2 ownership",
+   "questions": [
+    {
+     "id": "A7.1",
+     "type": "single",
+     "required": true,
+     "text": "Is there a plan for training end users?",
+     "options": [
+      "Yes, documented",
+      "In outline",
+      "No",
+      "Unknown"
+     ]
+    },
+    {
+     "id": "A7.2",
+     "type": "single",
+     "required": false,
+     "text": "Who will deliver training?",
+     "options": [
+      "PacketFusion",
+      "Internal trainers",
+      "Train the trainer",
+      "Self-service materials only",
+      "Not decided"
+     ]
+    },
+    {
+     "id": "A7.3",
+     "type": "single",
+     "required": false,
+     "text": "How have previous platform changes been communicated?",
+     "options": [
+      "Structured campaign",
+      "Email announcement",
+      "Word of mouth",
+      "Nothing formal",
+      "Unknown"
+     ]
+    },
+    {
+     "id": "A7.4",
+     "type": "single",
+     "required": false,
+     "text": "Is there a champion network or super-user group?",
+     "options": [
+      "Yes, established",
+      "Will be created",
+      "No",
+      "Unknown"
+     ]
+    },
+    {
+     "id": "A7.5",
+     "type": "single",
+     "required": true,
+     "text": "Who handles day-2 support?",
+     "options": [
+      "Internal service desk",
+      "PacketFusion managed service",
+      "The reseller",
+      "RingCentral directly",
+      "Not decided"
+     ]
+    },
+    {
+     "id": "A7.6",
+     "type": "single",
+     "required": false,
+     "text": "Will the service desk be trained before go-live?",
+     "options": [
+      "Yes",
+      "Partially",
+      "No",
+      "Not applicable"
+     ],
+     "logic": "An untrained service desk at cutover converts every user question into an escalation, and the volume is highest in exactly the week when attention is scarcest."
+    },
+    {
+     "id": "A7.7",
+     "type": "single",
+     "required": false,
+     "text": "Is there a plan to measure adoption after go-live?",
+     "options": [
+      "Yes",
+      "No",
+      "Unknown"
+     ]
+    },
+    {
+     "id": "A7.8",
+     "type": "long",
+     "required": false,
+     "text": "What would stop someone using the new platform and carrying on as before?"
+    }
+   ],
+   "part": "A"
+  },
+  {
+   "id": "A8",
+   "title": "Schedule, constraints and risk",
+   "questions": [
+    {
+     "id": "A8.1",
+     "type": "short",
+     "required": true,
+     "text": "Target go-live date"
+    },
+    {
+     "id": "A8.2",
+     "type": "single",
+     "required": true,
+     "text": "Is that date fixed or indicative?",
+     "options": [
+      "Fixed, with a consequence",
+      "Fixed, no stated consequence",
+      "Indicative",
+      "Unknown"
+     ]
+    },
+    {
+     "id": "A8.3",
+     "type": "single",
+     "required": false,
+     "text": "Can the migration be phased?",
+     "options": [
+      "Yes, by site",
+      "Yes, by team or department",
+      "Yes, by product",
+      "No, single cutover",
+      "Not decided"
+     ]
+    },
+    {
+     "id": "A8.4",
+     "type": "multiple",
+     "required": false,
+     "text": "Which complexity factors apply?",
+     "options": [
+      "Unionized workforce",
+      "24×7 operation",
+      "Regulated industry",
+      "Multi-country",
+      "Multi-language",
+      "Active M&A",
+      "Recent failed migration",
+      "Seasonal freeze window",
+      "None"
+     ]
+    },
+    {
+     "id": "A8.5",
+     "type": "single",
+     "required": false,
+     "text": "Is there a period when change is not permitted?",
+     "options": [
+      "No",
+      "Yes, specific dates",
+      "Yes, an ongoing restriction",
+      "Unknown"
+     ]
+    },
+    {
+     "id": "A8.6",
+     "type": "single",
+     "required": false,
+     "text": "What is the rollback plan if cutover fails?",
+     "options": [
+      "Documented and tested",
+      "Documented",
+      "Discussed informally",
+      "None",
+      "Unknown"
+     ]
+    },
+    {
+     "id": "A8.7",
+     "type": "long",
+     "required": false,
+     "text": "What is the biggest risk to this project, in your view?"
+    },
+    {
+     "id": "A8.8",
+     "type": "single",
+     "required": false,
+     "text": "Have porting documents (CSRs) been supplied in full?",
+     "options": [
+      "Yes, all",
+      "Partially",
+      "Not yet",
+      "Not applicable"
+     ],
+     "logic": "Porting timelines start here. This is the most common cause of a go-live date moving, and it is entirely within the customer's control."
+    }
+   ],
+   "part": "A"
+  },
+  {
+   "id": "B0",
+   "title": "Reporting access and baseline window",
+   "questions": [
+    {
+     "id": "B0.1",
+     "type": "single",
+     "required": true,
+     "text": "Do you have access to historical reporting from your current platform?",
+     "options": [
+      "Yes, full historical",
+      "Yes, limited retention",
+      "No, the incumbent vendor must pull it",
+      "Unknown"
+     ],
+     "logic": "\"No\" or \"Unknown\" triggers an immediate action item: request the export before the incumbent contract lapses. Historical data is routinely lost at cutover and cannot be recovered afterwards."
+    },
+    {
+     "id": "B0.2",
+     "type": "single",
+     "required": true,
+     "text": "Which period are you reporting on?",
+     "options": [
+      "Most recent full month",
+      "Trailing 30 days",
+      "Trailing 90 days",
+      "Trailing 12 months",
+      "Other"
+     ],
+     "logic": "RingCentral Business Analytics serves 184 days. A trailing-12-month baseline cannot be reproduced from RingCentral later, so it must come from the incumbent platform and be labelled as such for the life of the engagement."
+    },
+    {
+     "id": "B0.3",
+     "type": "single",
+     "required": false,
+     "text": "Is that period representative of normal volume?",
+     "options": [
+      "Yes",
+      "No — unusually high",
+      "No — unusually low",
+      "Unsure"
+     ]
+    },
+    {
+     "id": "B0.4",
+     "type": "short",
+     "required": false,
+     "text": "Where will you share the underlying reports or exports? Provide a link or name the person sending them."
+    },
+    {
+     "id": "B0.5",
+     "type": "multiple",
+     "required": false,
+     "text": "Which sections are you personally able to answer? Anything you cannot, name a delegate in the next field.",
+     "options": [
+      "RingEX voice metrics",
+      "RingCX voice metrics",
+      "Digital channel metrics",
+      "Outbound and dialer",
+      "Self-service and AI",
+      "Quality and workforce",
+      "Desktop and CRM",
+      "Privacy and compliance"
+     ],
+     "logic": "Makes delegation explicit instead of producing guessed answers. Anything unselected becomes a named follow-up rather than a silent gap."
+    },
+    {
+     "id": "B0.6",
+     "type": "long",
+     "required": false,
+     "text": "Name a delegate for any section you did not select."
+    },
+    {
+     "id": "B0.7",
+     "type": "single",
+     "required": false,
+     "text": "Is anyone currently producing a regular report on these numbers?",
+     "options": [
+      "Yes, weekly or more often",
+      "Monthly",
+      "Occasionally",
+      "No"
+     ],
+     "logic": "An organization with no existing reporting habit will not acquire one at go-live. Where the answer is \"no\", the optimization program is the reporting function, and that should be said out loud rather than assumed."
+    }
+   ],
+   "part": "B"
+  },
+  {
+   "id": "B1",
+   "title": "RingEX baseline",
+   "questions": [
+    {
+     "id": "B1.1",
+     "type": "fill",
+     "required": false,
+     "text": "Inbound calls per month: ____  ·  Outbound calls per month: ____  ·  Internal extensions: ____  ·  Assigned DIDs: ____",
+     "blanks": [
+      "Inbound calls per month",
+      "Outbound calls per month",
+      "Internal extensions",
+      "Assigned DIDs"
+     ]
+    },
+    {
+     "id": "B1.2",
+     "type": "fill",
+     "required": false,
+     "text": "Call queues in production: ____  ·  IVR menus or auto-receptionists: ____  ·  Voicemail boxes: ____  ·  Shared lines or delegation pairs: ____",
+     "blanks": [
+      "Call queues in production",
+      "IVR menus or auto-receptionists",
+      "Voicemail boxes",
+      "Shared lines or delegation pairs"
+     ]
+    },
+    {
+     "id": "B1.3",
+     "type": "fill",
+     "required": false,
+     "text": "Peak concurrent calls: ____  ·  Analog or fax endpoints: ____  ·  SMS/MMS messages per month: ____",
+     "blanks": [
+      "Peak concurrent calls",
+      "Analog or fax endpoints",
+      "SMS/MMS messages per month"
+     ]
+    },
+    {
+     "id": "B1.4",
+     "type": "single",
+     "required": false,
+     "text": "Call-queue answer performance today:",
+     "options": [
+      "Measured and reported regularly",
+      "Available but not reviewed",
+      "Not available",
+      "Not measured"
+     ]
+    },
+    {
+     "id": "B1.5",
+     "type": "fill",
+     "required": false,
+     "text": "If measured — queue average speed to answer (sec): ____  ·  Missed or overflowed queue calls per month: ____  ·  Voicemails left per month: ____",
+     "blanks": [
+      "If measured — queue average speed to answer (sec)",
+      "Missed or overflowed queue calls per month",
+      "Voicemails left per month"
+     ]
+    },
+    {
+     "id": "B1.6",
+     "type": "fill",
+     "required": false,
+     "text": "DIDs to port: ____  ·  Toll-free numbers: ____  ·  Carriers involved: ____",
+     "blanks": [
+      "DIDs to port",
+      "Toll-free numbers",
+      "Carriers involved"
+     ]
+    },
+    {
+     "id": "B1.7",
+     "type": "single",
+     "required": false,
+     "text": "Voice-quality complaints per month:",
+     "options": [
+      "None",
+      "1–5",
+      "6–20",
+      "Over 20",
+      "Not tracked"
+     ]
+    },
+    {
+     "id": "B1.8",
+     "type": "short",
+     "required": false,
+     "text": "Call-recording retention requirement, in months, and what drives it."
+    },
+    {
+     "id": "B1.9",
+     "type": "single",
+     "required": true,
+     "text": "Source of the numbers above:",
+     "options": [
+      "Platform reporting",
+      "Carrier invoice",
+      "Mix of both",
+      "Manual estimate",
+      "Not measured"
+     ],
+     "logic": "\"Mix of both\" is a provenance answer, not a quality one. Analytics and Call Log count different things and will not reconcile; a blended figure cannot be reproduced and is reported as an estimate."
+    },
+    {
+     "id": "B1.10",
+     "type": "single",
+     "required": false,
+     "text": "How many sites have a defined emergency location today?",
+     "options": [
+      "All",
+      "Most",
+      "Some",
+      "None",
+      "Unknown"
+     ],
+     "logic": "Carries straight into the layer 0 findings. Emergency-address completeness is not volume-dependent and does not improve on its own."
+    }
+   ],
+   "part": "B",
+   "cap": [
+    "ringex"
+   ]
+  },
+  {
+   "id": "B2",
+   "title": "Channel scope, volume and concurrency",
+   "questions": [
+    {
+     "id": "B2.1",
+     "type": "fill",
+     "required": true,
+     "text": "RingEX users: ____  ·  RingCX agent seats: ____  ·  Supervisor seats: ____",
+     "blanks": [
+      "RingEX users",
+      "RingCX agent seats",
+      "Supervisor seats"
+     ]
+    },
+    {
+     "id": "B2.2",
+     "type": "multiple",
+     "required": true,
+     "text": "Which channels are live today?",
+     "options": [
+      "Voice",
+      "Email",
+      "Web chat",
+      "SMS",
+      "Social",
+      "Video",
+      "Outbound dialer",
+      "None beyond voice"
+     ]
+    },
+    {
+     "id": "B2.3",
+     "type": "fill",
+     "required": true,
+     "text": "Busiest-hour inbound contacts: ____  ·  Daily inbound contacts: ____  ·  Daily outbound contacts: ____",
+     "logic": "Deliberately re-asked from the pre-SOW P3.4. Do not pre-fill. The delta between the pre-signature belief and the measured figure is a finding in its own right.",
+     "blanks": [
+      "Busiest-hour inbound contacts",
+      "Daily inbound contacts",
+      "Daily outbound contacts"
+     ]
+    },
+    {
+     "id": "B2.4",
+     "type": "single",
+     "required": true,
+     "text": "Where did the numbers in B2.3 come from?",
+     "options": [
+      "Exported from a reporting system",
+      "Estimated from headcount",
+      "A figure someone remembers",
+      "A carrier bill",
+      "Unknown"
+     ]
+    },
+    {
+     "id": "B2.5",
+     "type": "fill",
+     "required": false,
+     "text": "Peak concurrent agents: ____  ·  Peak concurrent contacts: ____",
+     "blanks": [
+      "Peak concurrent agents",
+      "Peak concurrent contacts"
+     ]
+    },
+    {
+     "id": "B2.6",
+     "type": "single",
+     "required": false,
+     "text": "Is contact volume seasonal?",
+     "options": [
+      "No",
+      "Yes, predictably",
+      "Yes, unpredictably",
+      "Unknown"
+     ]
+    },
+    {
+     "id": "B2.7",
+     "type": "fill",
+     "required": false,
+     "text": "If seasonal — peak month: ____  ·  peak-to-average ratio: ____",
+     "blanks": [
+      "If seasonal — peak month",
+      "peak-to-average ratio"
+     ]
+    },
+    {
+     "id": "B2.8",
+     "type": "single",
+     "required": false,
+     "text": "Are contact volumes growing, flat or falling?",
+     "options": [
+      "Growing more than 20%",
+      "Growing modestly",
+      "Flat",
+      "Falling",
+      "Unknown"
+     ]
+    }
+   ],
+   "part": "B"
+  },
+  {
+   "id": "B3",
+   "title": "RingCX voice channel baseline",
+   "questions": [
+    {
+     "id": "B3.1",
+     "type": "fill",
+     "required": true,
+     "text": "Service level — Target: ____  ·  Achieved: ____  ·  Threshold used (e.g. 80/20): ____",
+     "logic": "The threshold is not a detail. A service level quoted without it cannot be compared to anything later.",
+     "blanks": [
+      "Service level — Target",
+      "Achieved",
+      "Threshold used (e.g. 80/20)"
+     ]
+    },
+    {
+     "id": "B3.2",
+     "type": "fill",
+     "required": true,
+     "text": "Average speed to answer (sec): ____  ·  Average handle time (sec): ____  ·  After-call work (sec): ____",
+     "blanks": [
+      "Average speed to answer (sec)",
+      "Average handle time (sec)",
+      "After-call work (sec)"
+     ]
+    },
+    {
+     "id": "B3.3",
+     "type": "fill",
+     "required": true,
+     "text": "Abandonment rate: ____  ·  Short-abandon exclusion (sec): ____",
+     "blanks": [
+      "Abandonment rate",
+      "Short-abandon exclusion (sec)"
+     ]
+    },
+    {
+     "id": "B3.4",
+     "type": "fill",
+     "required": false,
+     "text": "First-contact resolution: ____  ·  How measured: ____",
+     "logic": "FCR measured by a survey, by a repeat-contact window and by supervisor judgment are three different metrics. Without the method, the number means nothing.",
+     "blanks": [
+      "First-contact resolution",
+      "How measured"
+     ]
+    },
+    {
+     "id": "B3.5",
+     "type": "fill",
+     "required": false,
+     "text": "Transfer rate: ____  ·  Repeat-contact rate: ____  ·  Repeat window used (days): ____",
+     "blanks": [
+      "Transfer rate",
+      "Repeat-contact rate",
+      "Repeat window used (days)"
+     ]
+    },
+    {
+     "id": "B3.6",
+     "type": "fill",
+     "required": false,
+     "text": "Queues in production: ____  ·  Skills defined: ____  ·  Routing profiles: ____",
+     "blanks": [
+      "Queues in production",
+      "Skills defined",
+      "Routing profiles"
+     ]
+    },
+    {
+     "id": "B3.7",
+     "type": "single",
+     "required": false,
+     "text": "How is routing configured today?",
+     "options": [
+      "Skills-based",
+      "Simple queue to group",
+      "Data-driven from CRM",
+      "A mix",
+      "Unknown"
+     ]
+    },
+    {
+     "id": "B3.8",
+     "type": "single",
+     "required": false,
+     "text": "Is there an overflow or escalation path from every queue?",
+     "options": [
+      "Yes, all",
+      "Most",
+      "Some",
+      "No",
+      "Unknown"
+     ],
+     "logic": "A queue with no overflow is a queue where calls stop. It is the single most common contact-centre finding and it is invisible until someone looks."
+    },
+    {
+     "id": "B3.9",
+     "type": "fill",
+     "required": false,
+     "text": "Occupancy: ____  ·  Utilization: ____  ·  Shrinkage: ____",
+     "blanks": [
+      "Occupancy",
+      "Utilization",
+      "Shrinkage"
+     ]
+    },
+    {
+     "id": "B3.10",
+     "type": "single",
+     "required": true,
+     "text": "Source of the numbers above:",
+     "options": [
+      "Platform reporting",
+      "Exported spreadsheet",
+      "Manual estimate",
+      "Not measured"
+     ]
+    },
+    {
+     "id": "B3.11",
+     "type": "single",
+     "required": false,
+     "text": "If RingCX is already live — are queue statistics available across a window, or same-day only?",
+     "options": [
+      "Across a window (WEM licensed)",
+      "Same-day only",
+      "Unknown"
+     ],
+     "logic": "Without WEM, queue statistics come from realTimeData and describe today. A window baseline cannot be built from them, and pretending otherwise produces a number that cannot be reproduced at the first review."
+    }
+   ],
+   "part": "B",
+   "cap": [
+    "ringcx-voice"
+   ]
+  },
+  {
+   "id": "B4",
+   "title": "RingCX digital channel baseline — email, web chat, SMS, social",
+   "questions": [
+    {
+     "id": "B4.1",
+     "type": "fill",
+     "required": false,
+     "text": "Email — contacts per month: ____  ·  first-response time: ____  ·  resolution time: ____",
+     "blanks": [
+      "Email — contacts per month",
+      "first-response time",
+      "resolution time"
+     ]
+    },
+    {
+     "id": "B4.2",
+     "type": "fill",
+     "required": false,
+     "text": "Web chat — chats per month: ____  ·  concurrency per agent: ____  ·  average chat duration: ____",
+     "blanks": [
+      "Web chat — chats per month",
+      "concurrency per agent",
+      "average chat duration"
+     ]
+    },
+    {
+     "id": "B4.3",
+     "type": "fill",
+     "required": false,
+     "text": "SMS — inbound per month: ____  ·  outbound per month: ____  ·  response time: ____",
+     "blanks": [
+      "SMS — inbound per month",
+      "outbound per month",
+      "response time"
+     ]
+    },
+    {
+     "id": "B4.4",
+     "type": "fill",
+     "required": false,
+     "text": "Social — contacts per month: ____  ·  channels covered: ____",
+     "blanks": [
+      "Social — contacts per month",
+      "channels covered"
+     ]
+    },
+    {
+     "id": "B4.5",
+     "type": "single",
+     "required": false,
+     "text": "Are digital channels handled by the same agents as voice?",
+     "options": [
+      "Yes, blended",
+      "Separate teams",
+      "A mix",
+      "Not applicable"
+     ]
+    },
+    {
+     "id": "B4.6",
+     "type": "single",
+     "required": false,
+     "text": "Is there a service-level target on digital channels?",
+     "options": [
+      "Yes, measured",
+      "Yes, aspirational",
+      "No",
+      "Unknown"
+     ]
+    },
+    {
+     "id": "B4.7",
+     "type": "single",
+     "required": false,
+     "text": "Where do digital contacts arrive today?",
+     "options": [
+      "A shared mailbox",
+      "A ticketing system",
+      "The current contact-centre platform",
+      "Several places",
+      "Unknown"
+     ],
+     "logic": "Digital volume living in a shared mailbox is volume nobody has ever counted. Expect the baseline to be an estimate and label it so."
+    },
+    {
+     "id": "B4.8",
+     "type": "single",
+     "required": true,
+     "text": "Source of the numbers above:",
+     "options": [
+      "Platform reporting",
+      "Mailbox or ticket export",
+      "Manual estimate",
+      "Not measured"
+     ]
+    },
+    {
+     "id": "B4.9",
+     "type": "single",
+     "required": false,
+     "text": "Is A2P 10DLC brand and campaign registration complete for SMS?",
+     "options": [
+      "Yes, approved",
+      "Submitted, pending",
+      "Not started",
+      "Not applicable",
+      "Unknown"
+     ],
+     "logic": "Carrier-controlled and outside anyone's project plan. An unregistered campaign means messages are filtered silently, which presents as \"SMS does not work\" weeks after go-live."
+    }
+   ],
+   "part": "B",
+   "cap": [
+    "email",
+    "webchat",
+    "sms",
+    "social"
+   ]
+  },
+  {
+   "id": "B5",
+   "title": "Video and meetings baseline",
+   "questions": [
+    {
+     "id": "B5.1",
+     "type": "fill",
+     "required": false,
+     "text": "Meetings per month: ____  ·  Participant minutes per month: ____  ·  Active hosts: ____",
+     "blanks": [
+      "Meetings per month",
+      "Participant minutes per month",
+      "Active hosts"
+     ]
+    },
+    {
+     "id": "B5.2",
+     "type": "single",
+     "required": false,
+     "text": "Is another meeting platform in use?",
+     "options": [
+      "No",
+      "Yes, and it stays",
+      "Yes, and it is being retired",
+      "Unknown"
+     ],
+     "logic": "Two meeting platforms running in parallel is duplicate spend with a named owner on both sides. It is the clearest cost finding available in layer 7."
+    },
+    {
+     "id": "B5.3",
+     "type": "fill",
+     "required": false,
+     "text": "Meeting rooms with hardware: ____  ·  Rooms to be migrated: ____",
+     "blanks": [
+      "Meeting rooms with hardware",
+      "Rooms to be migrated"
+     ]
+    },
+    {
+     "id": "B5.4",
+     "type": "single",
+     "required": false,
+     "text": "Is meeting recording in use?",
+     "options": [
+      "Yes, routinely",
+      "Occasionally",
+      "No",
+      "Unknown"
+     ]
+    },
+    {
+     "id": "B5.5",
+     "type": "single",
+     "required": false,
+     "text": "Is video used as a customer-facing channel?",
+     "options": [
+      "Yes",
+      "Planned",
+      "No"
+     ]
+    },
+    {
+     "id": "B5.6",
+     "type": "single",
+     "required": true,
+     "text": "Source of the numbers above:",
+     "options": [
+      "Platform reporting",
+      "Manual estimate",
+      "Not measured"
+     ]
+    }
+   ],
+   "part": "B",
+   "cap": [
+    "video",
+    "rooms"
+   ]
+  },
+  {
+   "id": "B6",
+   "title": "Outbound dialing and campaigns",
+   "questions": [
+    {
+     "id": "B6.1",
+     "type": "fill",
+     "required": false,
+     "text": "Outbound contacts per month: ____  ·  Connect rate: ____  ·  Agents on outbound: ____",
+     "blanks": [
+      "Outbound contacts per month",
+      "Connect rate",
+      "Agents on outbound"
+     ]
+    },
+    {
+     "id": "B6.2",
+     "type": "single",
+     "required": false,
+     "text": "What dialing mode is in use?",
+     "options": [
+      "Manual",
+      "Preview",
+      "Progressive",
+      "Predictive",
+      "Agentless",
+      "Several",
+      "None"
+     ]
+    },
+    {
+     "id": "B6.3",
+     "type": "fill",
+     "required": false,
+     "text": "Dial groups or campaigns in production: ____  ·  Lists loaded per month: ____",
+     "blanks": [
+      "Dial groups or campaigns in production",
+      "Lists loaded per month"
+     ]
+    },
+    {
+     "id": "B6.4",
+     "type": "single",
+     "required": false,
+     "text": "Is there a compliance regime governing outbound?",
+     "options": [
+      "TCPA",
+      "Regional equivalent",
+      "Internal policy only",
+      "None",
+      "Unknown"
+     ]
+    },
+    {
+     "id": "B6.5",
+     "type": "single",
+     "required": false,
+     "text": "How are do-not-call lists managed?",
+     "options": [
+      "Platform-managed",
+      "External list, imported",
+      "Manually",
+      "Not managed",
+      "Unknown"
+     ],
+     "logic": "A manually managed DNC list is a compliance finding regardless of how well it is maintained, because it cannot be audited."
+    },
+    {
+     "id": "B6.6",
+     "type": "fill",
+     "required": false,
+     "text": "Abandon rate on outbound: ____  ·  Regulatory cap, if any: ____",
+     "blanks": [
+      "Abandon rate on outbound",
+      "Regulatory cap, if any"
+     ]
+    },
+    {
+     "id": "B6.7",
+     "type": "single",
+     "required": true,
+     "text": "Source of the numbers above:",
+     "options": [
+      "Platform reporting",
+      "Manual estimate",
+      "Not measured"
+     ]
+    }
+   ],
+   "part": "B",
+   "cap": [
+    "outbound",
+    "sms-campaign"
+   ]
+  },
+  {
+   "id": "B7",
+   "title": "RingCX AI agent — voice",
+   "questions": [
+    {
+     "id": "B7.1",
+     "type": "single",
+     "required": false,
+     "text": "Is voice self-service in use today?",
+     "options": [
+      "Yes, an AI agent",
+      "Yes, a traditional IVR only",
+      "No",
+      "Unknown"
+     ]
+    },
+    {
+     "id": "B7.2",
+     "type": "fill",
+     "required": false,
+     "text": "Contacts entering self-service per month: ____  ·  Contained without an agent: ____  ·  Containment rate: ____",
+     "blanks": [
+      "Contacts entering self-service per month",
+      "Contained without an agent",
+      "Containment rate"
+     ]
+    },
+    {
+     "id": "B7.3",
+     "type": "fill",
+     "required": false,
+     "text": "Intents or flows defined: ____  ·  Intents actively used: ____",
+     "blanks": [
+      "Intents or flows defined",
+      "Intents actively used"
+     ]
+    },
+    {
+     "id": "B7.4",
+     "type": "single",
+     "required": false,
+     "text": "How is containment defined today?",
+     "options": [
+      "No transfer to an agent",
+      "No transfer and no callback within a window",
+      "Customer confirmed resolution",
+      "Not defined"
+     ],
+     "logic": "Containment defined as \"no transfer\" counts an abandoned caller as a success. Where the definition is not stated, the baseline is not usable."
+    },
+    {
+     "id": "B7.5",
+     "type": "fill",
+     "required": false,
+     "text": "Fallback or escalation rate: ____  ·  Recognition or match rate: ____",
+     "blanks": [
+      "Fallback or escalation rate",
+      "Recognition or match rate"
+     ]
+    },
+    {
+     "id": "B7.6",
+     "type": "single",
+     "required": false,
+     "text": "Is there a human review loop on self-service outcomes?",
+     "options": [
+      "Yes, regular",
+      "Occasional",
+      "No",
+      "Unknown"
+     ]
+    },
+    {
+     "id": "B7.7",
+     "type": "single",
+     "required": true,
+     "text": "Source of the numbers above:",
+     "options": [
+      "Platform reporting",
+      "Manual estimate",
+      "Not measured"
+     ]
+    }
+   ],
+   "part": "B",
+   "cap": [
+    "ai-voice"
+   ]
+  },
+  {
+   "id": "B8",
+   "title": "RingCX AI agent — chat and digital",
+   "questions": [
+    {
+     "id": "B8.1",
+     "type": "single",
+     "required": false,
+     "text": "Is digital self-service in use today?",
+     "options": [
+      "Yes",
+      "Planned",
+      "No"
+     ]
+    },
+    {
+     "id": "B8.2",
+     "type": "fill",
+     "required": false,
+     "text": "Digital self-service sessions per month: ____  ·  Contained: ____  ·  Escalated to an agent: ____",
+     "blanks": [
+      "Digital self-service sessions per month",
+      "Contained",
+      "Escalated to an agent"
+     ]
+    },
+    {
+     "id": "B8.3",
+     "type": "fill",
+     "required": false,
+     "text": "Intents defined: ____  ·  Knowledge articles connected: ____",
+     "blanks": [
+      "Intents defined",
+      "Knowledge articles connected"
+     ]
+    },
+    {
+     "id": "B8.4",
+     "type": "single",
+     "required": false,
+     "text": "Where does the bot's knowledge come from?",
+     "options": [
+      "A connected knowledge base",
+      "Hand-authored answers",
+      "A mix",
+      "Not applicable",
+      "Unknown"
+     ],
+     "logic": "A bot answering from hand-authored content decays the moment the product changes, and nobody notices until containment falls. Where this is the answer, the day-2 plan needs a named content owner."
+    },
+    {
+     "id": "B8.5",
+     "type": "single",
+     "required": false,
+     "text": "Is the handover to a human seamless, with context carried?",
+     "options": [
+      "Yes",
+      "Partially",
+      "No",
+      "Unknown"
+     ]
+    },
+    {
+     "id": "B8.6",
+     "type": "single",
+     "required": true,
+     "text": "Source of the numbers above:",
+     "options": [
+      "Platform reporting",
+      "Manual estimate",
+      "Not measured"
+     ]
+    }
+   ],
+   "part": "B",
+   "cap": [
+    "ai-digital"
+   ]
+  },
+  {
+   "id": "B9",
+   "title": "Agent assist and conversation intelligence",
+   "questions": [
+    {
+     "id": "B9.1",
+     "type": "single",
+     "required": false,
+     "text": "Is any agent-assist capability in use today?",
+     "options": [
+      "Yes",
+      "Planned",
+      "No"
+     ]
+    },
+    {
+     "id": "B9.2",
+     "type": "single",
+     "required": false,
+     "text": "Is conversation intelligence (RingSense or equivalent) in use?",
+     "options": [
+      "Yes, RingSense",
+      "Yes, another product",
+      "Planned",
+      "No"
+     ]
+    },
+    {
+     "id": "B9.3",
+     "type": "fill",
+     "required": false,
+     "text": "Calls recorded per month: ____  ·  Calls with insights or transcription: ____  ·  Coverage: ____",
+     "blanks": [
+      "Calls recorded per month",
+      "Calls with insights or transcription",
+      "Coverage"
+     ]
+    },
+    {
+     "id": "B9.4",
+     "type": "single",
+     "required": false,
+     "text": "What is conversation intelligence used for today?",
+     "options": [
+      "Quality scoring",
+      "Coaching",
+      "Compliance checking",
+      "Trend and reason analysis",
+      "Nothing yet",
+      "Not applicable"
+     ]
+    },
+    {
+     "id": "B9.5",
+     "type": "single",
+     "required": false,
+     "text": "Has a transcription or AI-analysis consent position been established?",
+     "options": [
+      "Yes, documented",
+      "Verbally confirmed",
+      "Not addressed",
+      "Unknown"
+     ],
+     "logic": "Consent for recording and consent for AI analysis are not the same question, and the second is frequently assumed from the first. Where this is \"not addressed\", RingSense scope is conditional."
+    },
+    {
+     "id": "B9.6",
+     "type": "single",
+     "required": true,
+     "text": "Source of the numbers above:",
+     "options": [
+      "Platform reporting",
+      "Manual estimate",
+      "Not measured"
+     ]
+    }
+   ],
+   "part": "B",
+   "cap": [
+    "ringsense",
+    "agent-assist"
+   ]
+  },
+  {
+   "id": "B10",
+   "title": "Reporting maturity and data continuity",
+   "questions": [
+    {
+     "id": "B10.1",
+     "type": "single",
+     "required": true,
+     "text": "Who produces operational reporting today?",
+     "options": [
+      "A dedicated analyst",
+      "Operations managers",
+      "IT",
+      "Nobody",
+      "Unknown"
+     ]
+    },
+    {
+     "id": "B10.2",
+     "type": "single",
+     "required": false,
+     "text": "How often is reporting reviewed by the business?",
+     "options": [
+      "Daily",
+      "Weekly",
+      "Monthly",
+      "Rarely",
+      "Never"
+     ]
+    },
+    {
+     "id": "B10.3",
+     "type": "single",
+     "required": false,
+     "text": "Has a reporting decision ever changed an operational decision?",
+     "options": [
+      "Yes, routinely",
+      "Occasionally",
+      "Not that I know of",
+      "Unknown"
+     ],
+     "logic": "Distinguishes reporting that exists from reporting that is used. The second is rarer and far more useful to know about."
+    },
+    {
+     "id": "B10.4",
+     "type": "multiple",
+     "required": false,
+     "text": "Where does reporting go today?",
+     "options": [
+      "Platform dashboards",
+      "Exported to a spreadsheet",
+      "A BI tool",
+      "Wallboards",
+      "Email summaries",
+      "Nowhere"
+     ]
+    },
+    {
+     "id": "B10.5",
+     "type": "single",
+     "required": true,
+     "text": "What happens to historical data at cutover?",
+     "options": [
+      "Exported and retained",
+      "Partially exported",
+      "Nothing planned",
+      "Unknown"
+     ],
+     "logic": "\"Nothing planned\" is an action item with a deadline, not an answer. Once the incumbent contract lapses the data is gone, and every pre-migration comparison goes with it."
+    },
+    {
+     "id": "B10.6",
+     "type": "single",
+     "required": false,
+     "text": "Is there a data-retention requirement on reporting or recordings?",
+     "options": [
+      "Yes, a stated period",
+      "Yes, period undefined",
+      "No",
+      "Unknown"
+     ]
+    },
+    {
+     "id": "B10.7",
+     "type": "long",
+     "required": false,
+     "text": "What question does your current reporting fail to answer?"
+    }
+   ],
+   "part": "B"
+  },
+  {
+   "id": "C1",
+   "title": "Quality Management and conversation intelligence",
+   "questions": [
+    {
+     "id": "C1.1",
+     "type": "single",
+     "required": false,
+     "text": "Is formal quality management in place today?",
+     "options": [
+      "Yes, with a scorecard",
+      "Informal review only",
+      "No",
+      "Unknown"
+     ]
+    },
+    {
+     "id": "C1.2",
+     "type": "fill",
+     "required": false,
+     "text": "Evaluations per agent per month: ____  ·  Evaluators: ____  ·  Average QA score: ____",
+     "blanks": [
+      "Evaluations per agent per month",
+      "Evaluators",
+      "Average QA score"
+     ]
+    },
+    {
+     "id": "C1.3",
+     "type": "single",
+     "required": false,
+     "text": "How are calls selected for evaluation?",
+     "options": [
+      "Random",
+      "Targeted by metric",
+      "Agent-requested",
+      "AI-surfaced",
+      "Not systematic"
+     ]
+    },
+    {
+     "id": "C1.4",
+     "type": "single",
+     "required": false,
+     "text": "Is calibration between evaluators performed?",
+     "options": [
+      "Yes, regularly",
+      "Occasionally",
+      "No",
+      "Unknown"
+     ],
+     "logic": "Without calibration, QA scores measure the evaluator rather than the agent, and a QA-score trend over time is not interpretable."
+    },
+    {
+     "id": "C1.5",
+     "type": "single",
+     "required": false,
+     "text": "Do agents see their own evaluations?",
+     "options": [
+      "Yes, immediately",
+      "After a coaching session",
+      "No",
+      "Unknown"
+     ]
+    },
+    {
+     "id": "C1.6",
+     "type": "single",
+     "required": false,
+     "text": "Is coaching tracked to an outcome?",
+     "options": [
+      "Yes",
+      "Logged but not tracked",
+      "No",
+      "Unknown"
+     ]
+    },
+    {
+     "id": "C1.7",
+     "type": "fill",
+     "required": false,
+     "text": "Coverage — calls evaluated as a share of calls handled: ____",
+     "blanks": [
+      "Coverage — calls evaluated as a share of calls handled"
+     ]
+    },
+    {
+     "id": "C1.8",
+     "type": "single",
+     "required": true,
+     "text": "Source of the numbers above:",
+     "options": [
+      "Platform reporting",
+      "Spreadsheet",
+      "Manual estimate",
+      "Not measured"
+     ]
+    }
+   ],
+   "part": "C",
+   "cap": [
+    "qm"
+   ]
+  },
+  {
+   "id": "C2",
+   "title": "Workforce Management",
+   "questions": [
+    {
+     "id": "C2.1",
+     "type": "single",
+     "required": false,
+     "text": "Is workforce management in use today?",
+     "options": [
+      "Yes, a dedicated product",
+      "Spreadsheets",
+      "Nothing formal",
+      "Unknown"
+     ]
+    },
+    {
+     "id": "C2.2",
+     "type": "fill",
+     "required": false,
+     "text": "Forecast accuracy: ____  ·  Schedule adherence: ____  ·  Shrinkage: ____",
+     "blanks": [
+      "Forecast accuracy",
+      "Schedule adherence",
+      "Shrinkage"
+     ]
+    },
+    {
+     "id": "C2.3",
+     "type": "single",
+     "required": false,
+     "text": "How far ahead are schedules published?",
+     "options": [
+      "More than four weeks",
+      "Two to four weeks",
+      "One week",
+      "Less than a week",
+      "Unknown"
+     ]
+    },
+    {
+     "id": "C2.4",
+     "type": "single",
+     "required": false,
+     "text": "How are intraday changes handled?",
+     "options": [
+      "A real-time adherence tool",
+      "Supervisor judgment",
+      "Not handled",
+      "Unknown"
+     ]
+    },
+    {
+     "id": "C2.5",
+     "type": "single",
+     "required": false,
+     "text": "Is there an agreement governing scheduling or adherence?",
+     "options": [
+      "Yes, union or works council",
+      "Yes, internal policy",
+      "No",
+      "Unknown"
+     ]
+    },
+    {
+     "id": "C2.6",
+     "type": "single",
+     "required": false,
+     "text": "Is agent availability a known problem today?",
+     "options": [
+      "No",
+      "Occasionally",
+      "Frequently",
+      "Unknown"
+     ]
+    },
+    {
+     "id": "C2.7",
+     "type": "single",
+     "required": true,
+     "text": "Source of the numbers above:",
+     "options": [
+      "Platform reporting",
+      "Spreadsheet",
+      "Manual estimate",
+      "Not measured"
+     ]
+    }
+   ],
+   "part": "C",
+   "cap": [
+    "wfm"
+   ]
+  },
+  {
+   "id": "C3",
+   "title": "Agent desktop, CRM and mobile",
+   "questions": [
+    {
+     "id": "C3.1",
+     "type": "single",
+     "required": false,
+     "text": "What does an agent use today?",
+     "options": [
+      "A single integrated desktop",
+      "A softphone plus a CRM, separately",
+      "Several windows",
+      "Unknown"
+     ]
+    },
+    {
+     "id": "C3.2",
+     "type": "fill",
+     "required": false,
+     "text": "Applications an agent touches in a typical contact: ____",
+     "blanks": [
+      "Applications an agent touches in a typical contact"
+     ]
+    },
+    {
+     "id": "C3.3",
+     "type": "single",
+     "required": false,
+     "text": "Is screen pop in place?",
+     "options": [
+      "Yes, reliably",
+      "Yes, unreliably",
+      "No",
+      "Unknown"
+     ]
+    },
+    {
+     "id": "C3.4",
+     "type": "single",
+     "required": false,
+     "text": "Is call activity logged to the CRM automatically?",
+     "options": [
+      "Yes",
+      "Partially",
+      "Manually",
+      "No",
+      "Unknown"
+     ]
+    },
+    {
+     "id": "C3.5",
+     "type": "single",
+     "required": false,
+     "text": "Is a CRM embedded softphone in scope?",
+     "options": [
+      "Yes, Salesforce",
+      "Yes, another CRM",
+      "No",
+      "Unknown"
+     ]
+    },
+    {
+     "id": "C3.6",
+     "type": "single",
+     "required": false,
+     "text": "Do any agents work from a mobile device?",
+     "options": [
+      "Yes, routinely",
+      "Occasionally",
+      "No",
+      "Unknown"
+     ]
+    },
+    {
+     "id": "C3.7",
+     "type": "single",
+     "required": false,
+     "text": "Are agent desktops managed and standardised?",
+     "options": [
+      "Yes, fully",
+      "Mostly",
+      "No",
+      "Unknown"
+     ]
+    },
+    {
+     "id": "C3.8",
+     "type": "long",
+     "required": false,
+     "text": "What takes an agent the longest that should not?"
+    }
+   ],
+   "part": "C",
+   "cap": [
+    "cti"
+   ]
+  },
+  {
+   "id": "C4",
+   "title": "Surveys and Voice of the Customer",
+   "questions": [
+    {
+     "id": "C4.1",
+     "type": "single",
+     "required": false,
+     "text": "Is a post-contact survey running today?",
+     "options": [
+      "Yes",
+      "Planned",
+      "No"
+     ]
+    },
+    {
+     "id": "C4.2",
+     "type": "fill",
+     "required": false,
+     "text": "Survey response rate: ____  ·  CSAT: ____  ·  NPS: ____",
+     "blanks": [
+      "Survey response rate",
+      "CSAT",
+      "NPS"
+     ]
+    },
+    {
+     "id": "C4.3",
+     "type": "single",
+     "required": false,
+     "text": "How is the survey delivered?",
+     "options": [
+      "IVR at end of call",
+      "SMS",
+      "Email",
+      "In the digital channel",
+      "Several",
+      "Not applicable"
+     ]
+    },
+    {
+     "id": "C4.4",
+     "type": "single",
+     "required": false,
+     "text": "Are survey results linked back to the agent and the contact?",
+     "options": [
+      "Yes",
+      "Partially",
+      "No",
+      "Unknown"
+     ],
+     "logic": "A survey that cannot be traced to a contact is a trend line and nothing more. It cannot support coaching, and it should not be presented as if it could."
+    },
+    {
+     "id": "C4.5",
+     "type": "single",
+     "required": false,
+     "text": "Is anyone acting on survey results?",
+     "options": [
+      "Yes, a defined process",
+      "Reviewed but not actioned",
+      "No",
+      "Unknown"
+     ]
+    },
+    {
+     "id": "C4.6",
+     "type": "single",
+     "required": true,
+     "text": "Source of the numbers above:",
+     "options": [
+      "Survey platform",
+      "Spreadsheet",
+      "Manual estimate",
+      "Not measured"
+     ]
+    }
+   ],
+   "part": "C",
+   "cap": [
+    "surveys"
+   ]
+  },
+  {
+   "id": "C5",
+   "title": "Data privacy, PII and compliance",
+   "questions": [
+    {
+     "id": "C5.1",
+     "type": "multiple",
+     "required": true,
+     "text": "Which regimes apply?",
+     "options": [
+      "GDPR",
+      "HIPAA",
+      "PCI DSS",
+      "CCPA or state privacy law",
+      "FERPA",
+      "Sector-specific regulation",
+      "None",
+      "Unknown"
+     ]
+    },
+    {
+     "id": "C5.2",
+     "type": "single",
+     "required": false,
+     "text": "Is payment data ever taken over the phone?",
+     "options": [
+      "Yes, routinely",
+      "Occasionally",
+      "No",
+      "Unknown"
+     ]
+    },
+    {
+     "id": "C5.3",
+     "type": "single",
+     "required": false,
+     "text": "How is recording paused or redacted around sensitive data?",
+     "options": [
+      "Automatically on a trigger",
+      "Agent-initiated pause",
+      "Not handled",
+      "Not applicable",
+      "Unknown"
+     ],
+     "logic": "\"Not handled\" where payment data is taken is a live compliance exposure, and it is a finding on the day it is discovered rather than at the next review."
+    },
+    {
+     "id": "C5.4",
+     "type": "single",
+     "required": false,
+     "text": "Where must data reside?",
+     "options": [
+      "No requirement",
+      "In-country",
+      "In-region",
+      "Unknown"
+     ]
+    },
+    {
+     "id": "C5.5",
+     "type": "single",
+     "required": false,
+     "text": "Is there a documented retention and deletion policy for recordings?",
+     "options": [
+      "Yes",
+      "In draft",
+      "No",
+      "Unknown"
+     ]
+    },
+    {
+     "id": "C5.6",
+     "type": "single",
+     "required": false,
+     "text": "How are data-subject access requests handled today?",
+     "options": [
+      "A defined process",
+      "Ad hoc",
+      "Never had one",
+      "Unknown"
+     ]
+    },
+    {
+     "id": "C5.7",
+     "type": "single",
+     "required": false,
+     "text": "Has security reviewed and approved this platform?",
+     "options": [
+      "Yes, signed off",
+      "In review",
+      "Not started",
+      "Unknown"
+     ]
+    },
+    {
+     "id": "C5.8",
+     "type": "single",
+     "required": false,
+     "text": "Is SSO enforced for administrative access?",
+     "options": [
+      "Yes",
+      "Planned",
+      "No",
+      "Unknown"
+     ]
+    },
+    {
+     "id": "C5.9",
+     "type": "fill",
+     "required": false,
+     "text": "Super-admin accounts today: ____  ·  Accounts with administrative rights: ____",
+     "logic": "Administrative blast radius, measured. It is a layer 10 finding and one of the few security questions with a defensible number behind it.",
+     "blanks": [
+      "Super-admin accounts today",
+      "Accounts with administrative rights"
+     ]
+    }
+   ],
+   "part": "C",
+   "cap": [
+    "pii"
+   ]
+  },
+  {
+   "id": "D1",
+   "title": "Targets and optimization program",
+   "questions": [
+    {
+     "id": "D1.1",
+     "type": "fill",
+     "required": true,
+     "text": "Answer rate — Baseline: ____  ·  Target: ____  ·  By when: ____",
+     "blanks": [
+      "Answer rate — Baseline",
+      "Target",
+      "By when"
+     ]
+    },
+    {
+     "id": "D1.2",
+     "type": "fill",
+     "required": false,
+     "text": "Average speed to answer — Baseline: ____  ·  Target: ____  ·  By when: ____",
+     "blanks": [
+      "Average speed to answer — Baseline",
+      "Target",
+      "By when"
+     ]
+    },
+    {
+     "id": "D1.3",
+     "type": "fill",
+     "required": false,
+     "text": "Abandonment — Baseline: ____  ·  Target: ____  ·  By when: ____",
+     "blanks": [
+      "Abandonment — Baseline",
+      "Target",
+      "By when"
+     ]
+    },
+    {
+     "id": "D1.4",
+     "type": "fill",
+     "required": false,
+     "text": "Licence utilisation — Baseline: ____  ·  Target: ____  ·  By when: ____",
+     "blanks": [
+      "Licence utilisation — Baseline",
+      "Target",
+      "By when"
+     ]
+    },
+    {
+     "id": "D1.5",
+     "type": "fill",
+     "required": false,
+     "text": "Self-service containment — Baseline: ____  ·  Target: ____  ·  By when: ____",
+     "blanks": [
+      "Self-service containment — Baseline",
+      "Target",
+      "By when"
+     ]
+    },
+    {
+     "id": "D1.6",
+     "type": "fill",
+     "required": false,
+     "text": "CSAT or NPS — Baseline: ____  ·  Target: ____  ·  By when: ____",
+     "blanks": [
+      "CSAT or NPS — Baseline",
+      "Target",
+      "By when"
+     ]
+    },
+    {
+     "id": "D1.7",
+     "type": "single",
+     "required": true,
+     "text": "Who agreed these targets?",
+     "options": [
+      "Sponsor and operations jointly",
+      "Sponsor alone",
+      "Operations alone",
+      "Nobody yet"
+     ],
+     "logic": "A target nobody agreed to is a target nobody is measured against. \"Sponsor alone\" is the most common answer and the most likely to be disowned at the first review."
+    },
+    {
+     "id": "D1.8",
+     "type": "single",
+     "required": true,
+     "text": "Is the baseline in Part B good enough to measure these targets against?",
+     "options": [
+      "Yes, platform-measured throughout",
+      "Partly",
+      "No, largely estimated",
+      "Unknown"
+     ],
+     "logic": "Asked deliberately after the baseline has been collected. Where the honest answer is \"largely estimated\", the first optimization review re-baselines rather than reporting movement, and saying so now is far cheaper than discovering it then."
+    },
+    {
+     "id": "D1.9",
+     "type": "single",
+     "required": false,
+     "text": "How often should the optimization review run?",
+     "options": [
+      "Monthly",
+      "Quarterly",
+      "Twice a year",
+      "Annually",
+      "Not decided"
+     ]
+    },
+    {
+     "id": "D1.10",
+     "type": "single",
+     "required": false,
+     "text": "Who will attend the optimization review from the business?",
+     "options": [
+      "Executive sponsor",
+      "Operations leadership",
+      "Front-line supervisors",
+      "A mix",
+      "Nobody identified"
+     ]
+    },
+    {
+     "id": "D1.11",
+     "type": "single",
+     "required": false,
+     "text": "Is there a budget or mandate to act on findings?",
+     "options": [
+      "Yes",
+      "Case by case",
+      "No",
+      "Unknown"
+     ],
+     "logic": "Findings nobody is funded to fix accumulate. O3.1 measures the consequence, and the cause is visible here."
+    },
+    {
+     "id": "D1.12",
+     "type": "long",
+     "required": false,
+     "text": "Twelve months from now, what single number would make this project unambiguously worth it?"
+    }
+   ],
+   "part": "D"
+  }
+ ]
+}

@@ -1,0 +1,590 @@
+{
+ "platform": "ringcentral",
+ "key": "optimization-review",
+ "order": 3,
+ "cadence": "3–6 months, then recurring",
+ "role": "Solutions Architect + Customer Success Manager",
+ "title": "Optimization Review Questionnaire",
+ "lede": "Fielded at the first optimization review and on every review thereafter. Its job is to establish what actually moved, what caused it, and whether the value promised at signature is being realised — in a form that survives contact with a sceptical executive.",
+ "meta": {
+  "Instrument": "Guided review",
+  "Fielded": "3–6 months after go-live, then recurring",
+  "Length": "45 questions · 30–45 min",
+  "Output": "Optimization readout + findings backlog + renewal signal"
+ },
+ "count": 45,
+ "parts": [],
+ "caps": [],
+ "groups": [
+  {
+   "id": "O0",
+   "title": "Review context",
+   "questions": [
+    {
+     "id": "O0.1",
+     "type": "short",
+     "required": true,
+     "text": "Review date"
+    },
+    {
+     "id": "O0.2",
+     "type": "single",
+     "required": true,
+     "text": "Which review is this?",
+     "options": [
+      "First (3–6 months post go-live)",
+      "Second",
+      "Third or later",
+      "Ad hoc, triggered by an issue"
+     ]
+    },
+    {
+     "id": "O0.3",
+     "type": "fill",
+     "required": true,
+     "text": "Measurement window — From: ____  ·  To: ____",
+     "logic": "RingCentral Business Analytics serves 184 days of history. A window longer than that cannot be measured directly and must be assembled from stored run snapshots — say which was used.",
+     "blanks": [
+      "Measurement window — From",
+      "To"
+     ]
+    },
+    {
+     "id": "O0.4",
+     "type": "multiple",
+     "required": true,
+     "text": "Who is in the room?",
+     "options": [
+      "Executive sponsor",
+      "IT owner",
+      "Contact-centre operations",
+      "Telecom or voice engineer",
+      "Finance",
+      "Front-line supervisor",
+      "Nobody from the business side"
+     ],
+     "logic": "\"Nobody from the business side\" on a third review is itself a finding. Optimization that only IT attends is optimization nobody is acting on."
+    },
+    {
+     "id": "O0.5",
+     "type": "single",
+     "required": false,
+     "text": "Has the primary contact changed since the last review?",
+     "options": [
+      "No",
+      "Yes, same role",
+      "Yes, and the role changed",
+      "This is the first review"
+     ]
+    }
+   ],
+   "part": "O"
+  },
+  {
+   "id": "O1",
+   "title": "Adoption and rollout progress",
+   "questions": [
+    {
+     "id": "O1.1",
+     "type": "fill",
+     "required": true,
+     "text": "RingEX users — Licensed: ____  ·  Activated: ____  ·  Active in the window: ____",
+     "logic": "Pre-filled by the agent from inventory. The human's job is to explain any gap, not to recount it.",
+     "blanks": [
+      "RingEX users — Licensed",
+      "Activated",
+      "Active in the window"
+     ]
+    },
+    {
+     "id": "O1.2",
+     "type": "fill",
+     "required": false,
+     "text": "RingCX agents — Licensed: ____  ·  Active: ____  ·  Never logged in: ____",
+     "blanks": [
+      "RingCX agents — Licensed",
+      "Active",
+      "Never logged in"
+     ]
+    },
+    {
+     "id": "O1.3",
+     "type": "single",
+     "required": true,
+     "text": "Is the rollout complete?",
+     "options": [
+      "Complete",
+      "In progress, on plan",
+      "In progress, behind plan",
+      "Stalled",
+      "Scope changed"
+     ]
+    },
+    {
+     "id": "O1.4",
+     "type": "matching",
+     "required": false,
+     "text": "Where has each product landed?",
+     "prompts": [
+      "RingEX telephony",
+      "RingCentral Video",
+      "Team Chat",
+      "Business SMS",
+      "RingCX voice",
+      "RingCX digital channels",
+      "RingCX outbound",
+      "RingSense",
+      "Quality Management",
+      "Workforce Management"
+     ],
+     "matchTo": [
+      "Fully adopted",
+      "Partially adopted",
+      "Deployed but unused",
+      "Not deployed",
+      "Not in scope"
+     ],
+     "logic": "\"Deployed but unused\" is the most valuable answer on this page — it is paid-for capability producing nothing, and it is the easiest value to recover."
+    },
+    {
+     "id": "O1.5",
+     "type": "single",
+     "required": false,
+     "text": "Has the desk-phone estate changed as expected?",
+     "options": [
+      "Reduced as planned",
+      "Reduced less than planned",
+      "Unchanged",
+      "Increased",
+      "Not applicable"
+     ]
+    },
+    {
+     "id": "O1.6",
+     "type": "long",
+     "required": false,
+     "text": "What is the main reason any part of the rollout is not where it was expected to be?"
+    }
+   ],
+   "part": "O"
+  },
+  {
+   "id": "O2",
+   "title": "KPI movement vs. baseline",
+   "questions": [
+    {
+     "id": "O2.1",
+     "type": "fill",
+     "required": true,
+     "text": "Answer rate — Baseline: ____  ·  Current: ____",
+     "logic": "Inbound only, measured as answered ÷ (answered + notAnswered) from Business Analytics with groupBy Company. If the baseline used a different denominator, this is a definition change rather than a movement — flag it in O2.9.",
+     "blanks": [
+      "Answer rate — Baseline",
+      "Current"
+     ]
+    },
+    {
+     "id": "O2.2",
+     "type": "fill",
+     "required": true,
+     "text": "Missed call rate — Baseline: ____  ·  Current: ____",
+     "blanks": [
+      "Missed call rate — Baseline",
+      "Current"
+     ]
+    },
+    {
+     "id": "O2.3",
+     "type": "fill",
+     "required": true,
+     "text": "Average speed to answer — Baseline: ____  ·  Current: ____",
+     "blanks": [
+      "Average speed to answer — Baseline",
+      "Current"
+     ]
+    },
+    {
+     "id": "O2.4",
+     "type": "fill",
+     "required": false,
+     "text": "Average handle time — Baseline: ____  ·  Current: ____",
+     "logic": "Reference only. A rise can mean worse efficiency or deeper service, and the readout should not claim either without O2.10.",
+     "blanks": [
+      "Average handle time — Baseline",
+      "Current"
+     ]
+    },
+    {
+     "id": "O2.5",
+     "type": "fill",
+     "required": false,
+     "text": "Outbound connect rate — Baseline: ____  ·  Current: ____",
+     "blanks": [
+      "Outbound connect rate — Baseline",
+      "Current"
+     ]
+    },
+    {
+     "id": "O2.6",
+     "type": "fill",
+     "required": false,
+     "text": "RingCX queue answer rate — Baseline: ____  ·  Current: ____  ·  Date measured: ____",
+     "logic": "Without WEM, RingCX queue figures come from realTimeData and describe today only, not the window. Record the date measured, and never present a same-day figure as a window result.",
+     "blanks": [
+      "RingCX queue answer rate — Baseline",
+      "Current",
+      "Date measured"
+     ]
+    },
+    {
+     "id": "O2.7",
+     "type": "fill",
+     "required": false,
+     "text": "AI insight coverage of recordings — Baseline: ____  ·  Current: ____",
+     "blanks": [
+      "AI insight coverage of recordings — Baseline",
+      "Current"
+     ]
+    },
+    {
+     "id": "O2.8",
+     "type": "single",
+     "required": true,
+     "text": "Where did the current figures come from?",
+     "options": [
+      "RingCentral Business Analytics",
+      "RingCX reporting",
+      "Blended RingCentral and prior platform",
+      "Customer spreadsheet",
+      "Estimated",
+      "Unknown"
+     ],
+     "logic": "Anything below platform-native carries the same provenance caveat as the post-SOW baseline. A current figure measured less rigorously than the baseline cannot be claimed as an improvement. Business Analytics and Call Log are different data sources and will not reconcile — a blended figure is not a measurement."
+    },
+    {
+     "id": "O2.9",
+     "type": "single",
+     "required": true,
+     "text": "Did any metric definition change between the baseline and now?",
+     "options": [
+      "No",
+      "Yes, one",
+      "Yes, several",
+      "Unknown"
+     ],
+     "logic": "A changed definition invalidates the movement. It is not a failure to report it; it is a failure to report it late."
+    },
+    {
+     "id": "O2.10",
+     "type": "long",
+     "required": false,
+     "text": "For any metric that moved materially, what change caused it? (Links to O3.)"
+    },
+    {
+     "id": "O2.11",
+     "type": "single",
+     "required": false,
+     "text": "Is the measurement window long enough to support rate-based claims?",
+     "options": [
+      "Yes, production volumes throughout",
+      "Partially",
+      "No, the window is too thin",
+      "Unknown"
+     ],
+     "logic": "Where the answer is anything but \"yes\", the readout presents counts and configuration findings and explicitly re-baselines the rates. This matches how the agent flags the same condition."
+    }
+   ],
+   "part": "O"
+  },
+  {
+   "id": "O3",
+   "title": "Scorecard findings and remediation",
+   "questions": [
+    {
+     "id": "O3.1",
+     "type": "fill",
+     "required": true,
+     "text": "Since the last review — Findings raised: ____  ·  Actioned: ____  ·  Deferred: ____  ·  Won't-do: ____",
+     "logic": "The actioned-over-raised ratio is the single clearest signal of whether the optimization loop is actually running or just producing reports.",
+     "blanks": [
+      "Since the last review — Findings raised",
+      "Actioned",
+      "Deferred",
+      "Won't-do"
+     ]
+    },
+    {
+     "id": "O3.2",
+     "type": "matching",
+     "required": true,
+     "text": "Status of the highest-priority findings by layer.",
+     "prompts": [
+      "L0 Foundation",
+      "L1 Provisioning & identity",
+      "L2 Call routing",
+      "L3 Voice quality",
+      "L4 Employee experience",
+      "L5 Customer experience",
+      "L6 Messaging & digital",
+      "L7 Meetings & collaboration",
+      "L8 Contact centre",
+      "L9 AI & automation",
+      "L10 Governance & value"
+     ],
+     "matchTo": [
+      "Remediated and verified",
+      "In progress",
+      "Blocked (customer)",
+      "Blocked (us)",
+      "Not started"
+     ],
+     "logic": "\"Blocked (customer)\" is a renewal-risk flag as much as a delivery one — it means value is being withheld by something outside our control, and it belongs in O6."
+    },
+    {
+     "id": "O3.3",
+     "type": "single",
+     "required": false,
+     "text": "Have the compliance findings been closed?",
+     "options": [
+      "Yes, all",
+      "Partially",
+      "No",
+      "None were raised"
+     ],
+     "logic": "Emergency-address gaps are not volume-dependent and do not improve on their own. An open RAY BAUM'S Act finding at a second review is an escalation, not a backlog item."
+    },
+    {
+     "id": "O3.4",
+     "type": "long",
+     "required": false,
+     "text": "What was the single highest-impact change made this period, and what did it move?"
+    },
+    {
+     "id": "O3.5",
+     "type": "single",
+     "required": false,
+     "text": "Overall layered score vs. last review:",
+     "options": [
+      "Up materially",
+      "Up slightly",
+      "Flat",
+      "Down",
+      "No comparable score yet"
+     ]
+    }
+   ],
+   "part": "O"
+  },
+  {
+   "id": "O4",
+   "title": "Value realised",
+   "questions": [
+    {
+     "id": "O4.1",
+     "type": "fill",
+     "required": false,
+     "text": "Licence position — Seats billed: ____  ·  Seats active: ____  ·  Seats reclaimed this period: ____",
+     "logic": "The most defensible value claim in the program, because both sides of it are counted rather than estimated.",
+     "blanks": [
+      "Licence position — Seats billed",
+      "Seats active",
+      "Seats reclaimed this period"
+     ]
+    },
+    {
+     "id": "O4.2",
+     "type": "single",
+     "required": false,
+     "text": "Has any cost been removed as a result of this platform?",
+     "options": [
+      "Yes, quantified",
+      "Yes, not yet quantified",
+      "No",
+      "Unknown"
+     ]
+    },
+    {
+     "id": "O4.3",
+     "type": "long",
+     "required": false,
+     "text": "What has been retired — lines, hardware, a parallel tool, a contract?"
+    },
+    {
+     "id": "O4.4",
+     "type": "single",
+     "required": false,
+     "text": "Has anyone's job measurably changed for the better?",
+     "options": [
+      "Yes, with evidence",
+      "Yes, anecdotally",
+      "No",
+      "Too early to say"
+     ]
+    },
+    {
+     "id": "O4.5",
+     "type": "long",
+     "required": false,
+     "text": "What value was expected at signature that has not yet appeared, and why?",
+     "logic": "The question most likely to be skipped and most likely to predict a difficult renewal. Ask it even when the review is going well."
+    }
+   ],
+   "part": "O"
+  },
+  {
+   "id": "O5",
+   "title": "Experience and sentiment",
+   "questions": [
+    {
+     "id": "O5.1",
+     "type": "rating",
+     "required": false,
+     "text": "How satisfied is the business with the platform? (1–5)"
+    },
+    {
+     "id": "O5.2",
+     "type": "rating",
+     "required": false,
+     "text": "How satisfied is IT with administering it? (1–5)"
+    },
+    {
+     "id": "O5.3",
+     "type": "rating",
+     "required": false,
+     "text": "How satisfied are front-line users? (1–5)"
+    },
+    {
+     "id": "O5.4",
+     "type": "single",
+     "required": false,
+     "text": "What is the most common complaint you hear?",
+     "options": [
+      "Call quality",
+      "Something is hard to find or do",
+      "Routing sends people to the wrong place",
+      "Reporting does not answer the question",
+      "Mobile experience",
+      "Nothing notable",
+      "Unknown"
+     ]
+    },
+    {
+     "id": "O5.5",
+     "type": "long",
+     "required": false,
+     "text": "What would the front line say if we asked them directly?"
+    }
+   ],
+   "part": "O"
+  },
+  {
+   "id": "O6",
+   "title": "Risks, blockers and open items",
+   "questions": [
+    {
+     "id": "O6.1",
+     "type": "multiple",
+     "required": false,
+     "text": "What is currently blocking further optimization?",
+     "options": [
+      "Customer resource availability",
+      "A pending internal approval",
+      "Budget",
+      "A technical dependency",
+      "An unresolved vendor issue",
+      "Competing priorities",
+      "Nothing blocking"
+     ]
+    },
+    {
+     "id": "O6.2",
+     "type": "long",
+     "required": false,
+     "text": "What is the oldest unresolved item, and how long has it been open?",
+     "logic": "Age of the oldest open item is a better health signal than the count of open items."
+    },
+    {
+     "id": "O6.3",
+     "type": "single",
+     "required": false,
+     "text": "Is there an escalation open with RingCentral?",
+     "options": [
+      "No",
+      "Yes, progressing",
+      "Yes, stalled",
+      "Unknown"
+     ]
+    },
+    {
+     "id": "O6.4",
+     "type": "single",
+     "required": false,
+     "text": "Has anything happened that changes the original business case?",
+     "options": [
+      "No",
+      "Yes, favourably",
+      "Yes, unfavourably",
+      "Unknown"
+     ]
+    }
+   ],
+   "part": "O"
+  },
+  {
+   "id": "O7",
+   "title": "Renewal and expansion signal",
+   "questions": [
+    {
+     "id": "O7.1",
+     "type": "short",
+     "required": true,
+     "text": "Contract renewal date"
+    },
+    {
+     "id": "O7.2",
+     "type": "single",
+     "required": true,
+     "text": "Likelihood of renewal as things stand:",
+     "options": [
+      "Certain",
+      "Likely",
+      "Uncertain",
+      "At risk",
+      "Too early to say"
+     ]
+    },
+    {
+     "id": "O7.3",
+     "type": "matching",
+     "required": false,
+     "text": "Interest in capability not yet deployed.",
+     "prompts": [
+      "RingCX digital channels",
+      "RingCX outbound",
+      "RingCX AI agent",
+      "RingSense",
+      "Quality Management",
+      "Workforce Management",
+      "CRM embedded softphone",
+      "Surveys and VoC",
+      "RingCentral Rooms",
+      "Archiver"
+     ],
+     "matchTo": [
+      "Active interest",
+      "Would consider",
+      "Not interested",
+      "Already deployed"
+     ]
+    },
+    {
+     "id": "O7.4",
+     "type": "long",
+     "required": false,
+     "text": "What would have to be true for this customer to expand?"
+    }
+   ],
+   "part": "O"
+  }
+ ]
+}
