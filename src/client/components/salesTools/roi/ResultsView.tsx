@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { buildRoiTsv } from "../../../../shared/roiModel/excel";
 import { fmt } from "../../../../shared/roiModel/format";
 import type { RoiInputs, RoiResult } from "../../../../shared/roiModel/types";
 import { useToast } from "../../ui/ToastProvider";
@@ -6,7 +7,7 @@ import { CallOutcomesChart, SavingsChart } from "./RoiCharts";
 import { CostPerAgentTable, RoiTable, SensitivityTable } from "./RoiTables";
 import type { RoiWarning } from "./validation";
 
-type ExportKind = "docx" | "pptx";
+type ExportKind = "docx" | "pptx" | "xlsx";
 
 type Props = {
   P: RoiInputs;
@@ -27,11 +28,38 @@ export function ResultsView({ P, o, notes, onEdit }: Props) {
     try {
       const m = await import("./exports");
       if (kind === "docx") await m.exportRoiWord(P, o);
-      else await m.exportRoiPpt(P, o);
+      else if (kind === "pptx") await m.exportRoiPpt(P, o);
+      else await m.exportRoiExcel(P, o);
     } catch (e) {
       showToast(e instanceof Error ? e.message : "Export failed", "error");
     } finally {
       setBusy(null);
+    }
+  }
+
+  /** The ROI table as tab-separated text, for a quick paste into a sheet. */
+  async function copyTable() {
+    const text = buildRoiTsv(o);
+    const done = () => showToast("Copied. Paste into Excel", "success");
+    try {
+      if (!navigator.clipboard) throw new Error("no clipboard");
+      await navigator.clipboard.writeText(text);
+      done();
+    } catch {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.setAttribute("readonly", "");
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        if (!document.execCommand("copy")) throw new Error("copy refused");
+        done();
+      } catch {
+        showToast("Couldn't copy. Select the table and copy it instead", "error");
+      }
+      ta.remove();
     }
   }
 
@@ -45,7 +73,7 @@ export function ResultsView({ P, o, notes, onEdit }: Props) {
       <div className="roi-export">
         <div>
           <b>Export for your team or customer</b>
-          <span>A report built from these results, with charts, the full ROI table and a step-by-step explanation of how each number was calculated.</span>
+          <span>A Word report or PowerPoint deck built from these results, with charts, the full ROI table and a step-by-step explanation of how each number was calculated. The Excel file has the same numbers as real values, ready to pull into proposals.</span>
         </div>
         <div className="roi-export-btns">
           <button className="ms-btn-primary" type="button" disabled={!!busy} onClick={() => runExport("docx")}>
@@ -53,6 +81,12 @@ export function ResultsView({ P, o, notes, onEdit }: Props) {
           </button>
           <button className="ms-btn-primary" type="button" disabled={!!busy} onClick={() => runExport("pptx")}>
             {busy === "pptx" ? "Building…" : "PowerPoint deck (.pptx)"}
+          </button>
+          <button className="ms-btn-primary" type="button" disabled={!!busy} onClick={() => runExport("xlsx")}>
+            {busy === "xlsx" ? "Building…" : "Excel (.xlsx)"}
+          </button>
+          <button className="ms-btn-ghost" type="button" onClick={copyTable} title="Copy the ROI table as text to paste into a sheet">
+            Copy table
           </button>
         </div>
       </div>

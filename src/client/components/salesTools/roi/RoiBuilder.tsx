@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { buildRoiTsv } from "../../../../shared/roiModel/excel";
 import { ROI_STEPS } from "../../../../shared/roiModel/fields";
 import { compute } from "../../../../shared/roiModel/model";
 import type { RoiInputs } from "../../../../shared/roiModel/types";
@@ -76,28 +75,17 @@ function Builder({ userId }: { userId: string }) {
     dispatch({ type: "replace", P: next });
   }
 
-  async function copyForExcel() {
-    const text = buildRoiTsv(o);
-    const done = () => showToast("Copied. Paste into Excel", "success");
+  const [excelBusy, setExcelBusy] = useState(false);
+  async function downloadExcel() {
+    if (excelBusy) return;
+    setExcelBusy(true);
     try {
-      if (!navigator.clipboard) throw new Error("no clipboard");
-      await navigator.clipboard.writeText(text);
-      done();
-    } catch {
-      const ta = document.createElement("textarea");
-      ta.value = text;
-      ta.setAttribute("readonly", "");
-      ta.style.position = "fixed";
-      ta.style.opacity = "0";
-      document.body.appendChild(ta);
-      ta.select();
-      try {
-        if (!document.execCommand("copy")) throw new Error("copy refused");
-        done();
-      } catch {
-        showToast("Couldn't copy. Select the table and copy it instead", "error");
-      }
-      ta.remove();
+      const m = await import("./exports");
+      await m.exportRoiExcel(P, o);
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : "Export failed", "error");
+    } finally {
+      setExcelBusy(false);
     }
   }
 
@@ -114,7 +102,9 @@ function Builder({ userId }: { userId: string }) {
         <button className="ms-btn-secondary" type="button" onClick={() => replace("blank")}>
           {armed === "blank" ? "Click again to clear your answers" : "Start blank"}
         </button>
-        <button className="ms-btn-secondary" type="button" onClick={copyForExcel}>Copy results for Excel</button>
+        <button className="ms-btn-secondary" type="button" disabled={excelBusy} onClick={downloadExcel}>
+          {excelBusy ? "Building…" : "Download Excel"}
+        </button>
         {!onResults && <button className="ms-btn-primary" type="button" onClick={() => go(RESULTS)}>See results</button>}
       </div>
 
