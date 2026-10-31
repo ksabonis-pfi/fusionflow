@@ -18,6 +18,9 @@ import SolutionsPage from "../pages/SolutionsPage";
 import SolutionDetailPage from "../pages/SolutionDetailPage";
 import OptimizePage from "../pages/OptimizePage";
 import OptimizeAccountPage from "../pages/OptimizeAccountPage";
+import OptimizeV2Page from "../pages/OptimizeV2Page";
+import OptimizeV2AccountPage from "../pages/OptimizeV2AccountPage";
+import OptimizeV2RunPage from "../pages/OptimizeV2RunPage";
 import LoginPage from "../pages/LoginPage";
 import InboxPage from "../pages/InboxPage";
 import CustomersPage from "../pages/CustomersPage";
@@ -80,6 +83,9 @@ export default function Router() {
           <Route path="/solutions/:id" element={<SolutionDetailPage />} />
           <Route path="/optimize" element={<OptimizePage />} />
           <Route path="/optimize/:accountId" element={<OptimizeAccountPage />} />
+          <Route path="/optimize-v2" element={<OptimizeV2Page />} />
+          <Route path="/optimize-v2/runs/:runId" element={<OptimizeV2RunPage />} />
+          <Route path="/optimize-v2/:accountId" element={<OptimizeV2AccountPage />} />
           <Route path="/customers" element={<CustomersPage />} />
           <Route path="/customers/:id" element={<CustomerDetailPage />} />
           <Route path="/prospecting" element={<ProspectingPage />} />
