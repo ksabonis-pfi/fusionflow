@@ -4,15 +4,19 @@ import { optimizeV2Api } from "../lib/optimizeV2Api";
 import { PLATFORM_LABEL } from "../components/optimizeV2/format";
 import { ReportStyles } from "../components/optimizeV2/reports/shared";
 import type { ReportKind, ReportResult, ReportRun, ZoomTrack } from "../components/optimizeV2/reports/types";
-import { buildZoomReportModel, hasContactCenter } from "../components/optimizeV2/reports/zoom/model";
+import { buildZoomReportModel } from "../components/optimizeV2/reports/zoom/model";
 import { ZoomExecutive, ZoomGrowth, ZoomOutcomes } from "../components/optimizeV2/reports/zoom/ZoomReadouts";
 import { buildRcReportModel } from "../components/optimizeV2/reports/ringcentral/model";
 import { RcExecutive, RcGrowth, RcOutcomes } from "../components/optimizeV2/reports/ringcentral/RcReadouts";
+import { readoutTrack } from "../components/optimizeV2/reports/track";
+import RunNav from "../components/optimizeV2/RunNav";
 
 // Customer-facing readouts for one run: Executive, Outcomes and the Growth &
-// Enablement plan. Full page (outside the app shell) so the browser's
-// "Print / Save as PDF" produces a clean document; that is the PDF path until
-// the Word / PowerPoint builders land.
+// Enablement plan. Rendered inside the app shell, sharing the assessment page's
+// header and tab row (RunNav). "Print / Save as PDF" is the PDF path until the
+// Word / PowerPoint builders land: while this page is mounted <html> carries
+// `o2r-readout`, which the report's print CSS uses to hide the shell chrome and
+// un-clip the shell's scrolling <main> so the whole readout prints.
 
 const KINDS: { id: ReportKind; label: string }[] = [
   { id: "executive", label: "Executive" },
@@ -35,13 +39,9 @@ export default function OptimizeV2ReportPage() {
   }, [runId]);
 
   const result = data?.result ?? null;
-  const isZoom = data?.run.platform === "zoom";
-  // Zoom track: Essentials (UCaaS) unless the run shows Contact Center or Virtual
-  // Agent activity; ?track= overrides. RingCentral has no tracks.
-  const autoTrack: ZoomTrack = result && hasContactCenter(result) ? "advanced" : "essentials";
+  // Zoom track: Essentials unless Contact Center / Virtual Agent activity; ?track= overrides.
   const trackParam = search.get("track");
-  const track: ZoomTrack = trackParam === "essentials" || trackParam === "advanced" ? trackParam : autoTrack;
-  const outcomesHidden = isZoom && track === "essentials";
+  const { isZoom, autoTrack, track, outcomesHidden } = readoutTrack(data?.run.platform, result, trackParam);
 
   // Essentials has no Outcomes readout (as in the original); fall back to Executive.
   useEffect(() => {
@@ -68,6 +68,12 @@ export default function OptimizeV2ReportPage() {
     return () => { document.title = prev; };
   }, [data, kindLabel, customer]);
 
+  // Scope the print CSS (shell chrome hidden, <main> un-clipped) to this page.
+  useEffect(() => {
+    document.documentElement.classList.add("o2r-readout");
+    return () => document.documentElement.classList.remove("o2r-readout");
+  }, []);
+
   // Expand collapsed steps for printing, then restore.
   useEffect(() => {
     let opened: HTMLDetailsElement[] = [];
@@ -81,7 +87,7 @@ export default function OptimizeV2ReportPage() {
     return () => { window.removeEventListener("beforeprint", before); window.removeEventListener("afterprint", after); };
   }, []);
 
-  const go = (k: ReportKind) => navigate(`/optimize-v2/runs/${runId}/report/${k}${search.toString() ? `?${search}` : ""}`);
+  const query = search.toString() ? `?${search}` : "";
   const setTrack = (t: ZoomTrack) => { const s = new URLSearchParams(search); s.set("track", t); setSearch(s, { replace: true }); };
 
   let body: React.ReactNode;
@@ -95,29 +101,33 @@ export default function OptimizeV2ReportPage() {
   return (
     <div className="o2r-page">
       <ReportStyles />
-      <div className="o2r-toolbar">
-        <Link to={`/optimize-v2/runs/${runId}`} className="o2r-back">← Assessment</Link>
-        {isZoom && (
-          <div className="o2r-seg" title="Report track">
-            <button type="button" className={track === "essentials" ? "on" : ""} onClick={() => setTrack("essentials")}>Essentials</button>
-            <button type="button" className={track === "advanced" ? "on" : ""} onClick={() => setTrack("advanced")}>Advanced</button>
+      <div className="o2r-chrome">
+        {data ? (
+          <RunNav
+            run={data.run}
+            active={kind}
+            outcomesHidden={outcomesHidden}
+            query={query}
+            actions={
+              <>
+                {isZoom && (
+                  <div className="o2r-seg" title="Report track">
+                    <button type="button" className={track === "essentials" ? "on" : ""} onClick={() => setTrack("essentials")}>Essentials</button>
+                    <button type="button" className={track === "advanced" ? "on" : ""} onClick={() => setTrack("advanced")}>Advanced</button>
+                  </div>
+                )}
+                <button type="button" className="ms-btn-primary" onClick={() => window.print()} disabled={!result}>Print / Save as PDF</button>
+              </>
+            }
+          />
+        ) : (
+          <Link to={`/optimize-v2/runs/${runId}`} className="ms-btn-ghost" style={{ marginBottom: 16 }}>← Assessment</Link>
+        )}
+        {isZoom && trackParam == null && data && (
+          <div className="o2r-hint">
+            Track auto-detected: {autoTrack === "advanced" ? "Contact Center / Virtual Agent activity found" : "no Contact Center activity"}
           </div>
         )}
-        <div className="o2r-seg">
-          {KINDS.map((k) => (
-            <button
-              key={k.id} type="button" className={kind === k.id ? "on" : ""}
-              disabled={k.id === "outcomes" && outcomesHidden}
-              title={k.id === "outcomes" && outcomesHidden ? "Outcomes is part of the Advanced track" : undefined}
-              onClick={() => go(k.id)}
-            >
-              {k.id === "executive" && outcomesHidden ? "Communications" : k.label}
-            </button>
-          ))}
-        </div>
-        <span className="o2r-spacer" />
-        {isZoom && trackParam == null && data && <span className="o2r-hint">Track auto-detected: {autoTrack === "advanced" ? "Contact Center / Virtual Agent activity found" : "no Contact Center activity"}</span>}
-        <button type="button" className="o2r-print" onClick={() => window.print()} disabled={!result}>Print / Save as PDF</button>
       </div>
       {body}
     </div>

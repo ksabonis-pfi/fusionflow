@@ -221,11 +221,11 @@ export default function AppShell() {
   );
 
   return (
-    <div style={{ display: "flex", height: "100vh", overflow: "hidden" }}>
+    <div className="app-shell" style={{ display: "flex", height: "100vh", overflow: "hidden" }}>
 
       {/* Desktop sidebar */}
       {!isMobile && (
-        <aside style={{
+        <aside className="app-shell-sidebar" style={{
           width: 220,
           flexShrink: 0,
           display: "flex",
@@ -247,6 +247,7 @@ export default function AppShell() {
       {/* Mobile drawer overlay */}
       {isMobile && drawerOpen && (
         <div
+          className="app-shell-drawer"
           style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(0,0,0,0.5)" }}
           onClick={() => setDrawerOpen(false)}
         >
@@ -280,10 +281,10 @@ export default function AppShell() {
       )}
 
       {/* Main area */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", background: "#f0f4f8", position: "relative" }}>
+      <div className="app-shell-body" style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", background: "#f0f4f8", position: "relative" }}>
 
         {/* Top bar */}
-        <header style={{
+        <header className="app-shell-header" style={{
           position: "relative",
           zIndex: 10,
           height: 56,
@@ -484,7 +485,7 @@ export default function AppShell() {
 
         {/* Impersonation banner */}
         {impersonating && (
-          <div style={{
+          <div className="app-shell-impersonation" style={{
             position: "relative", zIndex: 10,
             background: "rgba(255,140,0,0.12)", borderBottom: "1px solid rgba(255,140,0,0.35)",
             padding: "8px 16px", display: "flex", alignItems: "center", justifyContent: "space-between",
@@ -502,7 +503,7 @@ export default function AppShell() {
         )}
 
         {/* Content */}
-        <main style={{
+        <main className="app-shell-main" style={{
           position: "relative", zIndex: 1,
           flex: 1, overflowY: "auto",
           padding: isMobile ? "20px 16px" : "32px 40px",

@@ -62,7 +62,7 @@ export default function Router() {
           ⚠ Staging Environment — Not Production ⚠
         </div>
       )}
-      <div style={isStaging ? { paddingTop: 24 } : undefined}>
+      <div className="staging-offset" style={isStaging ? { paddingTop: 24 } : undefined}>
       <Routes>
         {/* Login — full page, no app shell, no auth required */}
         <Route path="/login" element={<LoginPage />} />
@@ -72,9 +72,6 @@ export default function Router() {
 
         {/* Client Success mockup for CSM feedback — unlinked, full page */}
         <Route path="/client-success/preview" element={<ClientSuccessPreviewPage />} />
-
-        {/* Optimizations V2 readouts — full page so browser print gives a clean PDF */}
-        <Route path="/optimize-v2/runs/:runId/report/:kind" element={<OptimizeV2ReportPage />} />
 
         {/* Implementation module */}
         <Route element={<AppShell />}>
@@ -90,6 +87,8 @@ export default function Router() {
           <Route path="/optimize/:accountId" element={<OptimizeAccountPage />} />
           <Route path="/optimize-v2" element={<OptimizeV2Page />} />
           <Route path="/optimize-v2/runs/:runId" element={<OptimizeV2RunPage />} />
+          {/* Readouts render in the shell; their print CSS hides the chrome and un-clips <main>. */}
+          <Route path="/optimize-v2/runs/:runId/report/:kind" element={<OptimizeV2ReportPage />} />
           <Route path="/optimize-v2/:accountId" element={<OptimizeV2AccountPage />} />
           <Route path="/optimize-v2/:accountId/questionnaires/:platform/:instrument" element={<OptimizeV2QuestionnairePage />} />
           <Route path="/customers" element={<CustomersPage />} />
