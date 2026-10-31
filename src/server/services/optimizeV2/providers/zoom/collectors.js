@@ -1,6 +1,8 @@
-// Ported verbatim from the standalone Zoom Optimization agent (collectors.js, v3.2.0).
-// Kept as JavaScript so it stays identical to the version validated against live
-// tenants; collectors.d.ts types its surface. Only the client import path changed.
+// Ported from the standalone Zoom Optimization agent (collectors.js, v3.2.0).
+// Kept as JavaScript, close to the version validated against live tenants;
+// collectors.d.ts types its surface. Changes: the client import path, and
+// settingsAudit() now reports why account settings couldn't be read instead of
+// silently succeeding with an empty audit.
 
 // Domain collectors. They populate a shared metrics map (keyed by KPI key from
 // kpis.js), a raw context object, and a config-audit current-state map.
@@ -1267,9 +1269,20 @@ export async function revenueAccelerator(ctx) {
 // ===================================================================
 export async function settingsAudit(ctx) {
   await runDomain(ctx, "settings", [], async () => {
+    // CloudConnect change: keep the errors. The original used safeCall here,
+    // so when every settings call failed (e.g. a missing granular scope) the
+    // audit came back empty while the domain still reported success, and the
+    // reason was lost. Zoom's error text names the scope it wanted.
+    const errors = [];
+    const tryGet = async (path) => {
+      try { return await ctx.client.get(path); } catch (err) {
+        errors.push(err instanceof ZoomError ? `${path}: ${`${err.status || ""} ${err.message}`.trim()}` : `${path}: ${String(err?.message || err)}`);
+        return null;
+      }
+    };
     // /accounts/me/settings works without the master scope (real field paths below).
-    const s = await safeCall(() => ctx.client.get("/accounts/me/settings"))
-      || await safeCall(() => ctx.client.get(`/accounts/${encodeURIComponent(ctx.accountId)}/settings`));
+    const s = await tryGet("/accounts/me/settings")
+      || await tryGet(`/accounts/${encodeURIComponent(ctx.accountId)}/settings`);
     const a = ctx.audit;
     if (s) {
       const sec = s.security || {};
@@ -1286,12 +1299,17 @@ export async function settingsAudit(ctx) {
       a.ai_companion_meetings = boolState(s.zoom_ai_companion ?? s.ai_companion ?? s.feature?.meeting_summary);
       ctx.raw.settingsKeys = Object.keys(s).length;
     }
-    const ps = await safeCall(() => ctx.client.get("/phone/account_settings"));
+    const ps = await tryGet("/phone/account_settings");
     if (ps) {
       a.vm_transcription = boolState(ps.voicemail_transcription || ps.voicemail?.transcription);
       a.phone_recording = boolState(ps.auto_call_recording || ps.call_recording || ps.recording);
     }
     ctx.raw.settingsKeys = s ? Object.keys(s).length : 0;
+    // Account settings drive most of the audit: if they couldn't be read, mark
+    // the domain failed with Zoom's own reason (phone settings already read
+    // above are kept). Phone-settings errors alone are recorded, not fatal.
+    if (!s) throw new Error(`Couldn't read account settings — ${errors.join("; ")}`);
+    if (errors.length) ctx.raw.settingsErrors = errors;
   });
 }
 

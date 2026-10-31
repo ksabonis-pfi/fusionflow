@@ -39,14 +39,32 @@ export function buildScorecard(ctx: ZoomContext, assumptions: Assumptions = {}, 
   const assessed = auditRows.filter((r) => r.state !== "Not Assessed");
   const aligned = assessed.filter((r) => r.state === "Aligned").length;
   const configAlignment = assessed.length ? (aligned / assessed.length) * 100 : null;
+  const settingsFailed = ctx.domains.settings?.ok === false;
   M.config_alignment = configAlignment != null
     ? derived(r1(configAlignment), "Config Audit")
-    : { value: null, available: false, reason: "No auditable settings detected", endpoint: null };
+    : {
+      value: null, available: false, endpoint: null,
+      reason: settingsFailed ? `Account settings unreadable: ${ctx.domains.settings?.reason}` : "No auditable settings detected",
+    };
 
-  // ---- Feature adoption (derived): breadth of workloads actually returning data ----
-  const breadthDomains = ["users", "phone", "rooms", "contactCenter", "virtualAgent", "webinars", "zra"];
-  const live = breadthDomains.filter((d) => ctx.domains[d]?.ok).length;
-  M.feature_adoption = derived(r1((live / breadthDomains.length) * 100), "Domain coverage (derived)");
+  // ---- Feature adoption (derived): breadth of workloads actually in use ----
+  // A workload counts only when it returned real activity. The original
+  // counted any area whose API calls didn't error, so a phone-only tenant got
+  // credit for Contact Center, Virtual Agent and ZRA because Zoom answered
+  // those requests with empty results.
+  const raw = ctx.raw as Record<string, { total?: number; users?: number; agents?: number | null; available?: boolean } | undefined>;
+  const inUse: Record<string, boolean> = {
+    users: (raw.users?.total ?? 0) > 0,
+    phone: (raw.phone?.users ?? 0) > 0,
+    rooms: (raw.rooms?.total ?? 0) > 0,
+    contactCenter: (raw.cc?.agents ?? 0) > 0,
+    virtualAgent: raw.zva?.available === true,
+    webinars: (raw.webinars?.total ?? 0) > 0,
+    zra: ctx.audit.zra_connected === "Connected",
+  };
+  const breadthDomains = Object.keys(inUse);
+  const live = breadthDomains.filter((d) => ctx.domains[d]?.ok && inUse[d]).length;
+  M.feature_adoption = derived(r1((live / breadthDomains.length) * 100), "Workloads with activity (derived)");
 
   // ---- Cross-product derived KPIs (skip if a value was supplied) ----
   // Agent hours saved = deflected interactions × handle time.
