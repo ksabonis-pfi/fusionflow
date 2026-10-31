@@ -7,4 +7,6 @@ export class RcClient {
   /** Space/comma-separated scopes granted with the token (set by getToken). */
   scope?: string;
   getToken(force?: boolean): Promise<string>;
+  /** Count a request made outside the client against the budget; throws when spent. */
+  charge(n?: number): void;
 }

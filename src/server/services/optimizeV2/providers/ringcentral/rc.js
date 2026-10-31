@@ -1,6 +1,7 @@
 // Ported verbatim from the standalone RingCentral Optimization agent (rc.js, v0.3.x).
-// Kept as JavaScript so it stays identical to the validated original; only the
-// config import paths changed (the JSON now lives in ./config).
+// Kept as JavaScript, close to the validated original. Changes: config import
+// paths (the JSON now lives in ./config), and deliberate fixes from review —
+// a public charge() so callers that bypass fetch() still count against the budget.
 
 // RingCentral platform client for the Worker runtime.
 //
@@ -39,6 +40,12 @@ export class RcClient {
 
   get remaining() {
     return this.budget - this.spent;
+  }
+
+  /** Count a request made outside fetch() (RingCX uses its own host and token)
+   *  against the budget. Throws once the budget is spent. */
+  charge(n = 1) {
+    this.#spend(n);
   }
 
   #spend(n = 1) {

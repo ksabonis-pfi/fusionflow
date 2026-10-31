@@ -1,6 +1,8 @@
 // Ported verbatim from the standalone RingCentral Optimization agent (collectors.js, v0.3.x).
-// Kept as JavaScript so it stays identical to the validated original; only the
-// config import paths changed (the JSON now lives in ./config).
+// Kept as JavaScript, close to the validated original. Changes: config import
+// paths (the JSON now lives in ./config), and deliberate fixes from review —
+// RingCX requests now count against the budget (they bypassed it), and inventory
+// adds usersByStatus so license utilization uses one population.
 
 // Data collection against a customer's RingCentral account.
 // Every endpoint here is verified in ../../../../docs/surfaces.md.
@@ -35,9 +37,12 @@ export async function collectInventory(rc, accountId) {
 
   const byType = {};
   const byStatus = {};
+  // User extensions by status: the license population (queues/IVRs excluded).
+  const usersByStatus = {};
   for (const e of extensions) {
     byType[e.type || "Unknown"] = (byType[e.type || "Unknown"] || 0) + 1;
     byStatus[e.status || "Unknown"] = (byStatus[e.status || "Unknown"] || 0) + 1;
+    if (e.type === "User") usersByStatus[e.status || "Unknown"] = (usersByStatus[e.status || "Unknown"] || 0) + 1;
   }
   const byUsageType = {};
   for (const n of numbers) byUsageType[n.usageType || "Unknown"] = (byUsageType[n.usageType || "Unknown"] || 0) + 1;
@@ -101,6 +106,7 @@ export async function collectInventory(rc, accountId) {
     e911Complete,
     extensionsByType: byType,
     extensionsByStatus: byStatus,
+    usersByStatus,
     phoneNumbersByUsageType: byUsageType,
     faxNumbers,
     queues: queueDetail,
@@ -411,6 +417,7 @@ export async function collectRingCx(rc, { budgetFloor = 10 } = {}) {
   let token;
   try {
     const rcTok = await rc.getToken();
+    rc.charge();
     const res = await fetch(`${RCX}/api/auth/login/rc/accesstoken?includeRefresh=true`, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
@@ -427,7 +434,10 @@ export async function collectRingCx(rc, { budgetFloor = 10 } = {}) {
     return out;
   }
 
+  // Every RingCX call counts against the run's budget, so the rc.remaining
+  // guards below actually stop a large tenant (they never moved before).
   const get = async (path) => {
+    rc.charge();
     const r = await fetch(`${RCX}${path}`, { headers: { Authorization: `Bearer ${token}`, Accept: "application/json" } });
     if (!r.ok) throw new Error(`RingCX ${r.status} on ${path}`);
     return r.json();

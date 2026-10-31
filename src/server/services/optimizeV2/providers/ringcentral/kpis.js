@@ -1,6 +1,8 @@
 // Ported verbatim from the standalone RingCentral Optimization agent (kpis.js, v0.3.x).
-// Kept as JavaScript so it stays identical to the validated original; only the
-// config import paths changed (the JSON now lives in ./config).
+// Kept as JavaScript, close to the validated original. Changes: config import
+// paths (the JSON now lives in ./config), and deliberate fixes from review —
+// license utilization uses one population (enabled users / all users), and the
+// config audit marks checks whose inventory read failed as "not assessed".
 
 // KPI computation. Config is the source of truth — this file reads the same
 // config/*.json the CLI uses and never hard-codes a metric name or target.
@@ -118,9 +120,12 @@ export function deriveMetrics({ inventory, aggregate, ace, ringcx, video, presen
       put("ext_not_activated", st.NotActivated || 0, "inventory");
       put("ext_disabled", st.Disabled || 0, "inventory");
 
-      const users = inventory.extensionsByType?.User || 0;
-      const enabled = st.Enabled || 0;
-      if (users > 0) put("license_utilization", Math.min(100, (enabled / (users + (st.NotActivated || 0))) * 100), "inventory");
+      // Enabled users / all users. The original divided Enabled extensions of
+      // every type (queues, IVRs) by users + NotActivated (double-counting the
+      // not-activated users): 80 enabled + 20 not activated read 67%, not 80%.
+      const ubs = inventory.usersByStatus || {};
+      const users = Object.values(ubs).reduce((a, b) => a + b, 0);
+      if (users > 0) put("license_utilization", ((ubs.Enabled || 0) / users) * 100, "inventory");
     }
 
     if (!missing.has("devices")) {
@@ -312,6 +317,11 @@ export function runAudit(inventory, ringcx) {
   if (!inventory) return [];
   const out = [];
   const st = inventory.extensionsByStatus || {};
+  // A failed read leaves []/null behind; judging that as real configuration
+  // scored unreadable extensions as "aligned" and unreadable business hours,
+  // recording or sites as gaps. Those checks are "not assessed" instead.
+  const missing = new Set(inventory.unavailable || []);
+  const unread = (label) => missing.has(label);
   const verdict = (id, ok, detail) => {
     const cfg = auditConfig.checks.find((c) => c.id === id);
     if (!cfg) return;
@@ -322,20 +332,25 @@ export function runAudit(inventory, ringcx) {
     });
   };
 
-  verdict("emergency_locations_present", (inventory.counts?.emergencyLocations ?? 0) > 0,
-    `${inventory.counts?.emergencyLocations ?? 0} emergency location(s)`);
+  verdict("emergency_locations_present", unread("emergency locations") ? null : (inventory.counts?.emergencyLocations ?? 0) > 0,
+    unread("emergency locations") ? "emergency locations could not be read" : `${inventory.counts?.emergencyLocations ?? 0} emergency location(s)`);
 
-  const empty = inventory.queueMembershipComplete
+  const empty = inventory.queueMembershipComplete && !unread("call queues")
     ? (inventory.queues || []).filter((q) => q.memberCount === 0)
     : null;
   verdict("queue_has_members", empty === null ? null : empty.length === 0,
-    empty === null ? "queue membership not fully collected (budget)" : empty.length ? `empty: ${empty.map((q) => q.name).join(", ")}` : "all queues staffed");
+    empty === null ? (unread("call queues") ? "call queues could not be read" : "queue membership not fully collected (budget)") : empty.length ? `empty: ${empty.map((q) => q.name).join(", ")}` : "all queues staffed");
 
-  verdict("business_hours_defined", !!inventory.businessHours, inventory.businessHours ? "defined" : "not defined");
-  verdict("no_stale_extensions", (st.NotActivated || 0) === 0, `${st.NotActivated || 0} never activated`);
-  verdict("no_disabled_extensions", (st.Disabled || 0) === 0, `${st.Disabled || 0} disabled`);
-  verdict("call_recording_policy", !!inventory.callRecording, inventory.callRecording ? "configured" : "not readable");
-  verdict("sites_configured", (inventory.counts?.sites ?? 0) > 0, `${inventory.counts?.sites ?? 0} site(s)`);
+  verdict("business_hours_defined", unread("business hours") ? null : !!inventory.businessHours,
+    unread("business hours") ? "business hours could not be read" : inventory.businessHours ? "defined" : "not defined");
+  verdict("no_stale_extensions", unread("extensions") ? null : (st.NotActivated || 0) === 0,
+    unread("extensions") ? "extensions could not be read" : `${st.NotActivated || 0} never activated`);
+  verdict("no_disabled_extensions", unread("extensions") ? null : (st.Disabled || 0) === 0,
+    unread("extensions") ? "extensions could not be read" : `${st.Disabled || 0} disabled`);
+  verdict("call_recording_policy", unread("call recording") ? null : !!inventory.callRecording,
+    unread("call recording") ? "call recording settings could not be read" : inventory.callRecording ? "configured" : "not configured");
+  verdict("sites_configured", unread("sites") ? null : (inventory.counts?.sites ?? 0) > 0,
+    unread("sites") ? "sites could not be read" : `${inventory.counts?.sites ?? 0} site(s)`);
 
   // --- Layer 8: contact centre -------------------------------------------
   if (ringcx?.reachable && ringcx.drilled) {

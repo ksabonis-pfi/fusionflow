@@ -99,6 +99,12 @@ config import paths. `providers/ringcentral/assess.ts` replaces the original's
 engine's native result onto the shared scorecard shape. The native result is stored too,
 for the RingCentral reports.
 
+Three bugs inherited from the original were fixed deliberately (review of #759): RingCX
+requests bypassed the request budget (on a large contact-center tenant the original reported
+17 calls while making 124 against a budget of 80); the config audit judged failed inventory
+reads as real configuration (unreadable extensions scored "aligned"); and license
+utilization mixed populations (80 enabled + 20 not-activated users read 67%, not 80%).
+
 The two engines are **not** identical despite the RingCentral one's comment: for a
 lower-is-better KPI with a 0 target, Zoom awards full attainment and RingCentral awards
 none; RingCentral also has neutral (unscored) KPIs and "blocked" KPIs that are excluded
