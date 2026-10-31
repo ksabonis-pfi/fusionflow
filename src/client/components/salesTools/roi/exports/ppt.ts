@@ -14,7 +14,7 @@ import { ROI_FIELDS } from "../../../../../shared/roiModel/fields";
 import { showInput, sensDiscDigits, xf } from "../../../../../shared/roiModel/format";
 import { buildStory } from "../../../../../shared/roiModel/story";
 import type { RoiField, RoiInputs, RoiResult } from "../../../../../shared/roiModel/types";
-import { EXPORT_FONT, EXPORT_FOOTER, XC, clientLabel, exportDate } from "./brand";
+import { EXPORT_FONT, XC, clientLabel, exportDate } from "./brand";
 
 type Cell = PptxGenJS.TableCell;
 type TextProps = PptxGenJS.TextProps;
@@ -61,7 +61,7 @@ export async function buildRoiPptx(p: RoiInputs, o: RoiResult): Promise<PptxGenJ
   s.addText("PACKETFUSION", { x: 1.0, y: 2.1, w: 10, h: 0.5, fontFace: F, fontSize: 16, bold: true, color: G, charSpacing: 4 });
   s.addText("AI Agent ROI Analysis", { x: 1.0, y: 2.6, w: 11, h: 1.1, fontFace: F, fontSize: 46, bold: true, color: "FFFFFF" });
   s.addText(`${client} · 3-year business case`, { x: 1.0, y: 3.7, w: 11, h: 0.6, fontFace: F, fontSize: 22, color: XC.blue });
-  s.addText(`${exportDate()} · ${EXPORT_FOOTER}`, { x: 1.0, y: 4.3, w: 11, h: 0.5, fontFace: F, fontSize: 14, color: "D9E1E2" });
+  s.addText(exportDate(), { x: 1.0, y: 4.3, w: 11, h: 0.5, fontFace: F, fontSize: 14, color: "D9E1E2" });
 
   // 2 Headline numbers
   s = slide("The bottom line", `What an AI agent means for ${client} over three years`);
