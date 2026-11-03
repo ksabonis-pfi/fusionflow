@@ -1,7 +1,7 @@
 import { HTTPException } from "hono/http-exception";
 import type { AppUser, AuthContext, Bindings } from "../types";
 import { canEditProject, canViewProject } from "../services/accessService";
-import { isStaffedEngineer, updateTask } from "../services/taskService";
+import { createTask, isStaffedEngineer, updateTask } from "../services/taskService";
 import { writeAuditLog } from "../lib/auditLog";
 import { pacificToday, addDays } from "../lib/pacificTime";
 import type { ToolFailure } from "./timeWrites";
@@ -9,10 +9,10 @@ import type { ToolFailure } from "./timeWrites";
 /**
  * Task tools for the Claude connector. "My tasks" matches the My Tasks page:
  * tasks where I'm the assignee or an additional resource (task_assignees).
- * Writes go through updateTask() in services/taskService, the same code as
- * PATCH /api/projects/:id/tasks/:taskId, so stage/project status, go-live
- * sync, PM emails and the Zoom go-live announcement all fire exactly as they
- * do from the UI.
+ * Writes go through createTask() and updateTask() in services/taskService,
+ * the same code as POST /api/projects/:id/tasks and PATCH .../tasks/:taskId,
+ * so stage/project status, go-live sync, assignee and PM emails and the Zoom
+ * go-live announcement all fire exactly as they do from the UI.
  *
  * Not covered: MedVet's custom_plan_items, which My Tasks also lists. They live
  * in their own table with their own edit path.
@@ -364,6 +364,171 @@ export async function addTaskCommentForUser(
   audit(env, ctx, auth, task.project_id, `/api/projects/${task.project_id}/tasks/${task.id}/comments`, "create");
 
   return { status: "posted", comment_id: commentId, task_id: task.id, title: task.title };
+}
+
+type StageRow = { id: string; name: string; phase_name: string | null };
+
+const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
+
+/**
+ * Resolve a stage the way a PM names it: its id, its exact name, or a unique
+ * part of its name. Multi-phase projects repeat stage names per phase
+ * ("Discovery" in each), so `phase` narrows by phase name.
+ */
+function matchStage(stages: StageRow[], query: string, phase?: string): StageRow[] {
+  const byId = stages.filter((s) => s.id === query);
+  if (byId.length) return byId;
+  const inPhase = phase
+    ? stages.filter((s) => s.phase_name && norm(s.phase_name).includes(norm(phase)))
+    : stages;
+  const exact = inPhase.filter((s) => norm(s.name) === norm(query));
+  if (exact.length) return exact;
+  return inPhase.filter((s) => norm(s.name).includes(norm(query)));
+}
+
+type AssigneeRow = { id: string; name: string | null; email: string; on_project: number };
+
+/**
+ * "me", an email, or part of a name, among active internal users. When a name
+ * matches several people, someone on this project (PM or staff) wins if they
+ * are the only such match; otherwise the caller gets the candidates.
+ */
+async function matchAssignee(env: Bindings, user: AppUser, projectId: string, query: string): Promise<AssigneeRow[]> {
+  const q = query.trim();
+  if (norm(q) === "me") return [{ id: user.id, name: user.name, email: user.email, on_project: 1 }];
+  const byEmail = q.includes("@");
+  const rows = (await env.DB
+    .prepare(
+      `SELECT u.id, u.name, u.email,
+              CASE WHEN u.id = p.pm_user_id
+                     OR u.id IN (SELECT user_id FROM project_staff WHERE project_id = ?1) THEN 1 ELSE 0 END AS on_project
+         FROM users u, projects p
+        WHERE p.id = ?1 AND u.is_active = 1 AND u.role != 'client'
+          AND ${byEmail ? "lower(u.email) = lower(?2)" : "lower(u.name) LIKE ?2 ESCAPE '\\'"}
+        ORDER BY on_project DESC, u.name
+        LIMIT 10`
+    )
+    .bind(projectId, byEmail ? q : `%${q.toLowerCase().replace(/[\\%_]/g, (ch) => `\\${ch}`)}%`)
+    .all<AssigneeRow>()).results ?? [];
+  const onProject = rows.filter((r) => r.on_project === 1);
+  return rows.length > 1 && onProject.length === 1 ? onProject : rows;
+}
+
+export type NewTask = {
+  title: string;
+  stage: string;
+  phase?: string;
+  assignee?: string;
+  due_date?: string;
+  priority?: "low" | "medium" | "high";
+  notes?: string;
+};
+
+/**
+ * Create a task on a project as the user. A task always lives in a stage,
+ * as it does in the Tasks tab. An open task with the same title in the same
+ * stage is taken to be a retry and returned instead of a second copy, unless
+ * allowDuplicate.
+ */
+export async function createTaskForUser(
+  env: Bindings,
+  ctx: ExecutionContext,
+  auth: AuthContext,
+  project: { id: string; name: string },
+  input: NewTask,
+  allowDuplicate: boolean
+) {
+  const stages = (await env.DB
+    .prepare(
+      `SELECT s.id, s.name, ph.name AS phase_name
+         FROM stages s LEFT JOIN phases ph ON ph.id = s.phase_id
+        WHERE s.project_id = ?
+        ORDER BY ph.display_order, s.sort_order`
+    )
+    .bind(project.id)
+    .all<StageRow>()).results ?? [];
+  const stageList = stages.map((s) => ({ stage_id: s.id, stage: s.name, phase: s.phase_name }));
+  if (stages.length === 0) {
+    return fail(`${project.name} has no stages yet, so there is nowhere to put a task. Build its timeline in the app first.`);
+  }
+
+  const stageMatches = matchStage(stages, input.stage, input.phase);
+  if (stageMatches.length !== 1) {
+    return fail(
+      stageMatches.length === 0
+        ? `No stage on ${project.name} matches "${input.stage}"${input.phase ? ` in phase "${input.phase}"` : ""}. Ask the user which stage.`
+        : `Several stages on ${project.name} match "${input.stage}". Ask the user which one, or pass phase.`,
+      { stages: stageMatches.length ? stageMatches.map((s) => ({ stage_id: s.id, stage: s.name, phase: s.phase_name })) : stageList }
+    );
+  }
+  const stage = stageMatches[0];
+
+  let assignee: AssigneeRow | null = null;
+  if (input.assignee) {
+    const people = await matchAssignee(env, auth.user, project.id, input.assignee);
+    if (people.length !== 1) {
+      return fail(
+        people.length === 0
+          ? `No active Packet Fusion user matches "${input.assignee}". Ask the user who should own the task.`
+          : `Several people match "${input.assignee}". Ask the user which one.`,
+        { candidates: people.map((p) => ({ name: p.name, email: p.email, on_project: p.on_project === 1 })) }
+      );
+    }
+    assignee = people[0];
+  }
+
+  if (!allowDuplicate) {
+    const dup = await env.DB
+      .prepare(
+        `SELECT id, title, status FROM tasks
+          WHERE project_id = ? AND stage_id = ? AND lower(trim(title)) = lower(trim(?))
+            AND COALESCE(status, '') != 'completed'
+          LIMIT 1`
+      )
+      .bind(project.id, stage.id, input.title)
+      .first<{ id: string; title: string; status: string | null }>();
+    if (dup) {
+      return { status: "duplicate", task_id: dup.id, title: dup.title, current_status: dup.status, project: project.name, stage: stage.name };
+    }
+  }
+
+  let created: Awaited<ReturnType<typeof createTask>>;
+  try {
+    created = await createTask(env, ctx, auth, project.id, {
+      title: input.title.trim(),
+      stage_id: stage.id,
+      assignee_user_id: assignee?.id ?? null,
+      due_date: input.due_date ?? null,
+      priority: input.priority ?? null,
+      notes: input.notes?.trim() || null,
+    });
+  } catch (err) {
+    if (err instanceof HTTPException) {
+      return fail(
+        err.status === 403 && err.message === "Forbidden"
+          ? `You can't add tasks to ${project.name}. Ask its PM.`
+          : err.message
+      );
+    }
+    throw err;
+  }
+  if (!created) return fail("The task was saved but couldn't be read back. Check the project in the app.");
+
+  audit(env, ctx, auth, project.id, `/api/projects/${project.id}/tasks`, "create");
+
+  return {
+    status: "created",
+    task_id: created.id,
+    title: created.title,
+    project: project.name,
+    project_id: project.id,
+    stage: stage.name,
+    phase: stage.phase_name,
+    assignee: assignee ? (assignee.name ?? assignee.email) : null,
+    assignee_notified: !!assignee,
+    due_date: created.due_date,
+    priority: created.priority,
+  };
 }
 
 /**

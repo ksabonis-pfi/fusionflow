@@ -8,7 +8,7 @@ import {
   WORK_TYPES, createTimeEntryForUser, deleteTimeEntryForUser, isFailure, updateTimeEntryForUser, type WorkType,
 } from "./timeWrites";
 import { addInternalNoteForUser } from "./internalNotes";
-import { addTaskCommentForUser, getTaskDetails, listMyTasks, updateTaskForUser } from "./tasks";
+import { addTaskCommentForUser, createTaskForUser, getTaskDetails, listMyTasks, updateTaskForUser } from "./tasks";
 
 const zDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD");
 const zTime = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Use HH:MM, 24-hour");
@@ -50,8 +50,8 @@ export function buildMcpServer(env: Bindings, ctx: ExecutionContext, auth: AuthC
         "hours_used is everything logged to the CE case. Logged time is billable and goes straight to " +
         "payroll: confirm project, date, hours and description with the user before calling " +
         "create_time_entry, and show them the entry_id and ce_time_entry_id it returns. Tasks: " +
-        "list_my_tasks finds what's assigned to me; changing or completing a task notifies the PM " +
-        "like the app does, so confirm the change with the user first.",
+        "list_my_tasks finds what's assigned to me; creating, changing or completing a task emails " +
+        "the assignee or PM like the app does, so confirm it with the user first.",
     }
   );
   const user = auth.user;
@@ -303,6 +303,40 @@ export function buildMcpServer(env: Bindings, ctx: ExecutionContext, auth: AuthC
         env, ctx, auth,
         { id: r.id, name: r.name, crm_case_id: r.crm_case_id, crm_ticket_number: r.crm_ticket_number },
         note, allow_duplicate ?? false
+      ));
+    }
+  );
+
+  server.registerTool(
+    "create_task",
+    {
+      title: "Create task",
+      description:
+        "Add a task to a project, as me, the same as adding it on the project's Tasks tab. Every " +
+        "task goes in a stage: pass the stage name (get_project lists them; on a multi-phase " +
+        "project pass phase too). If the stage or assignee is unclear, the candidates come back " +
+        "instead: ask the user. The assignee gets the app's assignment email and notification. " +
+        "An open task with the same title in the same stage is treated as a retry (status " +
+        "\"duplicate\"). Confirm title, stage, assignee and due date with the user before calling.",
+      inputSchema: {
+        project: z.string().min(1).describe("Case number, project id, or name"),
+        title: z.string().trim().min(1).max(500),
+        stage: z.string().min(1).describe("Stage name or id"),
+        phase: z.string().optional().describe("Phase name, to pick the stage on a multi-phase project"),
+        assignee: z.string().optional().describe("\"me\", an email, or a name; omit to leave unassigned"),
+        due_date: zDate.optional().describe("YYYY-MM-DD"),
+        priority: z.enum(["low", "medium", "high"]).optional(),
+        notes: z.string().max(10000).optional().describe("Details for the task"),
+        allow_duplicate: z.boolean().optional().describe("Create even if an open task with this title is already in the stage"),
+      },
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
+    },
+    async ({ project, allow_duplicate, ...task }) => {
+      const rows = await findProjects(env, user, project);
+      if (rows.length === 0) return toolError(`No project you can see matches "${project}".`);
+      if (rows.length > 1) return json({ ambiguous: true, matches: candidates(rows) });
+      return writeResult(await createTaskForUser(
+        env, ctx, auth, { id: rows[0].id, name: rows[0].name }, task, allow_duplicate ?? false
       ));
     }
   );
