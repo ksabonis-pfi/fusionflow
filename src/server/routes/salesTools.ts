@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import roiScenarios from "./roiScenarios";
 import type { AuthContext, Bindings, Variables } from "../types";
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
@@ -12,5 +13,8 @@ app.use("*", async (c, next) => {
   if (!canAccess(auth)) return c.json({ error: "Forbidden" }, 403);
   await next();
 });
+
+// Everything below inherits the gate above.
+app.route("/roi/scenarios", roiScenarios);
 
 export default app;

@@ -435,6 +435,95 @@
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
   }
+
+  /* ── Sales Tools launcher (app tiles) ───────────────────────── */
+
+  .st-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr));
+    gap: 16px;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .st-tile {
+    --st-accent: #0b9aad;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    height: 100%;
+    min-height: 190px;
+    padding: 20px;
+    border-radius: 14px;
+    border: 1px solid #e2e8f0;
+    background: #ffffff;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    text-decoration: none;
+    color: inherit;
+    transition: box-shadow 120ms ease, transform 120ms ease, border-color 120ms ease;
+  }
+  .st-tile-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-bottom: 14px;
+    background: var(--st-accent);
+    color: #ffffff;
+  }
+  .st-tile-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: #0f172a;
+    margin-bottom: 4px;
+  }
+  .st-tile-desc {
+    font-size: 13px;
+    line-height: 1.45;
+    color: #64748b;
+    flex: 1;
+  }
+  .st-tile-badge {
+    margin-top: 12px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #64748b;
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+    padding: 2px 7px;
+  }
+  a.st-tile:hover {
+    border-color: var(--st-accent);
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.10);
+    transform: translateY(-2px);
+  }
+  a.st-tile:focus-visible {
+    outline: 2px solid #0b9aad;
+    outline-offset: 3px;
+    border-color: var(--st-accent);
+  }
+  .st-tile[aria-disabled="true"] {
+    background: #f8fafc;
+    box-shadow: none;
+    cursor: default;
+  }
+  .st-tile[aria-disabled="true"] .st-tile-icon {
+    background: #e2e8f0;
+    color: #94a3b8;
+  }
+  .st-tile[aria-disabled="true"] .st-tile-title {
+    color: #64748b;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .st-tile { transition: none; }
+    a.st-tile:hover { transform: none; }
+  }
 }
 
 /* ── Mobile responsive ───────────────────────────────────────── */

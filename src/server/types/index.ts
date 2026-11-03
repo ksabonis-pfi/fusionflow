@@ -8,7 +8,7 @@ export interface AppUser {
   role: AppRole;
   is_active: number;
   is_support_supervisor?: number; // additive flag — supervisor-only digest feature
-  is_sales_tools?: number; // additive flag — Sales Tools module access (Commissions Calculator, Zoom Resell, Zoom Agency)
+  is_sales_tools?: number; // additive flag — Sales Tools access (app launcher; apps listed in client components/salesTools/apps.tsx)
   is_time_assist?: number; // additive flag — My Time page (suggested time entries from Zoom + Outlook)
   is_sales_ops?: number; // additive flag — Sales Operations module (distributor cost & stock). Not implied by admin.
   dynamics_account_id: string | null;

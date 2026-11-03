@@ -899,7 +899,7 @@ export default function AdminUsersPage() {
                   <div>
                     <div style={{ fontSize: 13, fontWeight: 700, color: "#1e293b", marginBottom: 2 }}>Sales Tools</div>
                     <div style={{ fontSize: 12, color: "#64748b", lineHeight: 1.4 }}>
-                      Grants access to the Sales Tools module (Commissions Calculator, Zoom Resell, Zoom Agency). Additive to the user's role.
+                      Grants access to Sales Tools, the launcher for sales calculators and deal tools. Additive to the user's role.
                     </div>
                   </div>
                 </label>
