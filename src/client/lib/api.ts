@@ -92,6 +92,8 @@ export type User = {
   is_time_assist?: number;
   /** Sales Operations module, distributor cost & stock (migration 0153). Off by default; not implied by admin. */
   is_sales_ops?: number;
+  /** Zoom Retail Rollout hidden demo module (migration 0164). Off by default; not implied by admin. */
+  is_rollout?: number;
   /** Claude MCP connector access (migration 0149). Off by default. */
   is_mcp?: number;
   /** amc_paycode GUID the connector logs time with (migration 0150). */
@@ -2854,6 +2856,7 @@ export const api = {
       is_specialist?: number;
       is_time_assist?: number;
       is_sales_ops?: number;
+      is_rollout?: number;
       is_mcp?: number;
       default_pay_code_id?: string | null;
       is_sales_tools?: number;

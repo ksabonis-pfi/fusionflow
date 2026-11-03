@@ -192,6 +192,7 @@ export default function AdminUsersPage() {
       is_specialist: user.is_specialist ?? 0,
       is_time_assist: user.is_time_assist ?? 0,
       is_sales_ops: user.is_sales_ops ?? 0,
+      is_rollout: user.is_rollout ?? 0,
       is_mcp: user.is_mcp ?? 0,
       default_pay_code_id: user.default_pay_code_id ?? null,
       is_sales_tools: user.is_sales_tools ?? 0,
@@ -220,6 +221,7 @@ export default function AdminUsersPage() {
         is_specialist: editForm.role === "client" ? 0 : (editForm.is_specialist ?? 0),
         is_time_assist: editForm.role === "client" ? 0 : (editForm.is_time_assist ?? 0),
         is_sales_ops: editForm.role === "client" ? 0 : (editForm.is_sales_ops ?? 0),
+        is_rollout: editForm.role === "client" ? 0 : (editForm.is_rollout ?? 0),
         is_mcp: editForm.role === "client" ? 0 : (editForm.is_mcp ?? 0),
         default_pay_code_id: editForm.role === "client" ? null : (editForm.default_pay_code_id ?? null),
         is_sales_tools: editForm.role === "client" ? 0 : (editForm.is_sales_tools ?? 0),
@@ -834,6 +836,29 @@ export default function AdminUsersPage() {
                     <div style={{ fontSize: 13, fontWeight: 700, color: "#1e293b", marginBottom: 2 }}>Sales Operations</div>
                     <div style={{ fontSize: 12, color: "#64748b", lineHeight: 1.4 }}>
                       Grants the Sales Operations module: distributor cost pricing and stock (ScanSource today). Not included with admin — grant it per user. Takes effect at their next login.
+                    </div>
+                  </div>
+                </label>
+              )}
+
+              {/* Zoom Retail Rollout — hidden demo module, never implied by admin. */}
+              {editForm.role !== "client" && (
+                <label
+                  style={{
+                    display: "flex", alignItems: "flex-start", gap: 12, cursor: "pointer",
+                    border: "1px solid #e2e8f0", borderRadius: 8, padding: "12px 14px", background: "#f8fafc",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={(editForm.is_rollout ?? 0) === 1}
+                    onChange={(e) => setEditForm({ ...editForm, is_rollout: e.target.checked ? 1 : 0 })}
+                    style={{ marginTop: 3, flexShrink: 0 }}
+                  />
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "#1e293b", marginBottom: 2 }}>Zoom Retail Rollout</div>
+                    <div style={{ fontSize: 12, color: "#64748b", lineHeight: 1.4 }}>
+                      Grants the hidden Zoom Retail Rollout demo (franchise Zoom Phone ordering and deployment tracking). Not included with admin — grant it per user. Takes effect at their next login.
                     </div>
                   </div>
                 </label>

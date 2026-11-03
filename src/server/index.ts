@@ -47,6 +47,8 @@ import phasesRoutes from "./routes/phases";
 import meRoutes from "./routes/me";
 import salesToolsRoutes from "./routes/salesTools";
 import salesOpsRoutes from "./routes/salesOps";
+import rolloutRoutes from "./routes/rollout";
+import rolloutPublicRoutes from "./routes/rolloutPublic";
 import customPlanRoutes from "./routes/customPlan"; // one-off MedVet custom plan (throwaway)
 import mcpAuthorizeRoutes, { AUTHORIZE_PATH } from "./mcp/authorize";
 import { isOAuthOrMcpPath, oauthProviderFor } from "./mcp/provider";
@@ -75,6 +77,8 @@ app.get("/api/health", (c) => c.json({ ok: true }));
 
 // Public auth routes (OTP, verify, logout, SSO) — registered before authMiddleware
 app.route("/api/auth", authPublicRoutes);
+// Zoom Retail Rollout token links (franchisee tracker, QR setup pages) — no login
+app.route("/api/rollout-public", rolloutPublicRoutes);
 
 app.use("/api/*", authMiddleware);
 // Records successful mutations in audit_log. Must come AFTER authMiddleware so
@@ -122,6 +126,7 @@ app.route("/api/projects", customPlanRoutes);
 app.route("/api/me", meRoutes);
 app.route("/api/sales-tools", salesToolsRoutes);
 app.route("/api/sales-ops", salesOpsRoutes);
+app.route("/api/rollout", rolloutRoutes);
 
 // Claude connector sign-in + consent. Outside /api: it's a page, it reads the
 // session itself, and it's only reachable through the OAuth provider (see the
