@@ -31,8 +31,7 @@ export const SALES_TOOL_APPS: SalesToolApp[] = [
     title: "AI Agent ROI Builder",
     description: "Model contact center savings when an AI agent takes part of the call volume.",
     accent: "#0b9aad",
-    // Going live: set status "live". Until then admins can preview /sales-tools/roi.
-    status: "coming_soon",
+    status: "live",
     component: RoiBuilder,
     wide: true,
     icon: (
