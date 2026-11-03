@@ -15,7 +15,7 @@ import { getCaseAndJob, getCostCodesForJob } from "../services/dynamicsService";
 import { assertUserPayCode, defaultCostCode, getUserPayCodes, type UserPayCodes } from "../lib/timeCodes";
 import { pushTimeEntryToCrm, removeTimeEntryFromCrm, resolveCaseForTime } from "../services/timeEntryService";
 import { syncStageStatus, maybeGraduateProject, syncProjectGoLiveDate, syncProjectStatus } from "../lib/teamUtils";
-import { TASK_SELECT, isStaffedEngineer, updateTask } from "../services/taskService";
+import { TASK_SELECT, createTask, isStaffedEngineer, updateTask } from "../services/taskService";
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
@@ -68,90 +68,8 @@ app.get("/:id/tasks", async (c) => {
   return c.json(tasks);
 });
 
-const createTaskSchema = z.object({
-  title: z.string().min(1).max(500),
-  stage_id: z.string().nullable().optional(),
-  assignee_user_id: z.string().max(255).nullable().optional(),
-  due_date: zPlanDateOrBlank.nullable().optional(),
-  scheduled_start: zPlanDateOrBlank.nullable().optional(),
-  scheduled_end: zPlanDateOrBlank.nullable().optional(),
-  priority: z.enum(["low", "medium", "high"]).nullable().optional(),
-  status: z.enum(["not_started", "in_progress", "completed", "blocked"]).default("not_started"),
-});
-
 app.post("/:id/tasks", async (c) => {
-  const auth = c.get("auth");
-  const db = c.env.DB;
-  const projectId = c.req.param("id");
-
-  const allowed = (await canEditProject(db, auth.user, projectId)) || (await isStaffedEngineer(db, auth, projectId));
-  if (!allowed) {
-    throw new HTTPException(403, { message: "Forbidden" });
-  }
-
-  const rawBody = await c.req.json();
-  const parsed = createTaskSchema.safeParse(rawBody);
-
-  if (!parsed.success) {
-    throw new HTTPException(400, { message: "Invalid request body" });
-  }
-
-  const { title, stage_id, assignee_user_id, due_date, scheduled_start, scheduled_end, priority, status } = parsed.data;
-  const taskId = crypto.randomUUID();
-
-  // New task goes to the end of its stage's order — only matters as a
-  // due_date tiebreaker, so "end" just means "after whatever's already
-  // there" rather than implying anything about the date itself.
-  const nextSortOrder = stage_id
-    ? await db.prepare("SELECT COALESCE(MAX(sort_order) + 1, 0) AS n FROM tasks WHERE stage_id = ?").bind(stage_id).first<{ n: number }>()
-    : null;
-
-  await db
-    .prepare(
-      `
-      INSERT INTO tasks (id, project_id, stage_id, title, assignee_user_id, due_date, scheduled_start, scheduled_end, status, priority, sort_order)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `
-    )
-    .bind(taskId, projectId, stage_id ?? null, title, assignee_user_id ?? null, due_date ?? null, scheduled_start ?? null, scheduled_end ?? null, status, priority ?? null, nextSortOrder?.n ?? null)
-    .run();
-
-  // Re-derive the parent stage's status now that a new task lives under it.
-  await syncStageStatus(db, stage_id ?? null);
-  await syncProjectGoLiveDate(db, projectId);
-  await syncProjectStatus(db, projectId);
-
-  const created = await db
-    .prepare(`${TASK_SELECT} WHERE id = ? LIMIT 1`)
-    .bind(taskId)
-    .first<{ id: string; title: string; assignee_user_id: string | null; due_date: string | null; priority: string | null }>();
-
-  // Notify assignee if one was set
-  if (created?.assignee_user_id) {
-    const [assignee, project] = await Promise.all([
-      db.prepare("SELECT email, name FROM users WHERE id = ? LIMIT 1").bind(created.assignee_user_id).first<{ email: string; name: string }>(),
-      db.prepare("SELECT name FROM projects WHERE id = ? LIMIT 1").bind(projectId).first<{ name: string }>(),
-    ]);
-    if (assignee && project) {
-      const appUrl = c.env.APP_URL ?? "";
-      c.executionCtx.waitUntil(maybeSendEmail(c.env, db, created.assignee_user_id, "important", {
-        to: assignee.email,
-        subject: `You've been assigned: ${created.title}`,
-        html: taskAssigned({ assigneeName: assignee.name ?? assignee.email, taskTitle: created.title, projectName: project.name, dueDate: created.due_date, priority: created.priority, appUrl, projectId }),
-      }));
-      c.executionCtx.waitUntil(createNotification(db, {
-        recipientUserId: created.assignee_user_id,
-        type: "task_assigned",
-        title: `You've been assigned: ${created.title}`,
-        body: project.name,
-        entityType: "task",
-        entityId: created.id,
-        projectId,
-        senderUserId: auth.user.id,
-      }));
-    }
-  }
-
+  const created = await createTask(c.env, c.executionCtx, c.get("auth"), c.req.param("id"), await c.req.json());
   return c.json(created, 201);
 });
 
