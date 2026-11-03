@@ -47,6 +47,7 @@ export default function AppShell() {
   const [canSalesTools, setCanSalesTools] = useState(false);
   const [canTimeAssist, setCanTimeAssist] = useState(false);
   const [canSalesOps, setCanSalesOps] = useState(false);
+  const [canRollout, setCanRollout] = useState(false);
   const [isLeadership, setIsLeadership] = useState(false);
   const [canOptimizeV2, setCanOptimizeV2] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -103,6 +104,8 @@ export default function AppShell() {
         setCanTimeAssist(res.user.is_time_assist === 1);
         // Same: distributor cost pricing, explicit flag only.
         setCanSalesOps(res.user.is_sales_ops === 1);
+        // Hidden Zoom Retail Rollout demo — explicit flag only.
+        setCanRollout(res.user.is_rollout === 1);
         setIsLeadership(res.role === "admin" || res.role === "executive");
         // On when the server has OPTIMIZE_V2_ENABLED and the role can use the V2 API.
         setCanOptimizeV2(res.features?.optimize_v2 === true);
@@ -198,6 +201,7 @@ export default function AppShell() {
             <SideLink to="/roadmap" icon={NAV_ICONS.roadmap} onClick={() => setDrawerOpen(false)}>Roadmap</SideLink>
             {canSalesTools && <SideLink to="/sales-tools" icon={NAV_ICONS.salesTools} onClick={() => setDrawerOpen(false)}>Sales Tools</SideLink>}
             {canSalesOps && <SideLink to="/sales-ops" icon={NAV_ICONS.salesOps} onClick={() => setDrawerOpen(false)}>Sales Operations</SideLink>}
+            {canRollout && <SideLink to="/rollout" icon={NAV_ICONS.salesOps} onClick={() => setDrawerOpen(false)}>Zoom Retail Rollout</SideLink>}
             {canTimeAssist && <SideLink to="/my-time" icon={NAV_ICONS.salesTools} onClick={() => setDrawerOpen(false)}>My Time</SideLink>}
             {isLeadership && <SideLink to="/leadership" icon={NAV_ICONS.leadership} onClick={() => setDrawerOpen(false)}>Leadership</SideLink>}
           </>

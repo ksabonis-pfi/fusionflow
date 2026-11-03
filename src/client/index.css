@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./rollout.css";
 
 @layer base {
   *, *::before, *::after { box-sizing: border-box; }

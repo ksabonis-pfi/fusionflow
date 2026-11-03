@@ -46,6 +46,14 @@ import SalesToolsPage from "../pages/SalesToolsPage";
 import MyTimePage from "../pages/MyTimePage";
 import SalesOpsPage from "../pages/SalesOpsPage";
 import ClientSuccessPreviewPage from "../pages/ClientSuccessPreviewPage";
+import { RolloutLayout, StoreShell } from "../components/rollout/ui";
+import RolloutHome from "../pages/rollout/Home";
+import RolloutOrderWizard from "../pages/rollout/OrderWizard";
+import RolloutTracker from "../pages/rollout/Tracker";
+import RolloutSow from "../pages/rollout/Sow";
+import RolloutSetup from "../pages/rollout/Setup";
+import RolloutProgram from "../pages/rollout/Program";
+import { KitLabels as RolloutKitLabels, OpsOrder as RolloutOpsOrder, OpsQueue as RolloutOpsQueue } from "../pages/rollout/Ops";
 
 export default function Router() {
   const isStaging = typeof window !== "undefined" && window.location.hostname.includes("staging");
@@ -73,8 +81,20 @@ export default function Router() {
         {/* Client Success mockup for CSM feedback — unlinked, full page */}
         <Route path="/client-success/preview" element={<ClientSuccessPreviewPage />} />
 
+        {/* Zoom Retail Rollout token links — franchisee tracker/SOW and QR setup pages, no login */}
+        <Route path="/rollout/t/:token" element={<StoreShell wide><RolloutTracker /></StoreShell>} />
+        <Route path="/rollout/t/:token/sow" element={<StoreShell wide><RolloutSow /></StoreShell>} />
+        <Route path="/rollout/s/:token" element={<StoreShell><RolloutSetup /></StoreShell>} />
+
         {/* Implementation module */}
         <Route element={<AppShell />}>
+          {/* Zoom Retail Rollout (hidden; is_rollout flag) */}
+          <Route path="/rollout" element={<RolloutLayout><RolloutHome /></RolloutLayout>} />
+          <Route path="/rollout/order" element={<RolloutLayout><RolloutOrderWizard /></RolloutLayout>} />
+          <Route path="/rollout/ops" element={<RolloutLayout><RolloutOpsQueue /></RolloutLayout>} />
+          <Route path="/rollout/ops/:id" element={<RolloutLayout><RolloutOpsOrder /></RolloutLayout>} />
+          <Route path="/rollout/ops/:id/labels" element={<RolloutLayout><RolloutKitLabels /></RolloutLayout>} />
+          <Route path="/rollout/program" element={<RolloutLayout><RolloutProgram /></RolloutLayout>} />
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/leadership" element={<LeadershipDashboardPage />} />
           <Route path="/projects" element={<ProjectsPage />} />

@@ -11,6 +11,7 @@ export interface AppUser {
   is_sales_tools?: number; // additive flag — Sales Tools access (app launcher; apps listed in client components/salesTools/apps.tsx)
   is_time_assist?: number; // additive flag — My Time page (suggested time entries from Zoom + Outlook)
   is_sales_ops?: number; // additive flag — Sales Operations module (distributor cost & stock). Not implied by admin.
+  is_rollout?: number; // additive flag — Zoom Retail Rollout (hidden demo module). Not implied by admin.
   dynamics_account_id: string | null;
   /** Every CRM account this session may see. A client who is a contact on more
    *  than one customer (sister agencies sharing staff — e.g. Placer County and

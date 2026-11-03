@@ -1,0 +1,43 @@
+/* Zoom Retail Rollout module. Palette lifted from Kevin's deck
+   (PacketFusion_UPS.pptx). Everything is ro- prefixed so nothing here can
+   restyle the rest of CloudConnect. */
+@theme {
+  --color-ro-navy: #1a3560;
+  --color-ro-navy-deep: #12264a;
+  --color-ro-teal: #0dbf8a;
+  --color-ro-teal-dark: #0a9a6f;
+  --color-ro-slate: #506070;
+  --color-ro-steel: #5b7fa6;
+  --color-ro-mist: #dde8f0;
+  --color-ro-haze: #f3f7fa;
+  --color-ro-line: #c8d8e8;
+}
+
+@utility ro-card {
+  @apply rounded-xl border border-ro-line bg-white shadow-sm;
+}
+@utility ro-btn {
+  @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition disabled:opacity-50;
+}
+@utility ro-btn-primary {
+  @apply ro-btn bg-ro-teal text-white hover:bg-ro-teal-dark;
+}
+@utility ro-btn-navy {
+  @apply ro-btn bg-ro-navy text-white hover:bg-ro-navy-deep;
+}
+@utility ro-btn-ghost {
+  @apply ro-btn border border-ro-line bg-white text-ro-navy hover:bg-ro-mist;
+}
+@utility ro-field {
+  @apply block w-full rounded-lg border border-ro-line px-3 py-2 text-sm outline-none focus:border-ro-teal focus:ring-2 focus:ring-ro-teal/25;
+}
+@utility ro-label {
+  @apply mb-1 block text-xs font-semibold uppercase tracking-wide text-ro-slate;
+}
+@utility ro-eyebrow {
+  @apply text-xs font-bold uppercase tracking-[0.14em] text-ro-teal;
+}
+
+@media print {
+  .ro-no-print { display: none !important; }
+}
